@@ -1,0 +1,155 @@
+{
+  "project_title": "Control4 Smart Home Controller OS X4 (Apartment Automation)",
+  "app_type": "dashboard",
+  "theme": "dark",
+  "design_archetype": "THE PERFORMANCE PRO / LUXURY TACTICAL SMART HOME",
+  "typography": {
+    "font_family_heading": "Outfit, sans-serif",
+    "font_family_body": "Inter, sans-serif",
+    "font_family_mono": "JetBrains Mono, monospace",
+    "headline_sizes": {
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
+      "h3": "text-lg sm:text-xl font-semibold",
+      "h4": "text-base sm:text-lg font-medium"
+    },
+    "body_sizes": {
+      "base": "text-sm sm:text-base text-slate-300",
+      "small": "text-xs sm:text-sm text-slate-400",
+      "tiny": "text-[11px] uppercase tracking-wider text-slate-400 font-semibold"
+    }
+  },
+  "colors": {
+    "background": {
+      "main": "#0A0D14",
+      "surface": "#121824",
+      "surface_elevated": "#1A2234",
+      "surface_card": "#161D2C",
+      "modal_overlay": "rgba(10, 13, 20, 0.85)"
+    },
+    "accents": {
+      "primary": "#3B82F6",
+      "primary_glow": "rgba(59, 130, 246, 0.35)",
+      "cyan_tech": "#06B6D4",
+      "amber_warmth": "#F59E0B",
+      "emerald_active": "#10B981",
+      "rose_alert": "#EF4444",
+      "indigo_media": "#6366F1"
+    },
+    "borders": {
+      "subtle": "rgba(255, 255, 255, 0.08)",
+      "medium": "rgba(255, 255, 255, 0.15)",
+      "glow_active": "rgba(59, 130, 246, 0.5)"
+    },
+    "gradients": {
+      "card_highlight": "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)",
+      "glow_ring": "radial-gradient(circle at center, rgba(59,130,246,0.15) 0%, transparent 70%)"
+    }
+  },
+  "layout_and_navigation": {
+    "viewport_style": "Native Mobile & Wall-Tablet App Experience (fixed viewport with scrollable sub-containers)",
+    "header_bar": {
+      "type": "Sticky Native Top Status Bar & Navigation",
+      "elements": [
+        "Current Room / Property Switcher Dropdown (Living Room, Office, Master Bedroom, Guest Bedroom, Bathroom)",
+        "Live Clock & System Health Indicator (Online / UniFi Network / Matrix Linked)",
+        "Lock Screen Button (PIN Lock toggle)",
+        "Global Quick Presets (All Off, Good Night, Movie Night, Party Mode)"
+      ]
+    },
+    "bottom_navigation": {
+      "type": "Native Mobile Dock / Switcher Bar",
+      "tabs": [
+        { "id": "home", "label": "Home", "icon": "LayoutDashboard" },
+        { "id": "watch", "label": "Watch / Video", "icon": "Tv" },
+        { "id": "listen", "label": "Listen / Audio", "icon": "Volume2" },
+        { "id": "climate", "label": "Climate", "icon": "Thermometer" },
+        { "id": "security", "label": "Security / Cam", "icon": "Camera" },
+        { "id": "scenes", "label": "Scenes", "icon": "Sparkles" }
+      ]
+    }
+  },
+  "key_features_and_components": {
+    "pin_lock": {
+      "description": "Native keypad screen overlay for quick PIN authorization and room lock mode.",
+      "default_pin": "1234",
+      "features": ["Visual pin digits blur", "Haptic key tap styling", "Error shake animation", "Quick unlock bypass for demo"]
+    },
+    "video_matrix": {
+      "hardware": "J-Tech Digital JTECH-MXT40 4x4 HDMI/HDBaseT Matrix",
+      "sources": [
+        { "id": "atv1", "name": "Apple TV 1 (Living Room)", "icon": "Apple" },
+        { "id": "atv2", "name": "Apple TV 2 (Office)", "icon": "Apple" },
+        { "id": "atv3", "name": "Apple TV 3 (Master BR)", "icon": "Apple" },
+        { "id": "atv4", "name": "Apple TV 4 (Guest BR)", "icon": "Apple" }
+      ],
+      "displays": [
+        { "id": "tv_living", "name": "Living Room TV", "hasAudioZone": true },
+        { "id": "tv_office", "name": "Office TV", "hasAudioZone": true },
+        { "id": "tv_master", "name": "Master Bedroom TV", "hasAudioZone": true },
+        { "id": "tv_guest", "name": "Guest Bedroom TV", "hasAudioZone": false }
+      ],
+      "routing_grid": "Visual interactive 4x4 Matrix matrix grid with immediate routing dispatch and 'Broadcast Source to All TVs' shortcut."
+    },
+    "apple_tv_remote": {
+      "description": "Tactile virtual Apple TV remote control with smooth glass touch trackpad / directional ring.",
+      "controls": ["D-Pad / Circular Directional Touch Ring", "Select / Click Button", "Back / Menu Button", "Home Button", "Play / Pause", "Volume Up / Down", "Siri Voice Trigger simulation"]
+    },
+    "audio_zones": {
+      "hardware": "WS66i 6-Zone Amplifier",
+      "zones": [
+        { "id": "audio_living", "name": "Living Room Audio Zone", "pairedTV": "Living Room TV" },
+        { "id": "audio_office", "name": "Office Audio Zone", "pairedTV": "Office TV" },
+        { "id": "audio_master", "name": "Master Bedroom Audio Zone", "pairedTV": "Master Bedroom TV" },
+        { "id": "audio_bathroom", "name": "Bathroom Audio Zone", "pairedTV": null, "notes": "Audio only - No TV" }
+      ],
+      "controls": ["Zone Volume Slider (0-100%)", "Source Selection (Apple TVs, Spotify Connect, AirPlay 2, TV Passthrough)", "Mute Toggle", "Global Group / All Zones Sync"]
+    },
+    "climate_ecobee": {
+      "hardware": "Ecobee Smart Thermostat Integration",
+      "controls": [
+        "Interactive Circular Temperature Dial Arc",
+        "Target Heat / Cool Temperature Steppers (+/-)",
+        "Mode Selector: Heat, Cool, Auto, Off",
+        "Fan Mode Selector: Auto, On, Circulate",
+        "Live Readouts: Current Temp (72°F), Target Temp, Humidity (45%), Outdoor Weather (75°F Sunny)"
+      ]
+    },
+    "unifi_camera": {
+      "hardware": "Ubiquiti UniFi Camera Feed",
+      "features": ["Live stream feed simulation / video canvas", "Snapshot / Motion event indicators", "Full screen modal view", "Pan / Tilt simulation", "UniFi Network status badge"]
+    },
+    "scenes_and_presets": {
+      "list": [
+        { "id": "all_off", "name": "All Off", "desc": "Power down all 4 TVs & mute all 4 audio zones", "type": "critical" },
+        { "id": "good_night", "name": "Good Night", "desc": "Turn off TVs, set Ecobee to 68°F Cool, mute audio", "type": "primary" },
+        { "id": "movie_night", "name": "Movie Night", "desc": "Route Apple TV 1 to Living Room TV & Audio, dim lights", "type": "vibrant" },
+        { "id": "party_mode", "name": "Whole Home Audio", "desc": "Sync all 4 audio zones to same music source", "type": "vibrant" }
+      ]
+    }
+  },
+  "image_urls": [
+    {
+      "category": "living_room_hero",
+      "url": "https://images.unsplash.com/photo-1724582586495-d050726cf354?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHxfY3VyYXRlZHwxfHxtb2Rlcm4lMjBzbWFydCUyMGhvbWVsX2xpdmluZ3Jvb218ZW58MHx8fDE3ODk0Nzc3ODd8MA&q=85",
+      "description": "Modern dark luxury living room with ambient lighting"
+    },
+    {
+      "category": "home_entertainment",
+      "url": "https://images.unsplash.com/photo-1724582586470-85422853ad61?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHxfY3VyYXRlZHwzfHxtb2Rlcm4lMjBzbWFydCUyMGhvbWVsX2xpdmluZ3Jvb218ZW58MHx8fDE3ODk0Nzc3ODd8MA&q=85",
+      "description": "High end dark media wall with ambient fireplace"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "Ensure all interactive components (buttons, sliders, mode chips, routing cells, remote pads, pin digits) have clear `data-testid` attributes following kebab-case.",
+    "The UI must feel like a native mobile or tablet Control4 app — responsive, tactile, high density, smooth transitions, instant feed feedback.",
+    "Implement real-time state management using React hooks/context so matrix routing updates reflect live in room tiles, TV statuses, and audio zone cards.",
+    "Provide a simulated WebSocket / Driver status drawer showing JTECH-MXT40 matrix serial commands, WS66i RS232 protocols, UniFi RTSP stream, and Ecobee API payload for developer clarity."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Do not use transparent background on header, overlays, or dropdowns without blur and dark tint.",
+    "Ensure APCA WCAG high contrast ratios for text on dark backgrounds.",
+    "Layered dark card styles with 1px subtle borders (rgba(255,255,255,0.08)).",
+    "Micro-animations on hover and active states (framer-motion or CSS transitions)."
+  ]
+}

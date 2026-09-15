@@ -1,0 +1,103 @@
+:root {
+    --c4-bg: #0A0D14;
+    --c4-surface: #121824;
+    --c4-elevated: #1A2234;
+    --c4-card: #161D2C;
+    --c4-border: rgba(255, 255, 255, 0.08);
+    --c4-border-med: rgba(255, 255, 255, 0.15);
+    --c4-primary: #3B82F6;
+    --c4-cyan: #06B6D4;
+    --c4-amber: #F59E0B;
+    --c4-emerald: #10B981;
+    --c4-rose: #EF4444;
+    --c4-indigo: #6366F1;
+    --c4-text: #E5E9F0;
+    --c4-muted: #94A3B8;
+}
+
+.App {
+    min-height: 100vh;
+    background: var(--c4-bg);
+}
+
+.font-head {
+    font-family: 'Outfit', sans-serif;
+}
+.font-mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.glass {
+    background: var(--c4-card);
+    border: 1px solid var(--c4-border);
+}
+.glass-elevated {
+    background: var(--c4-elevated);
+    border: 1px solid var(--c4-border);
+}
+
+/* Subtle grain / vignette on the app shell background */
+.c4-shell {
+    background:
+        radial-gradient(circle at 12% 0%, rgba(59, 130, 246, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 88% 100%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+        var(--c4-bg);
+}
+
+.glow-ring {
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5), 0 0 24px rgba(59, 130, 246, 0.25);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Range slider styling */
+input[type="range"].c4-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+}
+input[type="range"].c4-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+    border: 3px solid var(--c4-primary);
+}
+input[type="range"].c4-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    border: 3px solid var(--c4-primary);
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-10px); }
+    40%, 80% { transform: translateX(10px); }
+}
+.animate-shake {
+    animation: shake 0.4s ease-in-out;
+}
+
+@keyframes pulse-motion {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+.animate-motion {
+    animation: pulse-motion 1.4s ease-in-out infinite;
+}
