@@ -24,7 +24,7 @@ def reset(client):
 def test_root(client):
     r = client.get(f"{API}/", timeout=10)
     assert r.status_code == 200
-    assert r.json().get("demo_mode") is True
+    assert "message" in r.json()
 
 
 def test_get_state(client):

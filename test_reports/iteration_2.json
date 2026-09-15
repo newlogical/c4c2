@@ -1,0 +1,46 @@
+{
+  "summary": "Iteration 2 testing complete: Camera live stream player, Automations CRUD (schedule + motion), Settings/device config, and driver command log status all verified. 30/30 backend pytest tests pass (10 new for iter-2 endpoints + 20 regression). Frontend UI flows all work end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/config", "issue": "network.matrix_linked / amp_linked expressions use `not live or True` which is always True, so linked flags never reflect real link state — cosmetic only in demo."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CameraPlayer", "issue": "In cloud preview the mux demo HLS (https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8) fails to load — hls.js emits a fatal error and the player shows 'Stream unavailable'. Video, testid, and LIVE/DEMO badge render correctly and status transitions to error as designed. Root cause is CDN/network reachability from the sandbox, not a code bug; consider adding a poster image or a still-frame fallback so the tile still looks alive in the demo.", "selector": "[data-testid=\"camera-player\"] video", "priority": "MEDIUM"},
+      {"component": "Automations CreateModal", "issue": "On common mobile heights (e.g. 390x844) the modal's inner content overflows and the Save button sits below the visible viewport; the modal itself is centered with -translate-y-1/2 so scroll must happen inside the .glass-elevated container. Users on short devices may need to scroll within the modal (works, but not obvious). Consider making the outer modal use flex + full height with sticky footer.", "selector": "[data-testid=\"automation-modal\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iter2.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: add a poster image or lightweight canvas placeholder in CameraPlayer so the demo tile does not read 'Stream unavailable' when the mux CDN can't be reached from the cloud preview (real HLS from UniFi Protect on-premise will work).",
+    "Optional: refactor automation-modal to a full-height sheet with sticky save button on short viewports so Save is always visible.",
+    "Optional cleanup: in server.py PUT /api/config, `not merged['matrix'].get('live') or True` collapses to True — simplify or actually reflect connectivity."
+  ],
+  "critical_code_review_comments": [
+    "server.py _ensure_ffmpeg spawns a subprocess but never reaps it and has no restart-on-crash; also no cleanup on shutdown. Fine for demo, but should be tracked for real deployments.",
+    "server.py /api/trigger/{event}: only 'motion' updates camera.motion; any other event value is silently accepted (no 400). Consider validating allowed event names.",
+    "server.py /api/automations POST/PUT: no validation that action.scene_id references an existing scene, so bad automations will silently no-op when fired.",
+    "drivers.py DEMO_HLS pointing at a third-party mux test stream — availability is outside our control. Consider bundling a small mp4/HLS asset in /public for offline demo.",
+    "SettingsDrawer.jsx: test button always re-saves config (act(api.updateConfig(config))) before testing — an unrelated toast 'saved' + result toast are shown; consider skipping the pre-save or debouncing.",
+    "Automations.jsx CreateModal max-h-[85vh] with -translate-y-1/2 causes save button clipping on short mobile viewports (see UI bug)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter2.py (new — 10 tests covering camera stream, config CRUD/test, automations CRUD/run, motion trigger, command-log status)",
+    "/app/backend/tests/backend_test.py (fixed stale test_root assertion — server no longer returns demo_mode field)"
+  ],
+  "success_rate": {"backend": "100% (30/30 pytest)", "frontend": "~95% of new flows; camera video buffer fails in cloud (CDN)"},
+  "test_credentials": "PIN 1234 or pin-demo-bypass button",
+  "seed_data_creation": "Test automations prefixed with TEST_ were created and deleted during tests; final state has no leftover test automations. Matrix config toggled to live during testing then reverted to demo (live=false).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New testids confirmed: camera-player, simulate-motion-btn, automations-section, new-automation-btn, automation-modal, automation-name-input, trigger-type-schedule, trigger-type-event, automation-time-input, automation-day-{0..6}, automation-scene-{scene_id}, save-automation-btn, automation-row-{id}, automation-toggle-{id}, automation-run-{id}, automation-delete-{id}, open-settings-btn, settings-drawer, settings-{matrix|amp|ecobee|camera|appletv}, settings-live-{device}, matrix-host-input, matrix-port-input, amp-host-input, ecobee-token-input, ecobee-id-input, camera-rtsp-input, settings-test-{device}, save-settings-btn, close-settings-btn. Sonner toasts can intercept clicks — dismiss or wait ~4s before clicking topbar buttons in tests. Automation modal Save button may sit below viewport on <=844px height; use JS click or scroll within modal container.",
+  "rca of the issue": "Camera 'Stream unavailable' in cloud preview: hls.js reports a fatal manifest/network error when trying to fetch the mux demo m3u8 through the sandbox. The GET /api/camera/stream endpoint correctly returns {live:false, demo:true, hls_url:'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'} and the <video> element is rendered with the expected testid; playback simply cannot complete because the demo CDN is not reachable/allowed from the browser preview. Mitigation: bundle a local HLS asset or MP4 for the demo, or set a poster image so the UI does not look broken."
+}

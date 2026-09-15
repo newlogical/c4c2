@@ -32,6 +32,7 @@ plenty. It must be on the same VLAN/subnet as the matrix, amp, Apple TVs, Ecobee
 drivers can reach them (Telnet/RS232/HTTP/RTSP).
 
 ## Implemented (2026-06)
+### Iteration 1 — MVP
 - PIN lock screen (keypad, error shake, demo bypass).
 - Home dashboard: hero, stat cards, quick scenes, room rows.
 - Watch: 4x4 matrix router grid, per-display source buttons, broadcast-to-all, power toggle,
@@ -43,8 +44,19 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Driver command-log drawer showing live simulated protocol traffic.
 - MongoDB state persistence across reloads. Tested: 20/20 backend, all frontend flows pass.
 
+### Iteration 2 — Live stream, real drivers, automations (30/30 backend tests)
+- Live camera: hls.js player (CameraPlayer). Demo uses public HLS + still-image fallback; self-host
+  streams real UniFi Protect RTSP→HLS via a backend ffmpeg proxy (`/api/camera/stream`, `/api/camera/hls/*`).
+- Real device drivers: config-driven dispatch in `drivers.py` — each device toggles LIVE with LAN
+  settings and dispatches real protocol (JTECH socket Telnet, WS66i pyws66i, Ecobee REST, Apple TV
+  atvremote) with automatic simulation fallback; per-command status (simulated/sent/error) in the log.
+- Settings drawer: per-device live toggle + connection fields + Test Connection (`PUT /api/config`,
+  `POST /api/config/test/{device}`).
+- Automations & Schedules: APScheduler cron jobs; create/list/toggle/run/delete; time+weekday
+  schedule triggers and motion-event triggers (Security "Simulate motion"). Stored in Mongo
+  `automations`. Endpoints under `/api/automations` + `/api/trigger/{event}`.
+
 ## Backlog / Remaining
-- P1: Real driver transports (JTECH Telnet, WS66i RS232/IP, Ecobee OAuth REST, pyatv, UniFi Protect).
-- P1: Live camera RTSP/WebRTC stream (currently static tile).
+- P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; enter device IPs/tokens in Settings).
 - P2: Lighting/shades zones, multi-property, PIN rate-limiting, per-user profiles.
-- P2: Schedules/automations, energy dashboard.
+- P2: Low-latency camera (WebRTC/go2rtc), energy dashboard, richer automation conditions.

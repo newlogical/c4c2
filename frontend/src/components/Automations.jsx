@@ -42,7 +42,8 @@ const CreateModal = ({ open, onClose, scenes, onCreate }) => {
             className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md"
             data-testid="automation-modal"
           >
-            <div className="glass-elevated rounded-3xl p-5 max-h-[85vh] overflow-y-auto no-scrollbar">
+            <div className="glass-elevated rounded-3xl flex flex-col max-h-[85vh] overflow-hidden">
+              <div className="p-5 overflow-y-auto no-scrollbar flex-1">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-head font-bold text-lg">New Automation</h3>
                 <button data-testid="close-automation-modal" onClick={onClose} className="w-8 h-8 rounded-lg glass flex items-center justify-center"><X className="w-4 h-4" /></button>
@@ -111,14 +112,17 @@ const CreateModal = ({ open, onClose, scenes, onCreate }) => {
                 ))}
               </div>
 
-              <button
-                data-testid="save-automation-btn"
-                onClick={save}
-                className="w-full rounded-xl py-3 text-sm font-bold active:scale-95 transition"
-                style={{ background: "var(--c4-primary)", color: "#fff" }}
-              >
-                Create Automation
-              </button>
+              </div>
+              <div className="p-4 shrink-0" style={{ borderTop: "1px solid var(--c4-border)" }}>
+                <button
+                  data-testid="save-automation-btn"
+                  onClick={save}
+                  className="w-full rounded-xl py-3 text-sm font-bold active:scale-95 transition"
+                  style={{ background: "var(--c4-primary)", color: "#fff" }}
+                >
+                  Create Automation
+                </button>
+              </div>
             </div>
           </motion.div>
         </>

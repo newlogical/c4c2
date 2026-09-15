@@ -424,11 +424,6 @@ async def update_config(req: ConfigReq):
         merged.setdefault(device, {})
         merged[device].update(values)
     state["config"] = merged
-    state["network"] = {
-        "unifi_online": True,
-        "matrix_linked": not merged["matrix"].get("live") or True,
-        "amp_linked": not merged["amp"].get("live") or True,
-    }
     await save_state(state)
     return state
 

@@ -3,6 +3,8 @@ import Hls from "hls.js";
 import { Loader2, WifiOff } from "lucide-react";
 import { api, BACKEND } from "@/lib/api";
 
+const STILL = "https://images.unsplash.com/photo-1787659601659-399e4ea21429?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200";
+
 export const CameraPlayer = ({ full }) => {
   const videoRef = useRef(null);
   const [status, setStatus] = useState("loading"); // loading | playing | error
@@ -60,6 +62,7 @@ export const CameraPlayer = ({ full }) => {
         muted
         playsInline
         autoPlay
+        poster={STILL}
         className="w-full h-full object-cover"
         style={{ filter: "saturate(1.05) contrast(1.05)" }}
       />
@@ -78,7 +81,15 @@ export const CameraPlayer = ({ full }) => {
           <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c4-cyan)" }} />
         </div>
       )}
-      {status === "error" && (
+      {status === "error" && demo && (
+        <div className="absolute inset-0">
+          <img src={STILL} alt="Camera" className="w-full h-full object-cover" style={{ filter: "saturate(1.05) brightness(0.85)" }} />
+          <div className="absolute bottom-3 left-3 font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.7)" }}>
+            {new Date().toLocaleString()}
+          </div>
+        </div>
+      )}
+      {status === "error" && !demo && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ background: "rgba(10,13,20,0.85)" }}>
           <WifiOff className="w-6 h-6" style={{ color: "var(--c4-rose)" }} />
           <p className="text-xs" style={{ color: "var(--c4-muted)" }}>Stream unavailable</p>
