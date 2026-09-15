@@ -266,6 +266,7 @@ async def audio_group(req: AudioGroupReq):
         zone["mute"] = False
         zone["power"] = True
         log_cmd(state, drivers.amp.set_source(zone["amp_zone"], 1, zone["name"], src["name"]))
+        log_cmd(state, drivers.amp.set_volume(zone["amp_zone"], round(vol * 38 / 100), zone["name"], vol))
     await save_state(state)
     return state
 
