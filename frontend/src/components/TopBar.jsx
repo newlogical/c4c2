@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Lock, Wifi, Cable, Radio, Terminal } from "lucide-react";
+import { Lock, Wifi, Cable, Radio, Terminal, Settings } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 
 const StatusDot = ({ ok, label, icon: Icon }) => (
@@ -15,7 +15,7 @@ const StatusDot = ({ ok, label, icon: Icon }) => (
   </div>
 );
 
-export const TopBar = ({ onLock, onOpenDrivers }) => {
+export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings }) => {
   const { state } = useSystem();
   const [now, setNow] = useState(new Date());
 
@@ -55,6 +55,14 @@ export const TopBar = ({ onLock, onOpenDrivers }) => {
           title="Driver command log"
         >
           <Terminal className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />
+        </button>
+        <button
+          data-testid="open-settings-btn"
+          onClick={onOpenSettings}
+          className="w-9 h-9 rounded-xl glass flex items-center justify-center active:scale-95 transition"
+          title="Device settings"
+        >
+          <Settings className="w-4 h-4" style={{ color: "var(--c4-text)" }} />
         </button>
         <button
           data-testid="lock-btn"

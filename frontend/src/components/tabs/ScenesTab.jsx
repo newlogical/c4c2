@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Power, Moon, Clapperboard, Radio, RotateCcw, Sparkles } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
+import { Automations } from "@/components/Automations";
 import { toast } from "sonner";
 
 const icons = { all_off: Power, good_night: Moon, movie_night: Clapperboard, whole_home_audio: Radio };
@@ -59,6 +60,8 @@ export const ScenesTab = () => {
           );
         })}
       </div>
+
+      <Automations />
 
       <button
         data-testid="reset-system-btn"

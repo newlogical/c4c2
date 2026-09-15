@@ -1,31 +1,12 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move } from "lucide-react";
+import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
+import { CameraPlayer } from "@/components/CameraPlayer";
 import { toast } from "sonner";
 
-const CAM = "https://images.unsplash.com/photo-1787659601659-399e4ea21429?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200";
-
-const Feed = ({ full }) => (
-  <div className="relative w-full h-full overflow-hidden">
-    <img src={CAM} alt="Camera feed" className="w-full h-full object-cover" style={{ filter: "saturate(1.1) brightness(0.9)" }} />
-    {/* scanline / live overlay */}
-    <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(6,182,212,0.06), transparent 30%, transparent 70%, rgba(10,13,20,0.4))" }} />
-    <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ background: "rgba(10,13,20,0.7)" }}>
-      <Circle className="w-2.5 h-2.5 animate-motion" fill="#EF4444" color="#EF4444" />
-      <span className="text-[10px] font-mono font-semibold tracking-wide">LIVE</span>
-    </div>
-    <div className="absolute top-3 right-3 px-2 py-1 rounded-md font-mono text-[10px]" style={{ background: "rgba(10,13,20,0.7)", color: "var(--c4-cyan)" }}>
-      UniFi Protect · {full ? "FULLSCREEN" : "4K"}
-    </div>
-    <div className="absolute bottom-3 left-3 font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.7)" }}>
-      {new Date().toLocaleString()}
-    </div>
-  </div>
-);
-
 export const SecurityTab = () => {
-  const { state, api } = useSystem();
+  const { state, api, act } = useSystem();
   const [full, setFull] = useState(false);
   if (!state) return null;
   const cam = state.camera;
@@ -33,6 +14,15 @@ export const SecurityTab = () => {
   const snapshot = async () => {
     await api.cameraSnapshot();
     toast.success("Snapshot captured", { description: `${cam.name} · saved to UniFi Protect` });
+  };
+
+  const simulateMotion = async () => {
+    const res = await api.triggerEvent("motion");
+    if (res.state) act(Promise.resolve(res.state));
+    const fired = res.fired || [];
+    toast(fired.length ? `Motion → ran: ${fired.join(", ")}` : "Motion detected", {
+      description: fired.length ? "Event automation triggered" : "No motion automations set",
+    });
   };
 
   return (
@@ -61,7 +51,7 @@ export const SecurityTab = () => {
         </div>
 
         <div className="rounded-xl overflow-hidden aspect-video" data-testid="camera-feed">
-          <Feed />
+          <CameraPlayer />
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-3">
@@ -84,7 +74,14 @@ export const SecurityTab = () => {
             <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>{cam.motion ? "Motion detected now" : "No recent motion"}</p>
           </div>
         </div>
-        <span className="text-[11px] font-semibold" style={{ color: "var(--c4-emerald)" }}>Armed</span>
+        <button
+          data-testid="simulate-motion-btn"
+          onClick={simulateMotion}
+          className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-semibold active:scale-95 transition"
+          style={{ background: "rgba(239,68,68,0.14)", color: "var(--c4-rose)", border: "1px solid rgba(239,68,68,0.3)" }}
+        >
+          <Activity className="w-4 h-4" /> Simulate motion
+        </button>
       </div>
 
       <AnimatePresence>
@@ -99,7 +96,7 @@ export const SecurityTab = () => {
               <X className="w-5 h-5" />
             </button>
             <div className="w-full max-w-4xl aspect-video rounded-2xl overflow-hidden glow-ring">
-              <Feed full />
+              <CameraPlayer full />
             </div>
           </motion.div>
         )}

@@ -22,6 +22,20 @@ export const api = {
   climate: (payload) => http.post("/climate", payload).then((r) => r.data),
   cameraSnapshot: () => http.post("/camera/snapshot").then((r) => r.data),
   scene: (scene_id) => http.post(`/scene/${scene_id}`).then((r) => r.data),
+  // Camera streaming
+  cameraStream: () => http.get("/camera/stream").then((r) => r.data),
+  // Device config
+  updateConfig: (config) => http.put("/config", { config }).then((r) => r.data),
+  testConnection: (device) => http.post(`/config/test/${device}`).then((r) => r.data),
+  // Automations
+  getAutomations: () => http.get("/automations").then((r) => r.data),
+  createAutomation: (payload) => http.post("/automations", payload).then((r) => r.data),
+  updateAutomation: (id, payload) => http.put(`/automations/${id}`, payload).then((r) => r.data),
+  deleteAutomation: (id) => http.delete(`/automations/${id}`).then((r) => r.data),
+  runAutomation: (id) => http.post(`/automations/${id}/run`).then((r) => r.data),
+  triggerEvent: (event) => http.post(`/trigger/${event}`).then((r) => r.data),
 };
+
+export const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 export default api;

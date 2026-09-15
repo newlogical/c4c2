@@ -6,6 +6,7 @@ import { PinLock } from "@/components/PinLock";
 import { TopBar } from "@/components/TopBar";
 import { BottomNav } from "@/components/BottomNav";
 import { DriverDrawer } from "@/components/DriverDrawer";
+import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { HomeTab } from "@/components/tabs/HomeTab";
 import { WatchTab } from "@/components/tabs/WatchTab";
 import { ListenTab } from "@/components/tabs/ListenTab";
@@ -19,6 +20,7 @@ const Controller = () => {
   const [unlocked, setUnlocked] = useState(false);
   const [tab, setTab] = useState("home");
   const [driversOpen, setDriversOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (loading) {
     return (
@@ -43,7 +45,7 @@ const Controller = () => {
 
   return (
     <div className="c4-shell min-h-screen flex flex-col">
-      <TopBar onLock={() => setUnlocked(false)} onOpenDrivers={() => setDriversOpen(true)} />
+      <TopBar onLock={() => setUnlocked(false)} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
@@ -59,6 +61,7 @@ const Controller = () => {
       </main>
       <BottomNav active={tab} onChange={setTab} />
       <DriverDrawer open={driversOpen} onClose={() => setDriversOpen(false)} />
+      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 };

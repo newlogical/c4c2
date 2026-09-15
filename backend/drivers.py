@@ -1,12 +1,18 @@
 """
 Hardware driver abstraction layer.
 
-In DEMO mode every driver only formats + logs the exact protocol command it
-*would* send to real hardware, then returns success. To go live on a
-Raspberry Pi / mini-PC on the apartment LAN, implement the `send()` method of
-each driver with the real transport (RS-232 serial, Telnet/TCP, REST, RTSP)
-and flip DEMO_MODE off. The rest of the application does not change.
+Each driver formats the exact wire protocol command for its device, records it
+in the command log, and — when that device is configured `live` — actually
+dispatches it over the LAN (socket/Telnet, pyws66i, Ecobee REST, pyatv CLI).
+When a device is not live (default / cloud demo, or if the transport fails) the
+command is logged with status "simulated" / "error" and application state still
+updates, so the UI always stays responsive.
+
+Live config is passed per-call as `conn` (a dict from state['config'][device]).
 """
+import socket
+import shutil
+import subprocess
 from datetime import datetime, timezone
 
 
@@ -18,83 +24,192 @@ class BaseDriver:
     name = "base"
     transport = "n/a"
 
-    def command(self, payload: str, note: str = ""):
-        """Return a structured command-log entry (demo) instead of sending."""
-        return {
+    def _dispatch(self, payload, note, conn, sender=None):
+        entry = {
             "driver": self.name,
             "transport": self.transport,
             "command": payload,
             "note": note,
             "timestamp": _ts(),
+            "status": "simulated",
         }
+        if conn and conn.get("live") and sender:
+            try:
+                sender()
+                entry["status"] = "sent"
+            except Exception as e:  # never let hardware faults break the app
+                entry["status"] = "error"
+                entry["error"] = str(e)[:200]
+        return entry
+
+    def command(self, payload, note="", conn=None):
+        return self._dispatch(payload, note, conn)
 
 
 class MatrixDriver(BaseDriver):
-    """J-Tech Digital JTECH-MXT40 4x4 HDMI/HDBaseT Matrix (Telnet / RS-232)."""
+    """J-Tech JTECH-MXT40 4x4 HDBaseT Matrix — Telnet TCP:23, '#video_d outN matrix=I'."""
 
     name = "JTECH-MXT40"
-    transport = "Telnet TCP:23 / RS-232"
+    transport = "Telnet TCP:23"
 
-    def route(self, output_index: int, input_index: int, display: str, source: str):
-        # JTECH ASCII command set: e.g. "OUT02:03." routes input 3 -> output 2
-        payload = f"OUT{output_index:02d}:{input_index:02d}."
-        return self.command(payload, f"Route {source} -> {display}")
+    def _send(self, conn, payload):
+        host = conn["host"]
+        port = int(conn.get("port", 23))
+        with socket.create_connection((host, port), timeout=4) as s:
+            s.sendall((payload + "\r\n").encode())
+
+    def route(self, output_index, input_index, display, source, conn=None):
+        payload = f"#video_d out{output_index} matrix={input_index}"
+        return self._dispatch(payload, f"Route {source} -> {display}", conn,
+                              sender=lambda: self._send(conn, payload))
+
+    def power(self, output_index, on, display, conn=None):
+        payload = f"#display out{output_index} {'on' if on else 'off'}"
+        return self._dispatch(payload, f"{display} power {'ON' if on else 'OFF'}", conn,
+                              sender=lambda: self._send(conn, payload))
 
 
 class AmpDriver(BaseDriver):
-    """WS66i 6-Zone Amplifier (RS-232 / IP control)."""
+    """Soundavo WS66i 6-Zone Amplifier — Telnet/IP via pyws66i (zones 11-16)."""
 
     name = "WS66i"
-    transport = "RS-232 / TCP:8080"
+    transport = "Telnet TCP (pyws66i)"
 
-    def set_source(self, zone: int, src: int, zone_name: str, source_name: str):
-        payload = f"<{zone:02d}CH{src:02d}"
-        return self.command(payload, f"{zone_name} source -> {source_name}")
+    def _client(self, conn):
+        from pyws66i import get_ws66i  # lazy: only needed live
+        c = get_ws66i(conn["host"])
+        c.open()
+        return c
 
-    def set_volume(self, zone: int, vol_0_38: int, zone_name: str, pct: int):
-        payload = f"<{zone:02d}VO{vol_0_38:02d}"
-        return self.command(payload, f"{zone_name} volume -> {pct}%")
+    def set_source(self, zone, src, zone_name, source_name, conn=None):
+        payload = f"<{10 + zone:02d}CH{src:02d}"
 
-    def set_mute(self, zone: int, mute: bool, zone_name: str):
-        payload = f"<{zone:02d}MU{'01' if mute else '00'}"
-        return self.command(payload, f"{zone_name} {'muted' if mute else 'unmuted'}")
+        def send():
+            c = self._client(conn)
+            try:
+                c.set_source(10 + zone, src)
+            finally:
+                c.close()
+        return self._dispatch(payload, f"{zone_name} source -> {source_name}", conn, sender=send)
 
-    def set_power(self, zone: int, on: bool, zone_name: str):
-        payload = f"<{zone:02d}PR{'01' if on else '00'}"
-        return self.command(payload, f"{zone_name} power {'ON' if on else 'OFF'}")
+    def set_volume(self, zone, vol_0_38, zone_name, pct, conn=None):
+        payload = f"<{10 + zone:02d}VO{vol_0_38:02d}"
+
+        def send():
+            c = self._client(conn)
+            try:
+                c.set_volume(10 + zone, vol_0_38)
+            finally:
+                c.close()
+        return self._dispatch(payload, f"{zone_name} volume -> {pct}%", conn, sender=send)
+
+    def set_mute(self, zone, mute, zone_name, conn=None):
+        payload = f"<{10 + zone:02d}MU{'01' if mute else '00'}"
+
+        def send():
+            c = self._client(conn)
+            try:
+                c.set_mute(10 + zone, mute)
+            finally:
+                c.close()
+        return self._dispatch(payload, f"{zone_name} {'muted' if mute else 'unmuted'}", conn, sender=send)
+
+    def set_power(self, zone, on, zone_name, conn=None):
+        payload = f"<{10 + zone:02d}PR{'01' if on else '00'}"
+
+        def send():
+            c = self._client(conn)
+            try:
+                c.set_power(10 + zone, on)
+            finally:
+                c.close()
+        return self._dispatch(payload, f"{zone_name} power {'ON' if on else 'OFF'}", conn, sender=send)
 
 
 class AppleTVDriver(BaseDriver):
-    """Apple TV control (pyatv / MRP over the LAN)."""
+    """Apple TV — pyatv `atvremote` CLI over the LAN."""
 
     name = "AppleTV"
     transport = "pyatv MRP / AirPlay"
 
-    def key(self, source_name: str, key: str):
-        payload = f"atvremote --id <mrp-id> {key}"
-        return self.command(payload, f"{source_name}: {key}")
+    _KEYS = {
+        "up", "down", "left", "right", "select", "menu", "home",
+        "play_pause", "pause", "play", "volume_up", "volume_down",
+    }
+
+    def key(self, source_name, key, conn=None, device=None):
+        payload = f"atvremote --id <id> {key}"
+
+        def send():
+            dev = (conn.get("devices") or {}).get(device or "", {})
+            if key not in self._KEYS or not dev.get("id"):
+                raise RuntimeError("device not configured / unsupported key")
+            if not shutil.which("atvremote"):
+                raise RuntimeError("pyatv (atvremote) not installed")
+            cmd = ["atvremote", "--id", dev["id"]]
+            if dev.get("credentials"):
+                cmd += ["--companion-credentials", dev["credentials"]]
+            cmd.append(key)
+            subprocess.run(cmd, timeout=6, check=True, capture_output=True)
+        return self._dispatch(payload, f"{source_name}: {key}", conn, sender=send)
 
 
 class ThermostatDriver(BaseDriver):
-    """Ecobee Smart Thermostat (Ecobee REST API v1)."""
+    """Ecobee Smart Thermostat — HTTPS REST api.ecobee.com/1/thermostat."""
 
     name = "Ecobee"
-    transport = "HTTPS REST api.ecobee.com"
+    transport = "HTTPS REST"
 
-    def set(self, field: str, value):
-        payload = f'POST /1/thermostat {{"{field}":"{value}"}}'
-        return self.command(payload, f"Set {field} = {value}")
+    def _post(self, conn, body, desc):
+        import requests
+        url = "https://api.ecobee.com/1/thermostat?format=json"
+        headers = {
+            "Authorization": f"Bearer {conn.get('token', '')}",
+            "Content-Type": "application/json;charset=UTF-8",
+        }
+        r = requests.post(url, json=body, headers=headers, timeout=8)
+        r.raise_for_status()
+
+    def set_mode(self, mode, conn=None):
+        body = {
+            "selection": {"selectionType": "registered", "selectionMatch": ""},
+            "thermostat": {"settings": {"hvacMode": mode}},
+        }
+        return self._dispatch(f'POST /1/thermostat settings.hvacMode="{mode}"',
+                              f"Set mode = {mode}", conn, sender=lambda: self._post(conn, body, "mode"))
+
+    def set_fan(self, fan, conn=None):
+        body = {
+            "selection": {"selectionType": "registered", "selectionMatch": ""},
+            "thermostat": {"settings": {"vent": fan}},
+        }
+        return self._dispatch(f'POST /1/thermostat settings.fan="{fan}"',
+                              f"Set fan = {fan}", conn, sender=lambda: self._post(conn, body, "fan"))
+
+    def set_hold(self, heat_f, cool_f, conn=None):
+        body = {
+            "selection": {"selectionType": "registered", "selectionMatch": ""},
+            "functions": [{
+                "type": "setHold",
+                "params": {"holdType": "nextTransition",
+                           "heatHoldTemp": int(heat_f * 10),
+                           "coolHoldTemp": int(cool_f * 10)},
+            }],
+        }
+        return self._dispatch(f'POST /1/thermostat setHold heat={heat_f} cool={cool_f}',
+                              f"Hold heat {heat_f}° / cool {cool_f}°", conn,
+                              sender=lambda: self._post(conn, body, "hold"))
 
 
 class CameraDriver(BaseDriver):
-    """Ubiquiti UniFi Protect camera (RTSP / Protect API)."""
+    """Ubiquiti UniFi Protect camera — RTSP / Protect API."""
 
     name = "UniFi-Protect"
-    transport = "RTSP / Protect WS"
+    transport = "RTSP :7447 / Protect API"
 
-    def snapshot(self, cam_name: str):
+    def snapshot(self, cam_name, conn=None):
         payload = "GET /proxy/protect/api/cameras/<id>/snapshot"
-        return self.command(payload, f"{cam_name}: snapshot")
+        return self._dispatch(payload, f"{cam_name}: snapshot", conn)
 
 
 matrix = MatrixDriver()
@@ -103,4 +218,5 @@ appletv = AppleTVDriver()
 thermostat = ThermostatDriver()
 camera = CameraDriver()
 
-DEMO_MODE = True
+# A public test HLS feed so the live player streams video in the cloud demo.
+DEMO_HLS = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"

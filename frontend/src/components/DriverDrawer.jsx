@@ -61,9 +61,20 @@ export const DriverDrawer = ({ open, onClose }) => {
                     <span className="text-[11px] font-bold font-mono" style={{ color: colorFor(c.driver) }}>
                       {c.driver}
                     </span>
-                    <span className="text-[10px]" style={{ color: "var(--c4-muted)" }}>
-                      {c.transport}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {c.status && (
+                        <span
+                          className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                          style={{
+                            background: c.status === "sent" ? "rgba(16,185,129,0.18)" : c.status === "error" ? "rgba(239,68,68,0.18)" : "rgba(148,163,184,0.15)",
+                            color: c.status === "sent" ? "var(--c4-emerald)" : c.status === "error" ? "var(--c4-rose)" : "var(--c4-muted)",
+                          }}
+                        >
+                          {c.status}
+                        </span>
+                      )}
+                      <span className="text-[10px]" style={{ color: "var(--c4-muted)" }}>{c.transport}</span>
+                    </div>
                   </div>
                   <code className="text-xs block" style={{ color: "var(--c4-text)" }}>{c.command}</code>
                   {c.note && (
