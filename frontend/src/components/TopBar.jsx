@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Lock, Wifi, Cable, Radio, Terminal, Settings } from "lucide-react";
+import { Lock, Wifi, Cable, Radio, Terminal, Settings, Maximize, Minimize } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 
 const StatusDot = ({ ok, label, icon: Icon }) => (
@@ -18,11 +18,21 @@ const StatusDot = ({ ok, label, icon: Icon }) => (
 export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings }) => {
   const { state } = useSystem();
   const [now, setNow] = useState(new Date());
+  const [fs, setFs] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const onFs = () => setFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => { clearInterval(t); document.removeEventListener("fullscreenchange", onFs); };
   }, []);
+
+  const toggleFs = async () => {
+    try {
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch (e) { /* iOS Safari: use Add to Home Screen for fullscreen */ }
+  };
 
   const net = state?.network || {};
   const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -63,6 +73,14 @@ export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings }) => {
           title="Device settings"
         >
           <Settings className="w-4 h-4" style={{ color: "var(--c4-text)" }} />
+        </button>
+        <button
+          data-testid="fullscreen-btn"
+          onClick={toggleFs}
+          className="w-9 h-9 rounded-xl glass flex items-center justify-center active:scale-95 transition"
+          title="Fullscreen"
+        >
+          {fs ? <Minimize className="w-4 h-4" style={{ color: "var(--c4-text)" }} /> : <Maximize className="w-4 h-4" style={{ color: "var(--c4-text)" }} />}
         </button>
         <button
           data-testid="lock-btn"

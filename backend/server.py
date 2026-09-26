@@ -11,6 +11,7 @@ import uuid
 import shutil
 import subprocess
 import asyncio
+import bcrypt
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional, List
@@ -73,7 +74,6 @@ def default_config() -> dict:
 def default_state() -> dict:
     return {
         "key": STATE_KEY,
-        "pin": "1234",
         "property_name": "Riverside Apartment",
         "sources": [
             {"id": "atv1", "name": "Apple TV 1", "input": 1, "location": "Living Room"},
@@ -125,9 +125,26 @@ async def get_state() -> dict:
         doc["config"] = default_config()
     doc.setdefault("audio_follow_tv", True)
     doc.setdefault("away", False)
+    doc.pop("pin", None)  # PIN lives in db.auth, never in state
     if isinstance(doc.get("camera"), dict):
         doc["camera"].setdefault("armed", False)
     return doc
+
+
+def hash_pin(pin: str) -> str:
+    return bcrypt.hashpw(pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_pin_hash(pin: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(pin.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception:
+        return False
+
+
+async def seed_pin():
+    if not await db.auth.find_one({"key": "pin"}):
+        await db.auth.insert_one({"key": "pin", "pin_hash": hash_pin(os.environ.get("DEFAULT_PIN", "1234"))})
 
 
 async def save_state(state: dict):
@@ -330,6 +347,10 @@ class Automation(BaseModel):
 class PinReq(BaseModel):
     pin: str
 
+class ChangePinReq(BaseModel):
+    current: str
+    new_pin: str
+
 class RouteReq(BaseModel):
     display_id: str
     source_id: str
@@ -389,8 +410,22 @@ async def root():
 
 @api_router.post("/auth/pin")
 async def verify_pin(req: PinReq):
-    state = await get_state()
-    return {"success": req.pin == state["pin"]}
+    doc = await db.auth.find_one({"key": "pin"})
+    if not doc:
+        await seed_pin()
+        doc = await db.auth.find_one({"key": "pin"})
+    return {"success": verify_pin_hash(req.pin, doc["pin_hash"])}
+
+
+@api_router.post("/auth/change-pin")
+async def change_pin(req: ChangePinReq):
+    doc = await db.auth.find_one({"key": "pin"})
+    if not doc or not verify_pin_hash(req.current, doc["pin_hash"]):
+        raise HTTPException(400, "Current PIN is incorrect")
+    if not (req.new_pin.isdigit() and len(req.new_pin) == 4):
+        raise HTTPException(400, "New PIN must be exactly 4 digits")
+    await db.auth.update_one({"key": "pin"}, {"$set": {"pin_hash": hash_pin(req.new_pin)}})
+    return {"success": True}
 
 
 @api_router.get("/state")
@@ -815,6 +850,7 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def on_startup():
     await get_state()
+    await seed_pin()
     if not scheduler.running:
         scheduler.start()
     await reload_jobs()

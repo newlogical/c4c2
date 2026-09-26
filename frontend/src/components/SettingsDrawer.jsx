@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -70,6 +70,25 @@ export const SettingsDrawer = ({ open, onClose }) => {
   const [config, setConfig] = useState({});
   const [testing, setTesting] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [pinCur, setPinCur] = useState("");
+  const [pinNew, setPinNew] = useState("");
+  const [pinConf, setPinConf] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
+
+  const changePin = async () => {
+    if (!/^\d{4}$/.test(pinNew)) return toast.error("New PIN must be 4 digits");
+    if (pinNew !== pinConf) return toast.error("New PINs do not match");
+    setPinBusy(true);
+    try {
+      await api.changePin(pinCur, pinNew);
+      toast.success("PIN updated");
+      setPinCur(""); setPinNew(""); setPinConf("");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not change PIN");
+    } finally {
+      setPinBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (open && state?.config) setConfig(JSON.parse(JSON.stringify(state.config)));
@@ -163,6 +182,28 @@ export const SettingsDrawer = ({ open, onClose }) => {
             </details>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-3">
+              <div className="glass rounded-2xl p-4" data-testid="settings-pin">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}>
+                    <KeyRound className="w-4.5 h-4.5" style={{ color: "var(--c4-primary)" }} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Unlock PIN</p>
+                    <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Change the 4-digit lock code</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <input type="password" inputMode="numeric" maxLength={4} placeholder="Current PIN" value={pinCur} data-testid="pin-current-input" onChange={(e) => setPinCur(e.target.value.replace(/\D/g, ""))} className="rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" }} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="password" inputMode="numeric" maxLength={4} placeholder="New PIN" value={pinNew} data-testid="pin-new-input" onChange={(e) => setPinNew(e.target.value.replace(/\D/g, ""))} className="rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" }} />
+                    <input type="password" inputMode="numeric" maxLength={4} placeholder="Confirm" value={pinConf} data-testid="pin-confirm-input" onChange={(e) => setPinConf(e.target.value.replace(/\D/g, ""))} className="rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" }} />
+                  </div>
+                  <button data-testid="change-pin-btn" onClick={changePin} disabled={pinBusy} className="rounded-lg py-2 text-xs font-bold active:scale-95 transition flex items-center justify-center gap-2" style={{ background: "var(--c4-primary)", color: "#fff", opacity: pinBusy ? 0.6 : 1 }}>
+                    {pinBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />} Update PIN
+                  </button>
+                </div>
+              </div>
+
               <DeviceCard icon={Cable} title="JTECH-MXT40 Matrix" subtitle="HDMI video routing" device="matrix" conn={c("matrix")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="Host / IP" value={c("matrix").host} placeholder="192.168.1.1" onChange={(v) => setField("matrix", "host", v)} testid="matrix-host-input" />
                 <Field label="Telnet Port" value={c("matrix").port} placeholder="23" type="number" onChange={(v) => setField("matrix", "port", Number(v))} testid="matrix-port-input" />

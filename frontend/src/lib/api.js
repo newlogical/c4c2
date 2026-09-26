@@ -7,6 +7,7 @@ const http = axios.create({ baseURL: API });
 export const api = {
   getState: () => http.get("/state").then((r) => r.data),
   verifyPin: (pin) => http.post("/auth/pin", { pin }).then((r) => r.data),
+  changePin: (current, new_pin) => http.post("/auth/change-pin", { current, new_pin }).then((r) => r.data),
   reset: () => http.post("/state/reset").then((r) => r.data),
   route: (display_id, source_id) =>
     http.post("/matrix/route", { display_id, source_id }).then((r) => r.data),

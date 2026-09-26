@@ -13,7 +13,7 @@ const TABS = [
 export const BottomNav = ({ active, onChange }) => (
   <nav
     className="sticky bottom-0 z-30 backdrop-blur-xl px-1.5 py-2"
-    style={{ background: "rgba(10,13,20,0.85)", borderTop: "1px solid var(--c4-border)" }}
+    style={{ background: "rgba(10,13,20,0.85)", borderTop: "1px solid var(--c4-border)", paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
     data-testid="bottom-nav"
   >
     <div className="max-w-2xl mx-auto grid grid-cols-6 gap-1">
