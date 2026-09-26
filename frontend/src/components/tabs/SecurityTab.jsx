@@ -5,66 +5,93 @@ import { useSystem } from "@/context/SystemContext";
 import { CameraPlayer } from "@/components/CameraPlayer";
 import { toast } from "sonner";
 
+const STILL = "https://images.unsplash.com/photo-1787659601659-399e4ea21429?crop=entropy&cs=srgb&fm=jpg&q=85&w=800";
+
 export const SecurityTab = () => {
   const { state, api, act } = useSystem();
   const [full, setFull] = useState(false);
+  const [selected, setSelected] = useState("cam_front");
   if (!state) return null;
   const cam = state.camera;
+  const cameras = state.cameras || [];
+  const primary = cameras.find((c) => c.id === selected) || cameras[0] || cam;
 
   const snapshot = async () => {
     await api.cameraSnapshot();
-    toast.success("Snapshot captured", { description: `${cam.name} · saved to UniFi Protect` });
+    toast.success("Snapshot captured", { description: `${primary.name} · saved to UniFi Protect` });
   };
 
-  const simulateMotion = async () => {
-    const res = await api.triggerEvent("motion");
+  const motionOn = async (camId) => {
+    const res = await api.cameraMotion(camId);
     if (res.state) act(Promise.resolve(res.state));
+    setSelected(camId);
     const fired = res.fired || [];
     toast(fired.length ? `Motion → ran: ${fired.join(", ")}` : "Motion detected", {
-      description: fired.length ? "Event automation triggered" : "No motion automations set",
+      description: `${cameras.find((c) => c.id === camId)?.name || camId}${fired.length ? " · automation triggered" : ""}`,
     });
   };
+  const simulateMotion = () => motionOn(selected);
 
   const toggleArm = async () => {
     await act(api.setArm(!cam.armed));
-    toast(!cam.armed ? "Camera armed" : "Camera disarmed");
+    toast(!cam.armed ? "Cameras armed" : "Cameras disarmed");
   };
 
   return (
     <div className="p-4 sm:p-6 space-y-5 pb-8" data-testid="security-tab">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c4-cyan)" }}>Ubiquiti UniFi Protect</p>
-        <h1 className="font-head text-2xl font-extrabold tracking-tight">Security Camera</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c4-cyan)" }}>Ubiquiti UniFi Protect</p>
+          <h1 className="font-head text-2xl font-extrabold tracking-tight">Cameras</h1>
+        </div>
+        <button data-testid="camera-fullscreen-btn" onClick={() => setFull(true)} className="w-9 h-9 rounded-xl glass-elevated flex items-center justify-center active:scale-95 transition">
+          <Maximize2 className="w-4 h-4" />
+        </button>
       </div>
 
       <div className="glass rounded-2xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(6,182,212,0.15)" }}>
-              <Camera className="w-4.5 h-4.5" style={{ color: "var(--c4-cyan)" }} />
-            </div>
-            <div>
-              <p className="font-semibold text-sm">{cam.name}</p>
-              <p className="text-[11px] flex items-center gap-1" style={{ color: cam.online ? "var(--c4-emerald)" : "var(--c4-rose)" }}>
-                <Wifi className="w-3 h-3" /> {cam.online ? "Online" : "Offline"} · {cam.resolution}
-              </p>
-            </div>
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(6,182,212,0.15)" }}>
+            <Camera className="w-4.5 h-4.5" style={{ color: "var(--c4-cyan)" }} />
           </div>
-          <button data-testid="camera-fullscreen-btn" onClick={() => setFull(true)} className="w-9 h-9 rounded-xl glass-elevated flex items-center justify-center active:scale-95 transition">
-            <Maximize2 className="w-4 h-4" />
-          </button>
+          <div>
+            <p className="font-semibold text-sm" data-testid="primary-camera-name">{primary.name}</p>
+            <p className="text-[11px] flex items-center gap-1" style={{ color: primary.motion ? "var(--c4-rose)" : "var(--c4-emerald)" }}>
+              <Wifi className="w-3 h-3" /> {primary.motion ? "Motion now" : "Online"}
+            </p>
+          </div>
         </div>
 
         <div className="rounded-xl overflow-hidden aspect-video" data-testid="camera-feed">
-          <CameraPlayer />
+          <CameraPlayer camId={selected} />
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mt-3" data-testid="camera-grid">
+          {cameras.map((cm) => (
+            <div key={cm.id} className="relative">
+              <button
+                data-testid={`camera-thumb-${cm.id}`}
+                onClick={() => setSelected(cm.id)}
+                className="w-full rounded-lg overflow-hidden aspect-video relative block"
+                style={{ outline: selected === cm.id ? "2px solid var(--c4-cyan)" : cm.motion ? "2px solid var(--c4-rose)" : "1px solid var(--c4-border)" }}
+              >
+                <img src={STILL} alt={cm.name} className="w-full h-full object-cover" style={{ filter: "brightness(0.65)" }} />
+                {cm.motion && <span className="absolute inset-0 animate-motion" style={{ boxShadow: "inset 0 0 0 2px var(--c4-rose)" }} />}
+                <span className="absolute bottom-0.5 left-1 text-[8px] font-semibold truncate max-w-[90%]" style={{ color: "#fff", textShadow: "0 1px 2px #000" }}>{cm.name}</span>
+              </button>
+              <button data-testid={`camera-motion-${cm.id}`} onClick={() => motionOn(cm.id)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-md flex items-center justify-center" style={{ background: "rgba(10,13,20,0.7)" }} title="Simulate motion">
+                <Activity className="w-3 h-3" style={{ color: "var(--c4-rose)" }} />
+              </button>
+            </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button data-testid="camera-snapshot-btn" onClick={snapshot} className="glass-elevated rounded-xl py-2.5 flex items-center justify-center gap-2 text-sm font-semibold active:scale-95 transition">
             <Aperture className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} /> Snapshot
           </button>
-          <button data-testid="camera-pantilt-btn" onClick={() => toast("Pan / Tilt", { description: "Repositioning camera…" })} className="glass-elevated rounded-xl py-2.5 flex items-center justify-center gap-2 text-sm font-semibold active:scale-95 transition">
-            <Move className="w-4 h-4" style={{ color: "var(--c4-indigo)" }} /> Pan / Tilt
+          <button data-testid="simulate-motion-btn" onClick={simulateMotion} className="glass-elevated rounded-xl py-2.5 flex items-center justify-center gap-2 text-sm font-semibold active:scale-95 transition" style={{ color: "var(--c4-rose)" }}>
+            <Activity className="w-4 h-4" /> Simulate motion
           </button>
         </div>
       </div>
@@ -76,7 +103,7 @@ export const SecurityTab = () => {
           </div>
           <div>
             <p className="font-semibold text-sm">{cam.armed ? "Armed" : "Disarmed"}{state.away ? " · Away" : ""}</p>
-            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>{cam.armed ? "Recording motion events" : "Not monitoring"}</p>
+            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>{cam.armed ? "Recording motion on all cameras" : "Not monitoring"}</p>
           </div>
         </div>
         <button
@@ -86,26 +113,6 @@ export const SecurityTab = () => {
           style={{ background: cam.armed ? "var(--c4-rose)" : "rgba(255,255,255,0.12)" }}
         >
           <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: cam.armed ? "22px" : "2px" }} />
-        </button>
-      </div>
-
-      <div className="glass rounded-2xl p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: cam.motion ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)" }}>
-            <Circle className="w-4 h-4" style={{ color: cam.motion ? "var(--c4-rose)" : "var(--c4-muted)" }} />
-          </div>
-          <div>
-            <p className="font-semibold text-sm">Motion Detection</p>
-            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>{cam.motion ? "Motion detected now" : "No recent motion"}</p>
-          </div>
-        </div>
-        <button
-          data-testid="simulate-motion-btn"
-          onClick={simulateMotion}
-          className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-semibold active:scale-95 transition"
-          style={{ background: "rgba(239,68,68,0.14)", color: "var(--c4-rose)", border: "1px solid rgba(239,68,68,0.3)" }}
-        >
-          <Activity className="w-4 h-4" /> Simulate motion
         </button>
       </div>
 
@@ -121,7 +128,7 @@ export const SecurityTab = () => {
               <X className="w-5 h-5" />
             </button>
             <div className="w-full max-w-4xl aspect-video rounded-2xl overflow-hidden glow-ring">
-              <CameraPlayer full />
+              <CameraPlayer full camId={selected} />
             </div>
           </motion.div>
         )}

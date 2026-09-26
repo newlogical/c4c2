@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound, Sparkles, Moon } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic } from "lucide-react";
+import { BACKEND } from "@/lib/api";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -65,7 +66,7 @@ const DeviceCard = ({ icon: Icon, title, subtitle, device, conn, onField, onTogg
   </div>
 );
 
-export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSaver }) => {
+export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSaver, saverMode, onChangeSaverMode }) => {
   const { state, act, api } = useSystem();
   const [config, setConfig] = useState({});
   const [testing, setTesting] = useState(null);
@@ -74,6 +75,11 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
   const [pinNew, setPinNew] = useState("");
   const [pinConf, setPinConf] = useState("");
   const [pinBusy, setPinBusy] = useState(false);
+  const [voiceScenes, setVoiceScenes] = useState([]);
+
+  useEffect(() => {
+    if (open) api.getScenes().then(setVoiceScenes).catch(() => {});
+  }, [open]);
 
   const changePin = async () => {
     if (!/^\d{4}$/.test(pinNew)) return toast.error("New PIN must be 4 digits");
@@ -197,19 +203,59 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                 <span className="text-xs font-semibold" style={{ color: "var(--c4-indigo)" }}>Open</span>
               </button>
 
-              <div className="glass rounded-2xl p-4 flex items-center justify-between" data-testid="settings-screensaver">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: saverOn ? "rgba(6,182,212,0.15)" : "rgba(255,255,255,0.05)" }}>
-                    <Moon className="w-4.5 h-4.5" style={{ color: saverOn ? "var(--c4-cyan)" : "var(--c4-muted)" }} />
+              <div className="glass rounded-2xl p-4" data-testid="settings-screensaver">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: saverOn ? "rgba(6,182,212,0.15)" : "rgba(255,255,255,0.05)" }}>
+                      <Moon className="w-4.5 h-4.5" style={{ color: saverOn ? "var(--c4-cyan)" : "var(--c4-muted)" }} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">Screen saver</p>
+                      <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>After 90s idle · tap to wake</p>
+                    </div>
+                  </div>
+                  <button data-testid="screensaver-toggle" onClick={onToggleSaver} className="w-11 h-6 rounded-full relative transition shrink-0" style={{ background: saverOn ? "var(--c4-emerald)" : "rgba(255,255,255,0.14)" }}>
+                    <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: saverOn ? "22px" : "2px" }} />
+                  </button>
+                </div>
+                {saverOn && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {[["clock", "Clock"], ["photos", "Photos"], ["camera", "Front Door"]].map(([m, label]) => (
+                      <button key={m} data-testid={`saver-mode-${m}`} onClick={() => onChangeSaverMode(m)}
+                        className="rounded-lg py-2 text-xs font-semibold transition active:scale-95"
+                        style={{ background: saverMode === m ? "rgba(6,182,212,0.18)" : "rgba(255,255,255,0.05)", color: saverMode === m ? "var(--c4-cyan)" : "var(--c4-muted)", border: saverMode === m ? "1px solid var(--c4-cyan)" : "1px solid transparent" }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="glass rounded-2xl p-4" data-testid="settings-voice">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.15)" }}>
+                    <Mic className="w-4.5 h-4.5" style={{ color: "var(--c4-indigo)" }} />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">Screen saver</p>
-                    <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Dim clock after 90s idle · tap to wake</p>
+                    <p className="font-semibold text-sm">Voice control</p>
+                    <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Run scenes with "Hey Siri / Google"</p>
                   </div>
                 </div>
-                <button data-testid="screensaver-toggle" onClick={onToggleSaver} className="w-11 h-6 rounded-full relative transition shrink-0" style={{ background: saverOn ? "var(--c4-emerald)" : "rgba(255,255,255,0.14)" }}>
-                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: saverOn ? "22px" : "2px" }} />
-                </button>
+                <p className="text-[11px] mb-2" style={{ color: "var(--c4-muted)" }}>
+                  Create an iOS Shortcut or Google routine that opens the scene's URL, then say your phrase.
+                </p>
+                <div className="space-y-1.5">
+                  {voiceScenes.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg p-2" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate">{s.name}</p>
+                        <p className="text-[10px] font-mono truncate" style={{ color: "var(--c4-muted)" }}>/api/voice/scene/{s.id}</p>
+                      </div>
+                      <button data-testid={`voice-copy-${s.id}`} onClick={() => { navigator.clipboard?.writeText(`${BACKEND}/api/voice/scene/${s.id}`); toast.success("Webhook URL copied"); }}
+                        className="shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-semibold glass-elevated">Copy URL</button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="glass rounded-2xl p-4" data-testid="settings-pin">

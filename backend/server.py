@@ -11,6 +11,7 @@ import uuid
 import shutil
 import subprocess
 import asyncio
+import socket
 import bcrypt
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -59,6 +60,11 @@ def default_config() -> dict:
         "ecobee": {"live": False, "token": "", "thermostat_id": ""},
         "appletv": {"live": False, "devices": {}},
         "camera": {"live": False, "rtsp_url": ""},
+        "cameras": {
+            "cam_living": {"live": False, "rtsp_url": ""},
+            "cam_back": {"live": False, "rtsp_url": ""},
+            "cam_garage": {"live": False, "rtsp_url": ""},
+        },
         "tv": {"live": False, "sets": {
             "tv_living": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
             "tv_office": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
@@ -109,6 +115,12 @@ def default_state() -> dict:
             "target_heat": 68, "target_cool": 74, "outdoor_temp": 75, "outdoor_condition": "Sunny",
         },
         "camera": {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False, "resolution": "4K", "armed": False},
+        "cameras": [
+            {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False},
+            {"id": "cam_living", "name": "Living Room", "online": True, "motion": False},
+            {"id": "cam_back", "name": "Backyard", "online": True, "motion": False},
+            {"id": "cam_garage", "name": "Garage", "online": True, "motion": False},
+        ],
         "network": {"unifi_online": True, "matrix_linked": True, "amp_linked": True},
         "audio_follow_tv": True,
         "away": False,
@@ -130,6 +142,13 @@ async def get_state() -> dict:
     doc.pop("pin", None)  # PIN lives in db.auth, never in state
     if isinstance(doc.get("camera"), dict):
         doc["camera"].setdefault("armed", False)
+    if "cameras" not in doc:
+        doc["cameras"] = [
+            {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False},
+            {"id": "cam_living", "name": "Living Room", "online": True, "motion": False},
+            {"id": "cam_back", "name": "Backyard", "online": True, "motion": False},
+            {"id": "cam_garage", "name": "Garage", "online": True, "motion": False},
+        ]
     return doc
 
 
@@ -822,6 +841,95 @@ async def camera_stream():
         _ensure_ffmpeg(conn["rtsp_url"])
         return {"live": True, "hls_url": "/api/camera/hls/index.m3u8"}
     return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
+
+
+@api_router.get("/camera/stream/{cam_id}")
+async def camera_stream_one(cam_id: str):
+    state = await get_state()
+    conn = cfg(state, "camera") if cam_id == "cam_front" else (cfg(state, "cameras").get(cam_id) or {})
+    if cam_id == "cam_front" and conn.get("live") and conn.get("rtsp_url") and shutil.which("ffmpeg"):
+        _ensure_ffmpeg(conn["rtsp_url"])
+        return {"live": True, "hls_url": "/api/camera/hls/index.m3u8"}
+    return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
+
+
+@api_router.post("/camera/{cam_id}/motion")
+async def camera_motion(cam_id: str):
+    state = await get_state()
+    cam = next((c for c in state["cameras"] if c["id"] == cam_id), None)
+    if not cam:
+        raise HTTPException(404, "Camera not found")
+    cam["motion"] = True
+    if cam_id == "cam_front":
+        state["camera"]["motion"] = True
+    log_cmd(state, drivers.camera.command(f"motion {cam_id}", f"Motion on {cam['name']}", {}))
+    autos = await db.automations.find({"enabled": True}, {"_id": 0}).to_list(200)
+    fired = []
+    for a in autos:
+        trig = a.get("trigger", {})
+        if trig.get("type") == "event" and trig.get("event") == "motion":
+            await apply_scene_any(state, a["action"]["scene_id"])
+            fired.append(a["name"])
+    await save_state(state)
+    return {"ok": True, "camera": cam_id, "fired": fired, "state": state}
+
+
+@api_router.get("/voice/scene/{scene_id}")
+async def voice_scene(scene_id: str):
+    """Webhook for iOS Shortcuts / Google Assistant routines to run a scene by voice."""
+    state = await get_state()
+    if not await apply_scene_any(state, scene_id):
+        raise HTTPException(404, "Scene not found")
+    log_cmd(state, {"driver": "Voice", "transport": "webhook", "command": scene_id,
+                    "note": f"Scene '{scene_id}' run by voice", "timestamp": drivers._ts(), "status": "sent"})
+    await save_state(state)
+    return {"ok": True, "scene": scene_id}
+
+
+@api_router.get("/discover")
+async def discover(live: bool = False):
+    """Suggest device connection info. Real LAN scan only when self-hosted (live=true);
+    the cloud demo returns sample results so the wizard flow is usable."""
+    demo_devices = {
+        "matrix": {"host": "192.168.1.20", "port": 23, "label": "JTECH-MXT40 (Telnet) @ 192.168.1.20"},
+        "amp": {"host": "192.168.1.35", "label": "WS66i 6-zone @ 192.168.1.35"},
+        "camera": {"rtsp_url": "rtsp://192.168.1.2:7447/2b9f1c-front", "label": "UniFi Front Entry"},
+        "tv": {
+            "tv_living": {"ip": "192.168.1.60", "mac": "A4:B1:C2:00:11:01"},
+            "tv_office": {"ip": "192.168.1.61", "mac": "A4:B1:C2:00:11:02"},
+            "tv_master": {"ip": "192.168.1.62", "mac": "A4:B1:C2:00:11:03"},
+            "tv_guest": {"ip": "192.168.1.63", "mac": "A4:B1:C2:00:11:04"},
+        },
+    }
+    if not live:
+        return {"demo": True, "devices": demo_devices}
+    # Self-hosted lightweight scan of the local /24 for known ports (bounded)
+    found = {"tv": {}}
+    try:
+        host_ip = socket.gethostbyname(socket.gethostname())
+        base = ".".join(host_ip.split(".")[:3])
+
+        async def probe(ip, port):
+            try:
+                fut = asyncio.open_connection(ip, port)
+                r, w = await asyncio.wait_for(fut, timeout=0.4)
+                w.close()
+                return True
+            except Exception:
+                return False
+
+        async def scan(port):
+            hits = await asyncio.gather(*[probe(f"{base}.{h}", port) for h in range(1, 255)])
+            return [f"{base}.{h}" for h, ok in zip(range(1, 255), hits) if ok]
+
+        matrix_hosts, tv_hosts = await asyncio.gather(scan(23), scan(8001))
+        if matrix_hosts:
+            found["matrix"] = {"host": matrix_hosts[0], "port": 23, "label": f"Telnet device @ {matrix_hosts[0]}"}
+        for idx, (disp, ip) in enumerate(zip(["tv_living", "tv_office", "tv_master", "tv_guest"], tv_hosts)):
+            found["tv"][disp] = {"ip": ip, "mac": ""}
+    except Exception as e:
+        return {"demo": True, "error": str(e), "devices": demo_devices}
+    return {"demo": False, "devices": found}
 
 
 @api_router.post("/camera/snapshot")

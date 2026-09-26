@@ -25,6 +25,7 @@ export const SetupWizard = ({ open, onClose }) => {
   const [i, setI] = useState(0);
   const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(state?.config || {})));
   const [testing, setTesting] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const step = STEPS[i];
 
   useEffect(() => {
@@ -54,6 +55,29 @@ export const SetupWizard = ({ open, onClose }) => {
 
   const next = async () => { if (step.device) await persist(); if (i < STEPS.length - 1) setI(i + 1); };
   const finish = async () => { await persist({ setup_done: true }); toast.success("Setup complete"); onClose(); };
+
+  const scan = async () => {
+    setScanning(true);
+    try {
+      const r = await api.discover(false);
+      const d = r.devices || {};
+      setCfg((p) => {
+        const n = JSON.parse(JSON.stringify(p));
+        if (d.matrix) n.matrix = { ...n.matrix, live: true, host: d.matrix.host, port: d.matrix.port };
+        if (d.amp) n.amp = { ...n.amp, live: true, host: d.amp.host };
+        if (d.camera) n.camera = { ...n.camera, live: true, rtsp_url: d.camera.rtsp_url };
+        if (d.tv) {
+          const sets = { ...(n.tv?.sets || {}) };
+          Object.entries(d.tv).forEach(([k, v]) => { sets[k] = { ...(sets[k] || {}), ...v }; });
+          n.tv = { ...n.tv, live: true, sets };
+        }
+        return n;
+      });
+      toast.success(r.demo ? "Found devices (demo results)" : "Scan complete — review each step");
+    } catch (e) {
+      toast.error("Scan failed (only works self-hosted)");
+    } finally { setScanning(false); }
+  };
 
   const inputStyle = { background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" };
   const progress = ((i) / (STEPS.length - 1)) * 100;
@@ -90,6 +114,9 @@ export const SetupWizard = ({ open, onClose }) => {
                     We'll walk through each device — enter its address and test the connection. You can skip any step and finish later from Settings.
                   </p>
                   <p className="text-[11px] mt-3" style={{ color: "var(--c4-amber)" }}>Note: real devices are only reachable when self-hosted on your LAN.</p>
+                  <button data-testid="wizard-scan-btn" onClick={scan} disabled={scanning} className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold glass flex items-center justify-center gap-2">
+                    {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />} Scan my network
+                  </button>
                 </div>
               )}
 

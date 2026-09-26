@@ -35,6 +35,9 @@ export const api = {
   setAway: (enabled) => http.post("/away", { enabled }).then((r) => r.data),
   // Camera streaming
   cameraStream: () => http.get("/camera/stream").then((r) => r.data),
+  cameraStreamOne: (camId) => http.get(`/camera/stream/${camId}`).then((r) => r.data),
+  cameraMotion: (camId) => http.post(`/camera/${camId}/motion`).then((r) => r.data),
+  discover: (live = false) => http.get(`/discover?live=${live}`).then((r) => r.data),
   // Device config
   updateConfig: (config) => http.put("/config", { config }).then((r) => r.data),
   testConnection: (device) => http.post(`/config/test/${device}`).then((r) => r.data),

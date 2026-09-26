@@ -26,6 +26,7 @@ const Controller = () => {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardSeen, setWizardSeen] = useState(false);
   const [saverOn, setSaverOn] = useState(() => localStorage.getItem("c4_saver") !== "off");
+  const [saverMode, setSaverMode] = useState(() => localStorage.getItem("c4_saver_mode") || "clock");
 
   const toggleSaver = () => {
     setSaverOn((v) => {
@@ -33,6 +34,10 @@ const Controller = () => {
       localStorage.setItem("c4_saver", nv ? "on" : "off");
       return nv;
     });
+  };
+  const changeSaverMode = (m) => {
+    setSaverMode(m);
+    localStorage.setItem("c4_saver_mode", m);
   };
 
   useEffect(() => {
@@ -87,9 +92,11 @@ const Controller = () => {
         onRunWizard={() => { setSettingsOpen(false); setWizardOpen(true); }}
         saverOn={saverOn}
         onToggleSaver={toggleSaver}
+        saverMode={saverMode}
+        onChangeSaverMode={changeSaverMode}
       />
       <SetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
-      <ScreenSaver enabled={saverOn} />
+      <ScreenSaver enabled={saverOn} mode={saverMode} />
     </div>
   );
 };

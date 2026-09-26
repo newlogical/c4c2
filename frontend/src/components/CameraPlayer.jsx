@@ -5,7 +5,7 @@ import { api, BACKEND } from "@/lib/api";
 
 const STILL = "https://images.unsplash.com/photo-1787659601659-399e4ea21429?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200";
 
-export const CameraPlayer = ({ full }) => {
+export const CameraPlayer = ({ full, camId }) => {
   const videoRef = useRef(null);
   const [status, setStatus] = useState("loading"); // loading | playing | error
   const [demo, setDemo] = useState(false);
@@ -16,7 +16,7 @@ export const CameraPlayer = ({ full }) => {
 
     const start = async () => {
       try {
-        const info = await api.cameraStream();
+        const info = camId ? await api.cameraStreamOne(camId) : await api.cameraStream();
         if (cancelled) return;
         setDemo(!!info.demo);
         const src = info.demo ? info.hls_url : `${BACKEND}${info.hls_url}`;
@@ -53,7 +53,7 @@ export const CameraPlayer = ({ full }) => {
       cancelled = true;
       if (hls) hls.destroy();
     };
-  }, []);
+  }, [camId]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black" data-testid="camera-player">
