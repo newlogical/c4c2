@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity } from "lucide-react";
+import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity, Shield, ShieldOff } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { CameraPlayer } from "@/components/CameraPlayer";
 import { toast } from "sonner";
@@ -23,6 +23,11 @@ export const SecurityTab = () => {
     toast(fired.length ? `Motion → ran: ${fired.join(", ")}` : "Motion detected", {
       description: fired.length ? "Event automation triggered" : "No motion automations set",
     });
+  };
+
+  const toggleArm = async () => {
+    await act(api.setArm(!cam.armed));
+    toast(!cam.armed ? "Camera armed" : "Camera disarmed");
   };
 
   return (
@@ -62,6 +67,26 @@ export const SecurityTab = () => {
             <Move className="w-4 h-4" style={{ color: "var(--c4-indigo)" }} /> Pan / Tilt
           </button>
         </div>
+      </div>
+
+      <div className="glass rounded-2xl p-4 flex items-center justify-between" data-testid="arm-card">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: cam.armed ? "rgba(239,68,68,0.15)" : "rgba(16,185,129,0.12)" }}>
+            {cam.armed ? <Shield className="w-4.5 h-4.5" style={{ color: "var(--c4-rose)" }} /> : <ShieldOff className="w-4.5 h-4.5" style={{ color: "var(--c4-emerald)" }} />}
+          </div>
+          <div>
+            <p className="font-semibold text-sm">{cam.armed ? "Armed" : "Disarmed"}{state.away ? " · Away" : ""}</p>
+            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>{cam.armed ? "Recording motion events" : "Not monitoring"}</p>
+          </div>
+        </div>
+        <button
+          data-testid="arm-toggle"
+          onClick={toggleArm}
+          className="w-11 h-6 rounded-full relative transition shrink-0"
+          style={{ background: cam.armed ? "var(--c4-rose)" : "rgba(255,255,255,0.12)" }}
+        >
+          <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: cam.armed ? "22px" : "2px" }} />
+        </button>
       </div>
 
       <div className="glass rounded-2xl p-4 flex items-center justify-between">

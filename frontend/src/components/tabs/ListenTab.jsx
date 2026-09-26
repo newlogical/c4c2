@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Volume2, VolumeX, Power, Radio, Speaker, Music } from "lucide-react";
+import { Volume2, VolumeX, Power, Radio, Speaker, Music, Link2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -99,12 +99,37 @@ export const ListenTab = () => {
     toast.success(`All zones synced to ${name}`);
   };
 
+  const toggleFollow = async () => {
+    await act(api.setAudioFollow(!state.audio_follow_tv));
+  };
+  const follow = state.audio_follow_tv;
+
   return (
     <div className="p-4 sm:p-6 space-y-6 pb-8" data-testid="listen-tab">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c4-amber)" }}>WS66i · 6-Zone Amplifier</p>
         <h1 className="font-head text-2xl font-extrabold tracking-tight">Audio Zones</h1>
       </div>
+
+      {/* Sound follows screen */}
+      <button
+        data-testid="audio-follow-toggle"
+        onClick={toggleFollow}
+        className="w-full glass rounded-2xl p-3.5 flex items-center justify-between active:scale-[0.99] transition"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: follow ? "rgba(6,182,212,0.15)" : "rgba(255,255,255,0.05)" }}>
+            <Link2 className="w-4.5 h-4.5" style={{ color: follow ? "var(--c4-cyan)" : "var(--c4-muted)" }} />
+          </div>
+          <div className="text-left">
+            <p className="font-semibold text-sm">Sound follows screen</p>
+            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>A room's audio switches to its TV's source</p>
+          </div>
+        </div>
+        <span className="w-11 h-6 rounded-full relative transition shrink-0" style={{ background: follow ? "var(--c4-emerald)" : "rgba(255,255,255,0.12)" }}>
+          <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: follow ? "22px" : "2px" }} />
+        </span>
+      </button>
 
       {/* Whole home group */}
       <div className="glass rounded-2xl p-4">

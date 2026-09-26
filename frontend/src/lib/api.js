@@ -26,6 +26,12 @@ export const api = {
   climate: (payload) => http.post("/climate", payload).then((r) => r.data),
   cameraSnapshot: () => http.post("/camera/snapshot").then((r) => r.data),
   scene: (scene_id) => http.post(`/scene/${scene_id}`).then((r) => r.data),
+  getScenes: () => http.get("/scenes").then((r) => r.data),
+  createScene: (payload) => http.post("/scenes", payload).then((r) => r.data),
+  deleteScene: (id) => http.delete(`/scenes/${id}`).then((r) => r.data),
+  setAudioFollow: (enabled) => http.post("/settings/audio-follow", { enabled }).then((r) => r.data),
+  setArm: (enabled) => http.post("/security/arm", { enabled }).then((r) => r.data),
+  setAway: (enabled) => http.post("/away", { enabled }).then((r) => r.data),
   // Camera streaming
   cameraStream: () => http.get("/camera/stream").then((r) => r.data),
   // Device config

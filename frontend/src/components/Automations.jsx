@@ -131,8 +131,8 @@ const CreateModal = ({ open, onClose, scenes, onCreate }) => {
   );
 };
 
-export const Automations = () => {
-  const { state, api } = useSystem();
+export const Automations = ({ scenes = [] }) => {
+  const { api } = useSystem();
   const [autos, setAutos] = useState([]);
   const [open, setOpen] = useState(false);
 
@@ -157,7 +157,7 @@ export const Automations = () => {
     await load();
   };
 
-  const sceneName = (id) => state?.scenes.find((s) => s.id === id)?.name || id;
+  const sceneName = (id) => scenes.find((s) => s.id === id)?.name || id;
 
   return (
     <div data-testid="automations-section">
@@ -210,7 +210,7 @@ export const Automations = () => {
         ))}
       </div>
 
-      <CreateModal open={open} onClose={() => setOpen(false)} scenes={state?.scenes || []} onCreate={create} />
+      <CreateModal open={open} onClose={() => setOpen(false)} scenes={scenes} onCreate={create} />
     </div>
   );
 };

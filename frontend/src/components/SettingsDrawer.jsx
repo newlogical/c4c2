@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -145,6 +145,20 @@ export const SettingsDrawer = ({ open, onClose }) => {
                 <p>7. <b>Samsung TVs</b>: enter IP + MAC, enable "Network standby"; accept the Allow prompt on first connect.</p>
                 <p>8. <b>SmartThings</b> (optional): PAT + device IDs for exact HDMI & absolute volume.</p>
                 <p className="pt-1">Flip each device to LIVE → Test connection → Save.</p>
+              </div>
+            </details>
+
+            <details className="mx-5 mt-2 rounded-xl glass" data-testid="remote-access-guide">
+              <summary className="px-4 py-3 text-xs font-semibold cursor-pointer flex items-center gap-2" style={{ color: "var(--c4-text)" }}>
+                <Globe className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} /> Remote access (outside the apartment)
+              </summary>
+              <div className="px-4 pb-4 text-[11px] space-y-1.5" style={{ color: "var(--c4-muted)" }}>
+                <p><b>Recommended — Tailscale (free):</b> install Tailscale on the host and on your phone/tablet; both join your private tailnet. Then open the app at <code>http://&lt;host-tailscale-ip&gt;:3000</code> from anywhere — no ports opened.</p>
+                <p>1. On the host: <code>curl -fsSL https://tailscale.com/install.sh | sh</code> then <code>tailscale up</code>.</p>
+                <p>2. Install the Tailscale app on your phone, sign in with the same account.</p>
+                <p>3. Use the host's <code>100.x.y.z</code> address in the browser.</p>
+                <p><b>Alternative:</b> WireGuard on the UniFi Dream Machine (Settings → VPN). Connect the VPN, then use the host's LAN IP.</p>
+                <p style={{ color: "var(--c4-rose)" }}>Do NOT port-forward 3000/8001 to the internet — always tunnel via VPN.</p>
               </div>
             </details>
 

@@ -148,3 +148,32 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
   remote access.
 - Treat Ecobee/SmartThings tokens as secrets. Change the app **PIN** from the default `1234`
   (in `backend/server.py` `default_state()` → `pin`, or via the database).
+
+---
+
+## 8. Remote access (use the app away from home)
+
+Never expose the app directly to the internet. Tunnel in instead.
+
+### Recommended — Tailscale (free, ~5 min)
+1. On the host:
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up
+   ```
+2. Install the **Tailscale** app on your phone/tablet and sign in with the same account.
+3. Note the host's tailnet IP (`tailscale ip -4`, looks like `100.x.y.z`).
+4. From anywhere, open `http://100.x.y.z:3000`. Because the backend uses host networking it's reachable
+   at `http://100.x.y.z:8001`; if you built the frontend with a LAN IP, rebuild with
+   `REACT_APP_BACKEND_URL=http://100.x.y.z:8001` (or use MagicDNS name) so API calls resolve remotely.
+
+### Alternative — WireGuard on the UniFi Dream Machine
+- UniFi Network → **VPN → WireGuard/Teleport** → create a client, load it on your phone.
+- Connect the VPN, then browse to the host's normal LAN IP (`http://192.168.1.x:3000`).
+
+### Wall tablet inside the apartment
+- Just use the LAN IP and "Add to Home Screen"; no VPN needed on‑site.
+
+> Tip: the built‑in **PIN lock** is your last line of defence — change it from `1234` before enabling
+> remote access.
+

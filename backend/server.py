@@ -35,6 +35,13 @@ DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 scheduler = AsyncIOScheduler()
 _ffmpeg_proc = None
 
+BUILTIN_SCENES = [
+    {"id": "all_off", "name": "All Off", "desc": "Power down all TVs & mute every audio zone", "type": "critical", "icon": "Power"},
+    {"id": "good_night", "name": "Good Night", "desc": "TVs off, Ecobee to 68° cool, audio muted", "type": "primary", "icon": "Moon"},
+    {"id": "movie_night", "name": "Movie Night", "desc": "Apple TV 1 to Living Room TV + audio", "type": "vibrant", "icon": "Clapperboard"},
+    {"id": "whole_home_audio", "name": "Whole-Home Audio", "desc": "Sync all 4 audio zones to one source", "type": "vibrant", "icon": "Radio"},
+]
+
 
 # ---------------------------------------------------------------------------
 # Default apartment configuration
@@ -99,14 +106,11 @@ def default_state() -> dict:
             "current_temp": 72, "humidity": 45, "mode": "cool", "fan": "auto",
             "target_heat": 68, "target_cool": 74, "outdoor_temp": 75, "outdoor_condition": "Sunny",
         },
-        "camera": {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False, "resolution": "4K"},
+        "camera": {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False, "resolution": "4K", "armed": False},
         "network": {"unifi_online": True, "matrix_linked": True, "amp_linked": True},
-        "scenes": [
-            {"id": "all_off", "name": "All Off", "desc": "Power down all TVs & mute every audio zone", "type": "critical", "icon": "Power"},
-            {"id": "good_night", "name": "Good Night", "desc": "TVs off, Ecobee to 68° cool, audio muted", "type": "primary", "icon": "Moon"},
-            {"id": "movie_night", "name": "Movie Night", "desc": "Apple TV 1 to Living Room TV + audio", "type": "vibrant", "icon": "Clapperboard"},
-            {"id": "whole_home_audio", "name": "Whole-Home Audio", "desc": "Sync all 4 audio zones to one source", "type": "vibrant", "icon": "Radio"},
-        ],
+        "audio_follow_tv": True,
+        "away": False,
+        "scenes": copy.deepcopy(BUILTIN_SCENES),
         "config": default_config(),
         "command_log": [],
     }
@@ -119,6 +123,10 @@ async def get_state() -> dict:
         await db.system.insert_one(copy.deepcopy(doc))
     if "config" not in doc:  # migrate older docs
         doc["config"] = default_config()
+    doc.setdefault("audio_follow_tv", True)
+    doc.setdefault("away", False)
+    if isinstance(doc.get("camera"), dict):
+        doc["camera"].setdefault("armed", False)
     return doc
 
 
@@ -162,6 +170,21 @@ def st_conn(state, display_id):
 
 def st_ready(conn):
     return bool(conn.get("live") and conn.get("token") and conn.get("device_id"))
+
+
+def link_zone_to_display(state, display):
+    """Sound-follows-screen: switch a room's paired audio zone to its TV's source."""
+    if not state.get("audio_follow_tv", True):
+        return
+    zone = next((z for z in state["audio_zones"] if z.get("paired_tv") == display["id"]), None)
+    if not zone:
+        return
+    src_id = display["source"]
+    src = find(state["audio_sources"], src_id)
+    if not src:
+        return
+    zone.update({"source": src_id, "power": True, "mute": False})
+    log_cmd(state, drivers.amp.set_source(zone["amp_zone"], amp_input(state, src_id), zone["name"], src["name"], cfg(state, "amp")))
 
 
 # ---------------------------------------------------------------------------
@@ -213,11 +236,50 @@ def apply_scene(state: dict, scene_id: str) -> bool:
 
 async def run_scene_by_id(scene_id: str, trigger_note: str = ""):
     state = await get_state()
-    if apply_scene(state, scene_id):
+    if await apply_scene_any(state, scene_id):
         if trigger_note:
             log_cmd(state, {"driver": "Automation", "transport": "scheduler", "command": scene_id,
                             "note": trigger_note, "timestamp": drivers._ts(), "status": "sent"})
         await save_state(state)
+
+
+def apply_snapshot(state: dict, snap: dict):
+    """Apply a user-created scene captured from a previous system state."""
+    mc, ac, tc = cfg(state, "matrix"), cfg(state, "amp"), cfg(state, "ecobee")
+    for ds in snap.get("displays", []):
+        d = find(state["displays"], ds["id"])
+        if not d:
+            continue
+        d["power"], d["source"] = ds["power"], ds["source"]
+        if ds["power"]:
+            src = find(state["sources"], ds["source"])
+            if src:
+                log_cmd(state, drivers.matrix.route(d["output"], src["input"], d["name"], src["name"], mc))
+        else:
+            log_cmd(state, drivers.matrix.power(d["output"], False, d["name"], mc))
+    for zs in snap.get("audio_zones", []):
+        z = find(state["audio_zones"], zs["id"])
+        if not z:
+            continue
+        for k in ("source", "volume", "mute", "power"):
+            if k in zs:
+                z[k] = zs[k]
+        src = find(state["audio_sources"], z["source"])
+        log_cmd(state, drivers.amp.set_source(z["amp_zone"], amp_input(state, z["source"]), z["name"], src["name"] if src else z["source"], ac))
+    t = snap.get("thermostat")
+    if t:
+        state["thermostat"].update(t)
+        log_cmd(state, drivers.thermostat.set_hold(state["thermostat"]["target_heat"], state["thermostat"]["target_cool"], tc))
+
+
+async def apply_scene_any(state: dict, scene_id: str) -> bool:
+    if apply_scene(state, scene_id):
+        return True
+    doc = await db.scenes.find_one({"id": scene_id}, {"_id": 0})
+    if not doc:
+        return False
+    apply_snapshot(state, doc["snapshot"])
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +369,14 @@ class ClimateReq(BaseModel):
 class ConfigReq(BaseModel):
     config: dict
 
+class ToggleReq(BaseModel):
+    enabled: bool
+
+class SceneCreateReq(BaseModel):
+    name: str
+    icon: Optional[str] = "Sparkles"
+    type: Optional[str] = "vibrant"
+
 
 # ---------------------------------------------------------------------------
 # Core routes
@@ -343,6 +413,7 @@ async def matrix_route(req: RouteReq):
         raise HTTPException(404, "Display or source not found")
     display["source"], display["power"] = source["id"], True
     log_cmd(state, drivers.matrix.route(display["output"], source["input"], display["name"], source["name"], cfg(state, "matrix")))
+    link_zone_to_display(state, display)
     await save_state(state)
     return state
 
@@ -357,6 +428,7 @@ async def matrix_broadcast(req: BroadcastReq):
     for display in state["displays"]:
         display["source"], display["power"] = source["id"], True
         log_cmd(state, drivers.matrix.route(display["output"], source["input"], display["name"], source["name"], mc))
+        link_zone_to_display(state, display)
     await save_state(state)
     return state
 
@@ -375,6 +447,8 @@ async def display_power(req: DisplayPowerReq):
     if use_st:
         hdmi = int((cfg(state, "tv").get("sets") or {}).get(display["id"], {}).get("hdmi_input", 1) or 1)
         log_cmd(state, await asyncio.to_thread(drivers.smartthings.set_input, display["name"], f"HDMI{hdmi}", stc))
+    if req.power:
+        link_zone_to_display(state, display)
     await save_state(state)
     return state
 
@@ -480,8 +554,63 @@ async def climate(req: ClimateReq):
 @api_router.post("/scene/{scene_id}")
 async def run_scene(scene_id: str):
     state = await get_state()
-    if not apply_scene(state, scene_id):
+    if not await apply_scene_any(state, scene_id):
         raise HTTPException(404, "Scene not found")
+    await save_state(state)
+    return state
+
+
+@api_router.get("/scenes")
+async def list_scenes():
+    customs = await db.scenes.find({}, {"_id": 0}).to_list(200)
+    return copy.deepcopy(BUILTIN_SCENES) + customs
+
+
+@api_router.post("/scenes")
+async def create_scene(req: SceneCreateReq):
+    state = await get_state()
+    snap = {
+        "displays": [{"id": d["id"], "power": d["power"], "source": d["source"]} for d in state["displays"]],
+        "audio_zones": [{"id": z["id"], "source": z["source"], "volume": z["volume"], "mute": z["mute"], "power": z["power"]} for z in state["audio_zones"]],
+        "thermostat": {k: state["thermostat"][k] for k in ("mode", "fan", "target_heat", "target_cool")},
+    }
+    doc = {"id": str(uuid.uuid4()), "name": req.name.strip(), "desc": "Custom scene · snapshot", "icon": req.icon, "type": req.type, "custom": True, "snapshot": snap}
+    await db.scenes.insert_one(copy.deepcopy(doc))
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.delete("/scenes/{scene_id}")
+async def delete_scene(scene_id: str):
+    await db.scenes.delete_one({"id": scene_id})
+    return {"ok": True}
+
+
+@api_router.post("/settings/audio-follow")
+async def set_audio_follow(req: ToggleReq):
+    state = await get_state()
+    state["audio_follow_tv"] = req.enabled
+    await save_state(state)
+    return state
+
+
+@api_router.post("/security/arm")
+async def set_arm(req: ToggleReq):
+    state = await get_state()
+    state["camera"]["armed"] = req.enabled
+    log_cmd(state, drivers.camera.command(f"arm {req.enabled}", f"Camera {'armed' if req.enabled else 'disarmed'}", cfg(state, "camera")))
+    await save_state(state)
+    return state
+
+
+@api_router.post("/away")
+async def set_away(req: ToggleReq):
+    state = await get_state()
+    state["away"] = req.enabled
+    state["camera"]["armed"] = req.enabled
+    if req.enabled:
+        apply_scene(state, "all_off")
+        state["thermostat"]["mode"] = "auto"
     await save_state(state)
     return state
 
@@ -598,7 +727,7 @@ async def run_automation(auto_id: str):
     if not auto:
         raise HTTPException(404, "Automation not found")
     state = await get_state()
-    apply_scene(state, auto["action"]["scene_id"])
+    await apply_scene_any(state, auto["action"]["scene_id"])
     log_cmd(state, {"driver": "Automation", "transport": "manual", "command": auto["action"]["scene_id"],
                     "note": f"Ran '{auto['name']}' manually", "timestamp": drivers._ts(), "status": "sent"})
     await save_state(state)
@@ -615,7 +744,7 @@ async def fire_event(event: str):
     for a in autos:
         trig = a.get("trigger", {})
         if trig.get("type") == "event" and trig.get("event") == event:
-            apply_scene(state, a["action"]["scene_id"])
+            await apply_scene_any(state, a["action"]["scene_id"])
             log_cmd(state, {"driver": "Automation", "transport": "event", "command": a["action"]["scene_id"],
                             "note": f"'{a['name']}' triggered by {event}", "timestamp": drivers._ts(), "status": "sent"})
             fired.append(a["name"])

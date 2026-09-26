@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Tv, Volume2, Thermometer, Camera, Power, Moon, Clapperboard, Radio, ChevronRight } from "lucide-react";
+import { Tv, Volume2, Thermometer, Camera, Power, Moon, Clapperboard, Radio, ChevronRight, Shield, Home } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -22,6 +22,12 @@ export const HomeTab = ({ onNavigate }) => {
   const runScene = async (id, name) => {
     await act(api.scene(id));
     toast.success(`Scene: ${name}`);
+  };
+
+  const toggleAway = async () => {
+    const goingAway = !state.away;
+    await act(api.setAway(goingAway));
+    toast[goingAway ? "success" : "success"](goingAway ? "Away — everything off, camera armed" : "Welcome home");
   };
 
   const stats = [
@@ -65,6 +71,30 @@ export const HomeTab = ({ onNavigate }) => {
           </motion.button>
         ))}
       </div>
+
+      {/* Away / Home */}
+      <motion.button
+        variants={item}
+        data-testid="away-toggle"
+        onClick={toggleAway}
+        className="w-full glass rounded-2xl p-4 flex items-center justify-between active:scale-[0.99] transition"
+        style={{ border: state.away ? "1px solid var(--c4-rose)" : "1px solid var(--c4-border)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: state.away ? "rgba(239,68,68,0.15)" : "rgba(16,185,129,0.12)" }}>
+            {state.away ? <Shield className="w-5 h-5" style={{ color: "var(--c4-rose)" }} /> : <Home className="w-5 h-5" style={{ color: "var(--c4-emerald)" }} />}
+          </div>
+          <div className="text-left">
+            <p className="font-head font-bold">{state.away ? "Away · Armed" : "Home"}</p>
+            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
+              {state.away ? "Everything off · camera armed" : "Tap when leaving: power down & arm camera"}
+            </p>
+          </div>
+        </div>
+        <span className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: state.away ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)", color: state.away ? "var(--c4-emerald)" : "var(--c4-rose)" }}>
+          {state.away ? "I'm home" : "Leaving"}
+        </span>
+      </motion.button>
 
       {/* Quick scenes */}
       <motion.div variants={item}>
