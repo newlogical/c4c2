@@ -39,6 +39,7 @@ export const SetupWizard = ({ open, onClose }) => {
   const setField = (d, k, v) => setCfg((p) => ({ ...p, [d]: { ...p[d], [k]: v } }));
   const setLive = (d, v) => setCfg((p) => ({ ...p, [d]: { ...p[d], live: v } }));
   const setTv = (id, k, v) => setCfg((p) => ({ ...p, tv: { ...p.tv, sets: { ...(p.tv?.sets || {}), [id]: { ...((p.tv?.sets || {})[id] || {}), [k]: v } } } }));
+  const setCam = (id, v) => setCfg((p) => ({ ...p, cameras: { ...(p.cameras || {}), [id]: { ...((p.cameras || {})[id] || {}), live: true, rtsp_url: v } } }));
 
   const persist = async (extra = {}) => { await act(api.updateConfig({ ...cfg, ...extra })); };
 
@@ -138,6 +139,12 @@ export const SetupWizard = ({ open, onClose }) => {
                       <button data-testid={`wizard-test-${step.device}`} onClick={() => test(step.device)} className="w-full mt-2 rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-2 glass">
                         {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />} Test connection
                       </button>
+                      {step.device === "camera" && (state?.cameras || []).filter((cm) => cm.id !== "cam_front").map((cm) => (
+                        <div key={cm.id} className="pt-1">
+                          <label className="text-[11px] font-semibold" style={{ color: "var(--c4-muted)" }}>{cm.name} RTSP URL</label>
+                          <input data-testid={`wizard-camera-rtsp-${cm.id}`} value={(cfg.cameras?.[cm.id]?.rtsp_url) ?? ""} placeholder="rtsp://NVR:7447/..." onChange={(e) => setCam(cm.id, e.target.value)} className="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none" style={inputStyle} />
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <p className="text-xs py-2" style={{ color: "var(--c4-muted)" }}>Leave off to keep this device simulated. Toggle on to enter its connection details.</p>

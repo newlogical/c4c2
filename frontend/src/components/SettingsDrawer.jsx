@@ -76,10 +76,16 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
   const [pinConf, setPinConf] = useState("");
   const [pinBusy, setPinBusy] = useState(false);
   const [voiceScenes, setVoiceScenes] = useState([]);
+  const [phrases, setPhrases] = useState({});
 
   useEffect(() => {
-    if (open) api.getScenes().then(setVoiceScenes).catch(() => {});
+    if (open) {
+      api.getScenes().then(setVoiceScenes).catch(() => {});
+      api.getVoicePhrases().then((p) => setPhrases(p || {})).catch(() => {});
+    }
   }, [open]);
+  const setPhrase = (id, v) => setPhrases((p) => ({ ...p, [id]: v }));
+  const savePhrases = () => api.setVoicePhrases(phrases).catch(() => {});
 
   const changePin = async () => {
     if (!/^\d{4}$/.test(pinNew)) return toast.error("New PIN must be 4 digits");
@@ -244,15 +250,33 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                 <p className="text-[11px] mb-2" style={{ color: "var(--c4-muted)" }}>
                   Create an iOS Shortcut or Google routine that opens the scene's URL, then say your phrase.
                 </p>
-                <div className="space-y-1.5">
+                <div className="space-y-2.5">
                   {voiceScenes.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg p-2" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate">{s.name}</p>
-                        <p className="text-[10px] font-mono truncate" style={{ color: "var(--c4-muted)" }}>/api/voice/scene/{s.id}</p>
+                    <div key={s.id} className="rounded-lg p-2.5" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}>
+                      <p className="text-xs font-semibold truncate mb-1.5">{s.name}</p>
+                      <input
+                        data-testid={`voice-phrase-${s.id}`}
+                        value={phrases[s.id] ?? ""}
+                        onChange={(e) => setPhrase(s.id, e.target.value)}
+                        onBlur={savePhrases}
+                        placeholder={`e.g. "Hey Siri, ${s.name}"`}
+                        className="w-full rounded-md px-2.5 py-1.5 text-xs outline-none mb-1.5"
+                        style={{ background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" }}
+                      />
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-mono truncate flex-1" style={{ color: "var(--c4-muted)" }}>/api/voice/scene/{s.id}</p>
+                        <button
+                          data-testid={`voice-copy-${s.id}`}
+                          onClick={() => {
+                            const url = `${BACKEND}/api/voice/scene/${s.id}`;
+                            const phrase = phrases[s.id] || s.name;
+                            const recipe = `iOS Shortcut / Google routine — run scene "${s.name}"\nPhrase: "${phrase}"\n1. New Shortcut/Routine → trigger phrase: ${phrase}\n2. Action: Get Contents of URL → ${url}\n3. Save. Now say: "Hey Siri, ${phrase}" or "Hey Google, ${phrase}".`;
+                            navigator.clipboard?.writeText(recipe);
+                            toast.success("Shortcut recipe copied", { description: "Paste into iOS Shortcuts / Google" });
+                          }}
+                          className="shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-semibold glass-elevated"
+                        >Copy shortcut</button>
                       </div>
-                      <button data-testid={`voice-copy-${s.id}`} onClick={() => { navigator.clipboard?.writeText(`${BACKEND}/api/voice/scene/${s.id}`); toast.success("Webhook URL copied"); }}
-                        className="shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-semibold glass-elevated">Copy URL</button>
                     </div>
                   ))}
                 </div>

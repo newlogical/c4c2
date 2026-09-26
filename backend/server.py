@@ -37,6 +37,7 @@ DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
 scheduler = AsyncIOScheduler()
 _ffmpeg_proc = None
+_ffmpeg_procs = {}
 
 BUILTIN_SCENES = [
     {"id": "all_off", "name": "All Off", "desc": "Power down all TVs & mute every audio zone", "type": "critical", "icon": "Power"},
@@ -848,8 +849,8 @@ async def camera_stream():
     state = await get_state()
     conn = cfg(state, "camera")
     if conn.get("live") and conn.get("rtsp_url") and shutil.which("ffmpeg"):
-        _ensure_ffmpeg(conn["rtsp_url"])
-        return {"live": True, "hls_url": "/api/camera/hls/index.m3u8"}
+        _ensure_ffmpeg(conn["rtsp_url"], "cam_front")
+        return {"live": True, "hls_url": "/api/camera/hls/cam_front/index.m3u8"}
     return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
 
 
@@ -857,9 +858,9 @@ async def camera_stream():
 async def camera_stream_one(cam_id: str):
     state = await get_state()
     conn = cfg(state, "camera") if cam_id == "cam_front" else (cfg(state, "cameras").get(cam_id) or {})
-    if cam_id == "cam_front" and conn.get("live") and conn.get("rtsp_url") and shutil.which("ffmpeg"):
-        _ensure_ffmpeg(conn["rtsp_url"])
-        return {"live": True, "hls_url": "/api/camera/hls/index.m3u8"}
+    if conn.get("live") and conn.get("rtsp_url") and shutil.which("ffmpeg"):
+        _ensure_ffmpeg(conn["rtsp_url"], cam_id)
+        return {"live": True, "hls_url": f"/api/camera/hls/{cam_id}/index.m3u8"}
     return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
 
 
@@ -874,6 +875,9 @@ async def camera_motion(cam_id: str):
     if cam_id == "cam_front":
         state["camera"]["motion"] = True
     log_cmd(state, drivers.camera.command(f"motion {cam_id}", f"Motion on {cam['name']}", {}))
+    clip = {"id": str(uuid.uuid4()), "camera_id": cam_id, "camera_name": cam["name"],
+            "ts": datetime.now(timezone.utc).isoformat()}
+    await db.clips.insert_one(copy.deepcopy(clip))
     autos = await db.automations.find({"enabled": True}, {"_id": 0}).to_list(200)
     fired = []
     for a in autos:
@@ -883,6 +887,31 @@ async def camera_motion(cam_id: str):
             fired.append(a["name"])
     await save_state(state)
     return {"ok": True, "camera": cam_id, "fired": fired, "state": state}
+
+
+@api_router.get("/clips")
+async def list_clips():
+    clips = await db.clips.find({}, {"_id": 0}).sort("ts", -1).to_list(50)
+    return clips
+
+
+@api_router.delete("/clips")
+async def clear_clips():
+    await db.clips.delete_many({})
+    return {"ok": True}
+
+
+@api_router.get("/voice/phrases")
+async def get_voice_phrases():
+    doc = await db.settings.find_one({"key": "voice_phrases"}, {"_id": 0})
+    return (doc or {}).get("map", {})
+
+
+@api_router.put("/voice/phrases")
+async def set_voice_phrases(req: dict):
+    phrases = req.get("phrases", {})
+    await db.settings.update_one({"key": "voice_phrases"}, {"$set": {"map": phrases}}, upsert=True)
+    return {"ok": True, "map": phrases}
 
 
 @api_router.get("/voice/scene/{scene_id}")
@@ -951,26 +980,36 @@ async def camera_snapshot():
     return {"ok": True, "command_log": state["command_log"]}
 
 
-@api_router.get("/camera/hls/{filename}")
-async def camera_hls(filename: str):
-    path = HLS_DIR / filename
+@api_router.get("/camera/hls/{cam_id}/{filename}")
+async def camera_hls_cam(cam_id: str, filename: str):
+    path = HLS_DIR / cam_id / filename
     if not path.exists():
         raise HTTPException(404, "Segment not ready")
     media = "application/vnd.apple.mpegurl" if filename.endswith(".m3u8") else "video/mp2t"
     return FileResponse(path, media_type=media, headers={"Cache-Control": "no-cache"})
 
 
-def _ensure_ffmpeg(rtsp_url: str):
-    global _ffmpeg_proc
-    HLS_DIR.mkdir(parents=True, exist_ok=True)
-    if _ffmpeg_proc and _ffmpeg_proc.poll() is None:
+@api_router.get("/camera/hls/{filename}")
+async def camera_hls(filename: str):
+    path = HLS_DIR / "cam_front" / filename
+    if not path.exists():
+        raise HTTPException(404, "Segment not ready")
+    media = "application/vnd.apple.mpegurl" if filename.endswith(".m3u8") else "video/mp2t"
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "no-cache"})
+
+
+def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
+    proc = _ffmpeg_procs.get(cam_id)
+    if proc and proc.poll() is None:
         return
-    _ffmpeg_proc = subprocess.Popen([
+    out = HLS_DIR / cam_id
+    out.mkdir(parents=True, exist_ok=True)
+    _ffmpeg_procs[cam_id] = subprocess.Popen([
         "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
         "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
         "-f", "hls", "-hls_time", "2", "-hls_list_size", "6",
         "-hls_flags", "delete_segments+append_list",
-        str(HLS_DIR / "index.m3u8"),
+        str(out / "index.m3u8"),
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

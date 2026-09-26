@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity, Shield, ShieldOff } from "lucide-react";
+import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity, Shield, ShieldOff, Film, Trash2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { CameraPlayer } from "@/components/CameraPlayer";
 import { toast } from "sonner";
@@ -11,6 +11,9 @@ export const SecurityTab = () => {
   const { state, api, act } = useSystem();
   const [full, setFull] = useState(false);
   const [selected, setSelected] = useState("cam_front");
+  const [clips, setClips] = useState([]);
+  const loadClips = async () => { try { setClips(await api.getClips()); } catch (e) {} };
+  useEffect(() => { loadClips(); }, []);
   if (!state) return null;
   const cam = state.camera;
   const cameras = state.cameras || [];
@@ -25,12 +28,20 @@ export const SecurityTab = () => {
     const res = await api.cameraMotion(camId);
     if (res.state) act(Promise.resolve(res.state));
     setSelected(camId);
+    loadClips();
     const fired = res.fired || [];
     toast(fired.length ? `Motion → ran: ${fired.join(", ")}` : "Motion detected", {
       description: `${cameras.find((c) => c.id === camId)?.name || camId}${fired.length ? " · automation triggered" : ""}`,
     });
   };
   const simulateMotion = () => motionOn(selected);
+
+  const playClip = (clip) => {
+    setSelected(clip.camera_id);
+    setFull(true);
+    toast(`Playing ${clip.camera_name}`, { description: new Date(clip.ts).toLocaleString() });
+  };
+  const clearClips = async () => { await api.clearClips(); loadClips(); };
 
   const toggleArm = async () => {
     await act(api.setArm(!cam.armed));
@@ -94,6 +105,45 @@ export const SecurityTab = () => {
             <Activity className="w-4 h-4" /> Simulate motion
           </button>
         </div>
+      </div>
+
+      <div className="glass rounded-2xl p-4" data-testid="clips-timeline">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Film className="w-4 h-4" style={{ color: "var(--c4-indigo)" }} />
+            <p className="font-semibold text-sm">Recent clips</p>
+          </div>
+          {clips.length > 0 && (
+            <button data-testid="clear-clips-btn" onClick={clearClips} className="text-[11px] flex items-center gap-1" style={{ color: "var(--c4-muted)" }}>
+              <Trash2 className="w-3.5 h-3.5" /> Clear
+            </button>
+          )}
+        </div>
+        {clips.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--c4-muted)" }}>No motion clips yet. Trigger motion on a camera to capture one.</p>
+        ) : (
+          <div className="space-y-2">
+            {clips.map((clip) => (
+              <button
+                key={clip.id}
+                data-testid={`clip-${clip.id}`}
+                onClick={() => playClip(clip)}
+                className="w-full flex items-center gap-3 rounded-xl p-2 active:scale-[0.99] transition"
+                style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}
+              >
+                <div className="w-16 h-10 rounded-lg overflow-hidden shrink-0 relative">
+                  <img src={STILL} alt="" className="w-full h-full object-cover" style={{ filter: "brightness(0.6)" }} />
+                  <span className="absolute inset-0 flex items-center justify-center"><Film className="w-4 h-4" style={{ color: "#fff" }} /></span>
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-xs font-semibold truncate">{clip.camera_name}</p>
+                  <p className="text-[10px]" style={{ color: "var(--c4-muted)" }}>{new Date(clip.ts).toLocaleString()}</p>
+                </div>
+                <span className="text-[11px] font-semibold shrink-0" style={{ color: "var(--c4-cyan)" }}>Play</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="glass rounded-2xl p-4 flex items-center justify-between" data-testid="arm-card">

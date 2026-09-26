@@ -37,6 +37,10 @@ export const api = {
   cameraStream: () => http.get("/camera/stream").then((r) => r.data),
   cameraStreamOne: (camId) => http.get(`/camera/stream/${camId}`).then((r) => r.data),
   cameraMotion: (camId) => http.post(`/camera/${camId}/motion`).then((r) => r.data),
+  getClips: () => http.get("/clips").then((r) => r.data),
+  clearClips: () => http.delete("/clips").then((r) => r.data),
+  getVoicePhrases: () => http.get("/voice/phrases").then((r) => r.data),
+  setVoicePhrases: (phrases) => http.put("/voice/phrases", { phrases }).then((r) => r.data),
   discover: (live = false) => http.get(`/discover?live=${live}`).then((r) => r.data),
   // Device config
   updateConfig: (config) => http.put("/config", { config }).then((r) => r.data),
