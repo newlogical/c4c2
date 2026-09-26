@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronRight, ChevronLeft, Wifi, Loader2, Cable, Radio, Thermometer, Camera, MonitorSpeaker, Sparkles, CheckCircle2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
@@ -26,6 +26,13 @@ export const SetupWizard = ({ open, onClose }) => {
   const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(state?.config || {})));
   const [testing, setTesting] = useState(false);
   const step = STEPS[i];
+
+  useEffect(() => {
+    if (open) {
+      setI(0);
+      setCfg(JSON.parse(JSON.stringify(state?.config || {})));
+    }
+  }, [open]);
 
   const c = (d) => cfg[d] || {};
   const setField = (d, k, v) => setCfg((p) => ({ ...p, [d]: { ...p[d], [k]: v } }));

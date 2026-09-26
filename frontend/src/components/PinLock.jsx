@@ -16,7 +16,7 @@ export const PinLock = ({ onUnlock, propertyName }) => {
     if (retry <= 0) return;
     timerRef.current = setInterval(() => setRetry((r) => (r <= 1 ? 0 : r - 1)), 1000);
     return () => clearInterval(timerRef.current);
-  }, [retry > 0]);
+  }, [locked]);
 
   const submit = async (value) => {
     const res = await api.verifyPin(value);

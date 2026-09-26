@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 7 fully verified. Backend: 14/14 pytest cases pass (PIN lockout progression 4->3->2->1->locked/30s, correct PIN blocked while locked, change-pin clears lock, state never exposes pin/pin_hash, config.setup_done added + persisted + reset-restores-false, PWA assets manifest.json/icon-192/icon-512/apple-touch-icon all 200, manifest has maskable+standalone, index.html has manifest+apple-touch-startup-image links). Frontend: PinLock lockout UI works — red shake, subtitle 'Incorrect PIN · N attempts left' counts down 4->3->2->1, at 5th wrong subtitle becomes 'Too many attempts · retry in Ns' countdown, keypad dims to opacity 0.4 and pointer-events:none, buttons disabled, ShieldAlert icon shown. Setup wizard auto-opens on unlock when setup_done=false; welcome→matrix→amp→ecobee→camera→tv→done navigates; wizard-live-matrix toggle reveals wizard-matrix-host input; toggling wizard-live-tv reveals wizard-tv-ip-tv_living; wizard-finish PUTs config and setup_done becomes true and closes; wizard-skip closes without finishing; run-wizard-btn in Settings reopens it. Settings screensaver card and toggle present, localStorage 'c4_saver' updates on toggle, no console errors from ScreenSaver mount. All bottom-nav tabs navigable. State/PIN cleanup performed at end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter7.py",
+    "/app/test_reports/pytest/iter7_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PinLock useEffect deps use `[retry > 0]` which is a boolean expression — React lint may warn (exhaustive-deps). Works but not idiomatic; prefer `[locked]` or `[retry]`.",
+    "SetupWizard: `cfg` state is initialized once from state?.config; if state loads after mount (SystemContext), the wizard may open with empty cfg. Auto-open flow works today because unlock happens after state fetch, but a guard/effect to sync cfg when state changes would be more robust.",
+    "ScreenSaver: 90s idle activation not exercised (long duration). Toggle + mount verified clean. Consider adding a debug shortcut or lower-timeout prop for tests.",
+    "Backend PIN escalation formula: retry_after doubles per failure past threshold (30, 60, 120, 240, 300 cap). Only the first lockout (30s) verified; escalation not asserted (would require waiting 30s+). Documented as expected."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 (default). Demo bypass button data-testid=pin-demo-bypass.",
+  "seed_data_creation": "None; state reset and PIN reset to 1234 with lock cleared as post-test cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 7 all green. Note the Settings drawer trigger testid is `open-settings-btn` (in TopBar.jsx), NOT `settings-btn`. Setup wizard auto-opens on every unlock when config.setup_done=false; POST /api/state/reset flips it back to false — call wizard-skip before testing other tabs. PIN change-pin endpoint acts as reliable lock-reset. All device dispatch is MOCKED in cloud."
+}
