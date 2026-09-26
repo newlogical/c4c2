@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 9 fully tested: Camera clips (create/list/delete), per-camera RTSP wizard inputs + config persistence, per-camera HLS stream endpoint, voice phrases persistence + Settings UI, plus regressions (PIN, scenes, climate, away). All 8 pytest backend cases pass; all frontend flows verified via Playwright.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter9.py",
+    "/app/test_reports/pytest/iter9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 1042 lines — approaching the 700-line threshold for split. Consider extracting routers (auth, camera/clips, voice, config) into separate modules for maintainability.",
+    "Unused import in server.py: 'socket' imported at module scope but re-imported inside test_connection.",
+    "_ensure_ffmpeg spawns per-cam ffmpeg subprocesses without ever terminating stale procs on config change — could leak processes if rtsp_url changes for same cam_id. Consider killing previous proc before restart.",
+    "clips collection has no size cap or TTL — motion floods could grow db.clips unbounded. list_clips already limits to 50 but insertion is unlimited.",
+    "PUT /api/voice/phrases accepts raw dict — consider Pydantic model for validation."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter9.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234; pin-demo-bypass button.",
+  "seed_data_creation": "During tests: clips created via /api/camera/{cam_id}/motion (cleaned up); voice phrases {'movie_night':'Movie time'} (cleaned up); config touched then state reset.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 9 verified. Backend uses ffmpeg (installed) so live=true response works for per-camera stream. Voice phrases stored under db.settings key 'voice_phrases' in field 'map'. Clips stored in db.clips. Wizard's per-camera field testid is wizard-camera-rtsp-{cam_id}; front camera uses wizard-camera-rtsp_url (device-field pattern).",
+  "rca of the issue": "N/A — no issues found."
+}

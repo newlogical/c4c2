@@ -734,11 +734,9 @@ async def test_connection(device: str):
         return {"device": device, "ok": False, "detail": "Device is in demo mode (not live)."}
     try:
         if device == "matrix":
-            import socket
             with socket.create_connection((conn["host"], int(conn.get("port", 23))), timeout=4):
                 pass
         elif device == "amp":
-            import socket
             with socket.create_connection((conn["host"], 8080), timeout=4):
                 pass
         elif device == "ecobee":
@@ -750,7 +748,6 @@ async def test_connection(device: str):
             if not conn.get("rtsp_url"):
                 raise RuntimeError("No RTSP URL configured")
         elif device == "tv":
-            import socket
             sets = [s for s in (conn.get("sets") or {}).values() if s.get("ip")]
             if not sets:
                 raise RuntimeError("No TV IP addresses configured")
