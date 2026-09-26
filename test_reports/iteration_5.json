@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 5 tested end-to-end: Zone→TV audio linking, Scene Builder (create/list/apply/delete + use in automations), Away Mode, Arm/Disarm, Remote Access docs. Backend: 15/15 pytest tests pass in /app/backend/tests/test_iter5.py (state defaults, follow-on-power, follow-on-route, follow-on-broadcast, disabled-follow no-op, builtin scenes, custom scene create+apply+delete, custom scene as automation action, away powers off displays + arms, arm toggle only camera, plus regression on matrix/audio/climate/camera). Frontend: away-toggle flips home↔away and powers TVs off, audio-follow-toggle persists, arm-card+arm-toggle flips camera.armed, new-scene-btn opens create-scene-modal, scene-name-input+scene-icon-Film+save-scene-btn creates a Custom-badged scene with scene-delete-{id}, scene-{id} runs it, automation-scene-{customId} appears in the Automations New modal, remote-access-guide (Tailscale/WireGuard) present in Settings drawer. SELF_HOST.md has 'Remote access' section.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter5.py",
+    "/app/test_reports/pytest/iter5_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is ~830 lines and would benefit from splitting into routers (matrix, audio, climate, camera, automations, scenes, settings) for maintainability.",
+    "POST /api/scenes accepts empty name after strip() — validation could reject blank/duplicate names (currently allowed).",
+    "DELETE /api/scenes/{id} always returns {ok:true} even if id doesn't exist or matches a builtin id — a 404 for unknown/builtin ids would be safer.",
+    "set_away() forces thermostat mode to 'auto' but does not restore prior mode when returning home; consider snapshotting/restoring or documenting the behavior."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter5.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 or pin-demo-bypass button",
+  "seed_data_creation": "None. All custom scenes/automations created during testing were deleted; state was reset at end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend testing must wait ~4s between navigation and click on away-toggle/new-scene-btn to let Sonner toasts finish (they overlay top area). Bottom nav uses data-testid nav-home/watch/listen/climate/security/scenes. The Automations 'Run scene' picker is inside a modal opened via the 'New' button — not rendered inline. Backend test uses REACT_APP_BACKEND_URL and resets state via /api/state/reset before every test."
+}

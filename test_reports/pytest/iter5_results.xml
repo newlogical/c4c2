@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="15" time="69.530" timestamp="2026-09-26T15:29:23.814394+00:00" hostname="agent-env-936114e4-ef9c-4060-bac7-1b7c645ad290"><testcase classname="tests.test_iter5.TestRegression" name="test_matrix_route_and_broadcast" time="0.603" /><testcase classname="tests.test_iter5.TestZoneLinking" name="test_default_audio_follow_true" time="0.494" /><testcase classname="tests.test_iter5.TestZoneLinking" name="test_power_on_tv_follows_source_to_zone" time="26.504" /><testcase classname="tests.test_iter5.TestRegression" name="test_audio_group_and_zone" time="30.033"><error message="failed on setup with &quot;requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='c4-controller-clone.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/state/reset (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='c4-controller-clone.preview.emergentagent.com', port=443) at 0xfc96204d6fd0&gt;, 'Connection to c4-controller-clone.preview.emergentagent.com timed out. (connect timeout=15)'))&quot;">/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:204: in _new_conn
+    sock = connection.create_connection(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:85: in create_connection
+    raise err
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:73: in create_connection
+    sock.connect(sa)
+E   TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:788: in urlopen
+    response = self._make_request(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:488: in _make_request
+    raise new_e
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:464: in _make_request
+    self._validate_conn(conn)
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:1106: in _validate_conn
+    conn.connect()
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:759: in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:213: in _new_conn
+    raise ConnectTimeoutError(
+E   urllib3.exceptions.ConnectTimeoutError: (&lt;HTTPSConnection(host='c4-controller-clone.preview.emergentagent.com', port=443) at 0xfc96204d6fd0&gt;, 'Connection to c4-controller-clone.preview.emergentagent.com timed out. (connect timeout=15)')
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:696: in send
+    resp = conn.urlopen(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:842: in urlopen
+    retries = retries.increment(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='c4-controller-clone.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/state/reset (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='c4-controller-clone.preview.emergentagent.com', port=443) at 0xfc96204d6fd0&gt;, 'Connection to c4-controller-clone.preview.emergentagent.com timed out. (connect timeout=15)'))
+
+During handling of the above exception, another exception occurred:
+backend/tests/test_iter5.py:13: in reset_state
+    requests.post(f"{API}/state/reset", timeout=15)
+/root/.venv/lib/python3.11/site-packages/requests/api.py:134: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/api.py:71: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:651: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:784: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:717: in send
+    raise ConnectTimeout(e, request=request)
+E   requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='c4-controller-clone.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/state/reset (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='c4-controller-clone.preview.emergentagent.com', port=443) at 0xfc96204d6fd0&gt;, 'Connection to c4-controller-clone.preview.emergentagent.com timed out. (connect timeout=15)'))</error></testcase><testcase classname="tests.test_iter5.TestRegression" name="test_climate" time="16.354" /><testcase classname="tests.test_iter5.TestZoneLinking" name="test_route_changes_paired_zone_source" time="26.558" /><testcase classname="tests.test_iter5.TestRegression" name="test_camera" time="0.517" /><testcase classname="tests.test_iter5.TestSceneBuilder" name="test_builtin_scenes" time="0.242" /><testcase classname="tests.test_iter5.TestSceneBuilder" name="test_create_and_apply_and_delete_custom_scene" time="18.392" /><testcase classname="tests.test_iter5.TestZoneLinking" name="test_broadcast_updates_all_paired_zones" time="0.263" /><testcase classname="tests.test_iter5.TestZoneLinking" name="test_disabled_follow_does_not_change_zone" time="11.800" /><testcase classname="tests.test_iter5.TestSceneBuilder" name="test_custom_scene_as_automation" time="0.712" /><testcase classname="tests.test_iter5.TestAwayMode" name="test_away_powers_off_and_arms" time="0.409" /><testcase classname="tests.test_iter5.TestAwayMode" name="test_home_disables_armed" time="0.383" /><testcase classname="tests.test_iter5.TestAwayMode" name="test_arm_toggle_only_camera" time="1.420" /></testsuite></testsuites>
