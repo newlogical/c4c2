@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 3 (Samsung TV control) tested end-to-end. All 10 new backend pytest tests pass; 38/40 total backend tests pass (the 2 failures are pre-existing intermittent HTTP read-timeouts to the preview URL, unrelated to iter-3). Frontend Watch tab TV volume buttons (tv-voldown/tv-mute/tv-volup for all 4 displays), Settings 'Samsung TVs' card with LIVE toggle, per-display field groups (settings-tv-{id}), IP/MAC/HDMI/token inputs, Test connection, and Save all work and persist to config.tv via PUT /api/config. Cleanup: reverted config.tv.live to false and cleared IPs.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/config", "issue": "Shallow merge at device level: sending {tv:{sets:{tv_living:{...}}}} REPLACES tv.sets rather than merging per-display. Frontend always sends the full sets dict so it works, but a partial API caller could wipe other TVs' config."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter3.py",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "Optional: make PUT /api/config perform a deep-merge (recursive) so partial nested updates to tv.sets don't clobber sibling TVs.",
+    "Optional: /api/config/test/tv error string when no IPs are configured currently reads 'No TV IP addresses configured' (matched by test as 'no tv ip'). Consistent with helpful-detail requirement."
+  ],
+  "critical_code_review_comments": [
+    "drivers.TVDriver.power(on=True) sends WoL then attempts to also send KEY_HDMI over the SamsungTV WS. If the TV just booted from standby, the WS may not be ready — the try/except in _dispatch catches this and logs 'error', but the UI won't retry. Consider a short delay + retry on power-on.",
+    "server.py tv_conn: builds {**per_display_set, 'live': tv.live}. If a driver method later tries conn['sets'] (e.g. by mistake) it won't exist — currently unused, but worth being aware of.",
+    "server.py /api/config/test/tv: only tests connectivity to the FIRST TV with an IP (sets[0]). Consider iterating all and returning per-TV status."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter3.py (new — 10 tests for Samsung TV: state config, power dual-log, tvkey key/mute/vol, 404 for unknown display, config PUT persistence, test/tv branches for demo/live-unreachable/live-no-ips, regression matrix route)"
+  ],
+  "success_rate": {"backend": "100% for iter-3 (10/10); 38/40 overall (2 unrelated network timeouts)", "frontend": "100% of new Samsung TV flows"},
+  "test_credentials": "PIN 1234 or pin-demo-bypass button",
+  "seed_data_creation": "None persisted. TV config toggled to live with test IP 10.0.0.60/MAC AA:BB:CC:11:22:33 during testing, then reverted to demo (live=false, all IPs cleared).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New testids confirmed for iter-3: tv-voldown-{id}, tv-mute-{id}, tv-volup-{id} on every display card in Watch tab; settings-tv, settings-live-tv, settings-tv-{display}, tv-ip-{display}, tv-mac-{display}, tv-hdmi-{display}, tv-token-{display}, settings-test-tv inside SettingsDrawer. POST /api/display/tvkey uses {source_id: <display_id>, key} despite acting on displays (RemoteReq reused). POST /api/display/power now logs 2 entries (SamsungTV + JTECH-MXT40). /api/config/test/tv never 500s. Sonner toasts overlay top-bar — wait ~4s before clicking open-settings-btn (already handled in test scripts)."
+}

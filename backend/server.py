@@ -440,13 +440,20 @@ async def run_scene(scene_id: str):
 # Settings / device config
 # ---------------------------------------------------------------------------
 
+def _deep_merge(base: dict, updates: dict) -> dict:
+    for k, v in updates.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
 @api_router.put("/config")
 async def update_config(req: ConfigReq):
     state = await get_state()
     merged = state.get("config") or default_config()
-    for device, values in req.config.items():
-        merged.setdefault(device, {})
-        merged[device].update(values)
+    _deep_merge(merged, req.config)
     state["config"] = merged
     await save_state(state)
     return state
