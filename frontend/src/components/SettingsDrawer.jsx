@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -77,6 +77,11 @@ export const SettingsDrawer = ({ open, onClose }) => {
 
   const setField = (device, field, val) =>
     setConfig((p) => ({ ...p, [device]: { ...p[device], [field]: val } }));
+  const setTvField = (displayId, field, val) =>
+    setConfig((p) => ({
+      ...p,
+      tv: { ...p.tv, sets: { ...(p.tv?.sets || {}), [displayId]: { ...((p.tv?.sets || {})[displayId] || {}), [field]: val } } },
+    }));
   const toggle = (device) =>
     setConfig((p) => ({ ...p, [device]: { ...p[device], live: !p[device]?.live } }));
 
@@ -143,6 +148,50 @@ export const SettingsDrawer = ({ open, onClose }) => {
                   Apple TV device IDs & pairing credentials are provisioned on the host via <code>atvremote</code>. Enable LIVE to route remote commands through pyatv.
                 </p>
               </DeviceCard>
+
+              <div className="glass rounded-2xl p-4" data-testid="settings-tv">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c("tv").live ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)" }}>
+                      <MonitorSpeaker className="w-4.5 h-4.5" style={{ color: c("tv").live ? "var(--c4-emerald)" : "var(--c4-muted)" }} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">Samsung TVs</p>
+                      <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Power (Wake-on-LAN) + volume</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold" style={{ color: c("tv").live ? "var(--c4-emerald)" : "var(--c4-muted)" }}>{c("tv").live ? "LIVE" : "DEMO"}</span>
+                    <Toggle on={!!c("tv").live} onChange={() => toggle("tv")} testid="settings-live-tv" />
+                  </div>
+                </div>
+                {c("tv").live && (
+                  <div className="mt-3 space-y-3">
+                    {(state?.displays || []).map((d) => {
+                      const set = (c("tv").sets || {})[d.id] || {};
+                      const inp = "rounded-lg px-2.5 py-2 text-xs outline-none";
+                      const inpStyle = { background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" };
+                      return (
+                        <div key={d.id} className="rounded-xl p-3" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }} data-testid={`settings-tv-${d.id}`}>
+                          <p className="text-xs font-semibold mb-2">{d.name}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input placeholder="IP e.g. 192.168.1.60" value={set.ip || ""} data-testid={`tv-ip-${d.id}`} onChange={(e) => setTvField(d.id, "ip", e.target.value)} className={inp} style={inpStyle} />
+                            <input placeholder="MAC AA:BB:CC:.." value={set.mac || ""} data-testid={`tv-mac-${d.id}`} onChange={(e) => setTvField(d.id, "mac", e.target.value)} className={inp} style={inpStyle} />
+                            <input placeholder="HDMI input #" type="number" value={set.hdmi_input ?? 1} data-testid={`tv-hdmi-${d.id}`} onChange={(e) => setTvField(d.id, "hdmi_input", Number(e.target.value))} className={inp} style={inpStyle} />
+                            <input placeholder="Token (optional)" value={set.token || ""} data-testid={`tv-token-${d.id}`} onChange={(e) => setTvField(d.id, "token", e.target.value)} className={inp} style={inpStyle} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <button data-testid="settings-test-tv" onClick={() => test("tv")} className="w-full rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-2 active:scale-95 transition glass-elevated">
+                      {testing === "tv" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />} Test connection
+                    </button>
+                    <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
+                      Each TV stays on its wired HDMI input; power-on uses Wake-on-LAN (needs the MAC and "Network standby" enabled on the TV).
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-4" style={{ borderTop: "1px solid var(--c4-border)" }}>

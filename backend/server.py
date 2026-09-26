@@ -46,6 +46,12 @@ def default_config() -> dict:
         "ecobee": {"live": False, "token": "", "thermostat_id": ""},
         "appletv": {"live": False, "devices": {}},
         "camera": {"live": False, "rtsp_url": ""},
+        "tv": {"live": False, "sets": {
+            "tv_living": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
+            "tv_office": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
+            "tv_master": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
+            "tv_guest": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
+        }},
     }
 
 
@@ -123,6 +129,12 @@ def find(items, _id):
 
 def cfg(state, device):
     return (state.get("config") or {}).get(device, {})
+
+
+def tv_conn(state, display_id):
+    t = cfg(state, "tv")
+    s = (t.get("sets") or {}).get(display_id, {})
+    return {**s, "live": t.get("live", False)}
 
 
 # ---------------------------------------------------------------------------
@@ -326,8 +338,20 @@ async def display_power(req: DisplayPowerReq):
         raise HTTPException(404, "Display not found")
     display["power"] = req.power
     log_cmd(state, drivers.matrix.power(display["output"], req.power, display["name"], cfg(state, "matrix")))
+    log_cmd(state, drivers.tv.power(display["name"], req.power, tv_conn(state, display["id"])))
     await save_state(state)
     return state
+
+
+@api_router.post("/display/tvkey")
+async def display_tvkey(req: RemoteReq):
+    state = await get_state()
+    display = find(state["displays"], req.source_id)
+    if not display:
+        raise HTTPException(404, "Display not found")
+    log_cmd(state, drivers.tv.key(display["name"], req.key, tv_conn(state, display["id"])))
+    await save_state(state)
+    return {"ok": True, "command_log": state["command_log"]}
 
 
 @api_router.post("/display/remote")
@@ -451,6 +475,13 @@ async def test_connection(device: str):
         elif device == "camera":
             if not conn.get("rtsp_url"):
                 raise RuntimeError("No RTSP URL configured")
+        elif device == "tv":
+            import socket
+            sets = [s for s in (conn.get("sets") or {}).values() if s.get("ip")]
+            if not sets:
+                raise RuntimeError("No TV IP addresses configured")
+            with socket.create_connection((sets[0]["ip"], 8001), timeout=4):
+                pass
         else:
             raise RuntimeError("No test available for this device")
         return {"device": device, "ok": True, "detail": "Reachable"}

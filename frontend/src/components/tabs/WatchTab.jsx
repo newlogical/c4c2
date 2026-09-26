@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Tv, Power, Gamepad2, Cast, Check } from "lucide-react";
+import { Tv, Power, Gamepad2, Cast, Check, Volume2, VolumeX, Volume1 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { AppleTVRemote } from "@/components/AppleTVRemote";
 import { toast } from "sonner";
@@ -21,6 +21,9 @@ export const WatchTab = () => {
   };
   const togglePower = async (d) => {
     await act(api.displayPower(d.id, !d.power));
+  };
+  const tvVol = async (d, key) => {
+    await api.tvKey(d.id, key);
   };
 
   return (
@@ -154,6 +157,18 @@ export const WatchTab = () => {
                 >
                   <Gamepad2 className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} /> Remote for {src?.name}
                 </button>
+
+                <div className="grid grid-cols-3 gap-1.5 mt-2">
+                  <button data-testid={`tv-voldown-${d.id}`} onClick={() => tvVol(d, "KEY_VOLDOWN")} className="glass-elevated rounded-xl py-2 flex items-center justify-center gap-1 text-[11px] font-semibold active:scale-95 transition">
+                    <Volume1 className="w-3.5 h-3.5" /> TV Vol−
+                  </button>
+                  <button data-testid={`tv-mute-${d.id}`} onClick={() => tvVol(d, "KEY_MUTE")} className="glass-elevated rounded-xl py-2 flex items-center justify-center gap-1 text-[11px] font-semibold active:scale-95 transition">
+                    <VolumeX className="w-3.5 h-3.5" /> Mute
+                  </button>
+                  <button data-testid={`tv-volup-${d.id}`} onClick={() => tvVol(d, "KEY_VOLUP")} className="glass-elevated rounded-xl py-2 flex items-center justify-center gap-1 text-[11px] font-semibold active:scale-95 transition">
+                    <Volume2 className="w-3.5 h-3.5" /> TV Vol+
+                  </button>
+                </div>
               </motion.div>
             );
           })}

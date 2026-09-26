@@ -212,11 +212,57 @@ class CameraDriver(BaseDriver):
         return self._dispatch(payload, f"{cam_name}: snapshot", conn)
 
 
+class TVDriver(BaseDriver):
+    """Samsung Tizen TV — samsungtvws WebSocket for keys/power-off, Wake-on-LAN for power-on."""
+
+    name = "SamsungTV"
+    transport = "WS :8001 + WoL"
+
+    def _wol(self, mac):
+        clean = mac.replace(":", "").replace("-", "").strip()
+        if len(clean) != 12:
+            raise RuntimeError("Invalid MAC address")
+        packet = bytes.fromhex("f" * 12 + clean * 16)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            s.sendto(packet, ("255.255.255.255", 9))
+        finally:
+            s.close()
+
+    def _tv(self, conn):
+        from samsungtvws import SamsungTVWS  # lazy: only needed live
+        return SamsungTVWS(host=conn["ip"], token=conn.get("token") or None, timeout=6)
+
+    def power(self, output_display, on, conn=None):
+        if on:
+            payload = f"WoL magic packet -> {conn.get('mac','?') if conn else '?'}"
+            note = f"{output_display} power ON (Wake-on-LAN) + HDMI{conn.get('hdmi_input','?') if conn else '?'}"
+
+            def send():
+                self._wol(conn["mac"])
+                if conn.get("hdmi_input"):
+                    self._tv(conn).send_key("KEY_HDMI")  # each TV sits on its fixed matrix output
+        else:
+            payload = "send_key KEY_POWER"
+            note = f"{output_display} power OFF"
+
+            def send():
+                self._tv(conn).send_key("KEY_POWER")
+        return self._dispatch(payload, note, conn, sender=send)
+
+    def key(self, display_name, key, conn=None):
+        payload = f"send_key {key}"
+        return self._dispatch(payload, f"{display_name}: {key}", conn,
+                              sender=lambda: self._tv(conn).send_key(key))
+
+
 matrix = MatrixDriver()
 amp = AmpDriver()
 appletv = AppleTVDriver()
 thermostat = ThermostatDriver()
 camera = CameraDriver()
+tv = TVDriver()
 
 # A public test HLS feed so the live player streams video in the cloud demo.
 DEMO_HLS = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"

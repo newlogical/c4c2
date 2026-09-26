@@ -16,6 +16,8 @@ export const api = {
     http.post("/display/power", { display_id, power }).then((r) => r.data),
   remote: (source_id, key) =>
     http.post("/display/remote", { source_id, key }).then((r) => r.data),
+  tvKey: (display_id, key) =>
+    http.post("/display/tvkey", { source_id: display_id, key }).then((r) => r.data),
   zone: (payload) => http.post("/audio/zone", payload).then((r) => r.data),
   audioGroup: (source_id, volume) =>
     http.post("/audio/group", { source_id, volume }).then((r) => r.data),
