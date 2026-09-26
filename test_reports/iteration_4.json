@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 4 fully tested — backend 17/17 pytest passing, frontend flows verified. Amp source→input map, SmartThings config + set_input + set_volume, tv volume slider, commissioning guide, and power-on retry all work as specified. Regressions (matrix routing/broadcast, climate, camera, automations) still green.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter4.py",
+    "/app/test_reports/pytest/iter4.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is nearing ~700 lines; consider splitting device routes into routers/*.py in a future iteration.",
+    "TVDriver.power live path uses time.sleep in blocking retry (up to 4×2s=8s) inside an async endpoint call chain — fine in demo (skipped), but under live conditions this could block the FastAPI event loop worker. Consider running via asyncio.to_thread or using async httpx.",
+    "SmartThingsDriver._cmd retry sleeps 1.5s × 3 (~4.5s worst-case) in-thread; same event-loop blocking concern for live path.",
+    "display_tvvolume always logs SmartThings entry (simulated when not ready) which is fine, but slightly noisy — an option to skip logging when not ready could reduce log churn."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter4.py"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100%"},
+  "test_credentials": "PIN 1234 or pin-demo-bypass",
+  "seed_data_creation": "None — used /api/state/reset and cleaned up config to demo defaults after tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_iter4.py covers amp input_map (default + remap + audio_zone/group/scene), SmartThings backend (demo + live-config path + tvvolume + test-connection), display power-on demo timing, and regression suite. Self-host artifacts existence check included. Cleanup done in module-scope teardown fixture.",
+  "rca of the issue": "N/A — no bugs found."
+}

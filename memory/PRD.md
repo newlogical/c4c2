@@ -56,7 +56,16 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
   schedule triggers and motion-event triggers (Security "Simulate motion"). Stored in Mongo
   `automations`. Endpoints under `/api/automations` + `/api/trigger/{event}`.
 
+### Iteration 3 — Samsung TV control
+- Per-TV power (Wake-on-LAN on, samsungtvws off), TV volume keys, fixed HDMI input; Settings Samsung TVs card. 10/10 tests.
+
+### Iteration 4 — Amp mapping, SmartThings, commissioning, power-on retry (17/17 tests)
+- Amp source→WS66i physical input map (config.amp.input_map) used by zone/group/scene; editable in Settings.
+- SmartThings integration: exact HDMI input on power-on + absolute TV volume (config.smartthings PAT + per-TV device id); Settings card + Watch TV volume slider.
+- On-site commissioning: SELF_HOST.md + docker-compose.yml + Dockerfiles + in-app collapsible guide.
+- TV power-on Wake-on-LAN + HDMI-select retry (4x); live driver dispatch offloaded via asyncio.to_thread.
+
 ## Backlog / Remaining
-- P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; enter device IPs/tokens in Settings).
+- P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; SELF_HOST.md + docker-compose provided).
 - P2: Lighting/shades zones, multi-property, PIN rate-limiting, per-user profiles.
 - P2: Low-latency camera (WebRTC/go2rtc), energy dashboard, richer automation conditions.

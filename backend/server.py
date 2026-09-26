@@ -10,6 +10,7 @@ import copy
 import uuid
 import shutil
 import subprocess
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional, List
@@ -370,10 +371,10 @@ async def display_power(req: DisplayPowerReq):
     stc = st_conn(state, display["id"])
     use_st = req.power and st_ready(stc)  # SmartThings selects the exact HDMI input on power-on
     log_cmd(state, drivers.matrix.power(display["output"], req.power, display["name"], cfg(state, "matrix")))
-    log_cmd(state, drivers.tv.power(display["name"], req.power, tv_conn(state, display["id"]), select_input=not use_st))
+    log_cmd(state, await asyncio.to_thread(drivers.tv.power, display["name"], req.power, tv_conn(state, display["id"]), select_input=not use_st))
     if use_st:
         hdmi = int((cfg(state, "tv").get("sets") or {}).get(display["id"], {}).get("hdmi_input", 1) or 1)
-        log_cmd(state, drivers.smartthings.set_input(display["name"], f"HDMI{hdmi}", stc))
+        log_cmd(state, await asyncio.to_thread(drivers.smartthings.set_input, display["name"], f"HDMI{hdmi}", stc))
     await save_state(state)
     return state
 
@@ -387,7 +388,7 @@ async def display_tvvolume(req: TvVolumeReq):
     vol = max(0, min(100, req.volume))
     display["tv_volume"] = vol
     stc = st_conn(state, display["id"])
-    log_cmd(state, drivers.smartthings.set_volume(display["name"], vol, stc if st_ready(stc) else {"live": False}))
+    log_cmd(state, await asyncio.to_thread(drivers.smartthings.set_volume, display["name"], vol, stc if st_ready(stc) else {"live": False}))
     await save_state(state)
     return {"ok": True, "tv_volume": vol, "command_log": state["command_log"]}
 
