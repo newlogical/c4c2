@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 6 (PIN change + PWA + Fullscreen) fully verified. Backend: 15/15 pytest tests pass in /app/backend/tests/test_iter6.py — GET /api/state does not leak pin/pin_hash, POST /api/auth/pin returns success true/false, POST /api/auth/change-pin returns 400 for wrong current & non-4-digit new, changed PIN survives POST /api/state/reset (auth in db.auth), /manifest.json has display:'standalone', /icon-512.png + /apple-touch-icon.png 200, index.html includes manifest link + apple-mobile-web-app-capable + apple-touch-icon; regressions on away, matrix/route, climate, scenes list, arm, audio/zone. Frontend: pin-demo-bypass unlocks; PIN keypad 1234 also unlocks; open-settings-btn opens drawer; settings-pin card renders; UI PIN change 1234->4321 succeeds with 'PIN updated' toast and backend confirms new PIN valid & old rejected; 3-digit new is client-blocked (PIN unchanged); mismatched new/confirm blocked client-side (PIN unchanged); wrong current shows 'Current PIN is incorrect' error toast (400) and PIN unchanged; fullscreen-btn present and clickable without uncaught error (headless no-ops as expected); all six bottom-nav tabs navigate cleanly. PIN restored to 1234 at end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter6.py",
+    "/app/test_reports/pytest/iter6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~860 lines; still worth splitting into routers (auth, matrix, audio, climate, camera, automations, scenes, settings).",
+    "POST /api/auth/change-pin has no throttling/lockout — brute-force protection (e.g. rate limit or delay after N failures) would harden it, though the app is single-property/LAN-only.",
+    "seed_pin() only inserts if missing; a DEFAULT_PIN change in env after first seed will not update the stored hash (documented behavior — fine, but worth noting).",
+    "TopBar.toggleFs swallows all errors silently; consider showing a small toast when Fullscreen API is unavailable so users know why the button appears inert."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter6.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 (restored at end of test run). pin-demo-bypass button also unlocks.",
+  "seed_data_creation": "None persisted. PIN was toggled to 4321 during UI test then restored to 1234 via /api/auth/change-pin.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Sonner toasts overlay the top bar area; wait ~3.5-4s between successive change-pin-btn clicks so the previous toast dismisses. When PIN is not 1234, restore via POST /api/auth/change-pin {current:<currentPin>, new_pin:'1234'} — /api/state/reset does NOT touch db.auth. PIN keypad testids are pin-key-0..9."
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Lock, Wifi, Cable, Radio, Terminal, Settings, Maximize, Minimize } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
+import { toast } from "sonner";
 
 const StatusDot = ({ ok, label, icon: Icon }) => (
   <div className="flex items-center gap-1.5" data-testid={`status-${label.toLowerCase()}`}>
@@ -28,10 +29,16 @@ export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings }) => {
   }, []);
 
   const toggleFs = async () => {
+    if (!document.documentElement.requestFullscreen) {
+      toast("Fullscreen not supported here", { description: "On iPhone/iPad, tap Share → Add to Home Screen for full-screen app mode." });
+      return;
+    }
     try {
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
       else await document.exitFullscreen();
-    } catch (e) { /* iOS Safari: use Add to Home Screen for fullscreen */ }
+    } catch (e) {
+      toast("Couldn't enter fullscreen", { description: "Add to Home Screen for full-screen app mode." });
+    }
   };
 
   const net = state?.network || {};
