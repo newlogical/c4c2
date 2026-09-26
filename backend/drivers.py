@@ -13,6 +13,7 @@ Live config is passed per-call as `conn` (a dict from state['config'][device]).
 import socket
 import shutil
 import subprocess
+import time
 from datetime import datetime, timezone
 
 
@@ -234,15 +235,25 @@ class TVDriver(BaseDriver):
         from samsungtvws import SamsungTVWS  # lazy: only needed live
         return SamsungTVWS(host=conn["ip"], token=conn.get("token") or None, timeout=6)
 
-    def power(self, output_display, on, conn=None):
+    def power(self, output_display, on, conn=None, select_input=True):
         if on:
+            hdmi = conn.get("hdmi_input", "?") if conn else "?"
             payload = f"WoL magic packet -> {conn.get('mac','?') if conn else '?'}"
-            note = f"{output_display} power ON (Wake-on-LAN) + HDMI{conn.get('hdmi_input','?') if conn else '?'}"
+            note = f"{output_display} power ON (Wake-on-LAN)" + (f" + HDMI{hdmi} (retry)" if select_input else "")
 
             def send():
                 self._wol(conn["mac"])
-                if conn.get("hdmi_input"):
-                    self._tv(conn).send_key("KEY_HDMI")  # each TV sits on its fixed matrix output
+                if not (select_input and conn.get("hdmi_input")):
+                    return
+                last = None
+                for _ in range(4):  # TV network stack wakes a few seconds after WoL
+                    try:
+                        self._tv(conn).send_key("KEY_HDMI")  # each TV sits on its fixed matrix output
+                        return
+                    except Exception as e:
+                        last = e
+                        time.sleep(2)
+                raise last
         else:
             payload = "send_key KEY_POWER"
             note = f"{output_display} power OFF"
@@ -257,12 +268,56 @@ class TVDriver(BaseDriver):
                               sender=lambda: self._tv(conn).send_key(key))
 
 
+class SmartThingsDriver(BaseDriver):
+    """Samsung SmartThings cloud — exact HDMI input + absolute volume via REST commands."""
+
+    name = "SmartThings"
+    transport = "Cloud REST"
+    BASE = "https://api.smartthings.com/v1"
+
+    def _cmd(self, conn, commands):
+        import requests
+        if not conn.get("token") or not conn.get("device_id"):
+            raise RuntimeError("SmartThings token / device id not configured")
+        url = f"{self.BASE}/devices/{conn['device_id']}/commands"
+        headers = {
+            "Authorization": f"Bearer {conn['token']}",
+            "Content-Type": "application/json;charset=utf-8",
+        }
+        last = None
+        for _ in range(3):
+            try:
+                r = requests.post(url, json={"commands": commands}, headers=headers, timeout=(3.05, 15))
+                if r.status_code == 401:
+                    raise RuntimeError("SmartThings token expired / unauthorized")
+                r.raise_for_status()
+                return
+            except Exception as e:
+                last = e
+                time.sleep(1.5)
+        raise last
+
+    def set_input(self, display, hdmi, conn=None):
+        cmds = [{"component": "main", "capability": "mediaInputSource",
+                 "command": "setInputSource", "arguments": [hdmi]}]
+        return self._dispatch(f"setInputSource {hdmi}", f"{display} input -> {hdmi}", conn,
+                              sender=lambda: self._cmd(conn, cmds))
+
+    def set_volume(self, display, vol, conn=None):
+        vol = max(0, min(100, int(vol)))
+        cmds = [{"component": "main", "capability": "audioVolume",
+                 "command": "setVolume", "arguments": [vol]}]
+        return self._dispatch(f"setVolume {vol}", f"{display} volume -> {vol}%", conn,
+                              sender=lambda: self._cmd(conn, cmds))
+
+
 matrix = MatrixDriver()
 amp = AmpDriver()
 appletv = AppleTVDriver()
 thermostat = ThermostatDriver()
 camera = CameraDriver()
 tv = TVDriver()
+smartthings = SmartThingsDriver()
 
 # A public test HLS feed so the live player streams video in the cloud demo.
 DEMO_HLS = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"

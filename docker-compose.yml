@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: mongo:7
+    network_mode: host
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    # host networking so Wake-on-LAN broadcasts + Telnet/RS232-over-IP reach LAN devices
+    network_mode: host
+    environment:
+      - MONGO_URL=mongodb://localhost:27017
+      - DB_NAME=c4clone
+      - CORS_ORIGINS=*
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # >>> set this to THIS host's LAN IP <<<
+        - REACT_APP_BACKEND_URL=http://192.168.1.10:8001
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

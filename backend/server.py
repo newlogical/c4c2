@@ -42,7 +42,10 @@ _ffmpeg_proc = None
 def default_config() -> dict:
     return {
         "matrix": {"live": False, "host": "192.168.1.1", "port": 23},
-        "amp": {"live": False, "host": "192.168.1.50"},
+        "amp": {"live": False, "host": "192.168.1.50", "input_map": {
+            "atv1": 1, "atv2": 2, "atv3": 3, "atv4": 4,
+            "spotify": 5, "airplay": 6, "tv_audio": 6,
+        }},
         "ecobee": {"live": False, "token": "", "thermostat_id": ""},
         "appletv": {"live": False, "devices": {}},
         "camera": {"live": False, "rtsp_url": ""},
@@ -51,6 +54,10 @@ def default_config() -> dict:
             "tv_office": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
             "tv_master": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
             "tv_guest": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
+        }},
+        "smartthings": {"live": False, "token": "", "devices": {
+            "tv_living": {"device_id": ""}, "tv_office": {"device_id": ""},
+            "tv_master": {"device_id": ""}, "tv_guest": {"device_id": ""},
         }},
     }
 
@@ -67,10 +74,10 @@ def default_state() -> dict:
             {"id": "atv4", "name": "Apple TV 4", "input": 4, "location": "Guest BR"},
         ],
         "displays": [
-            {"id": "tv_living", "name": "Living Room TV", "output": 1, "source": "atv1", "power": True},
-            {"id": "tv_office", "name": "Office TV", "output": 2, "source": "atv2", "power": False},
-            {"id": "tv_master", "name": "Master Bedroom TV", "output": 3, "source": "atv3", "power": False},
-            {"id": "tv_guest", "name": "Guest Bedroom TV", "output": 4, "source": "atv4", "power": False},
+            {"id": "tv_living", "name": "Living Room TV", "output": 1, "source": "atv1", "power": True, "tv_volume": 30},
+            {"id": "tv_office", "name": "Office TV", "output": 2, "source": "atv2", "power": False, "tv_volume": 30},
+            {"id": "tv_master", "name": "Master Bedroom TV", "output": 3, "source": "atv3", "power": False, "tv_volume": 30},
+            {"id": "tv_guest", "name": "Guest Bedroom TV", "output": 4, "source": "atv4", "power": False, "tv_volume": 30},
         ],
         "audio_sources": [
             {"id": "atv1", "name": "Apple TV 1"},
@@ -137,6 +144,25 @@ def tv_conn(state, display_id):
     return {**s, "live": t.get("live", False)}
 
 
+def amp_input(state, source_id):
+    """Physical WS66i input (1-6) wired to a logical audio source."""
+    m = cfg(state, "amp").get("input_map") or {}
+    try:
+        return int(m.get(source_id, 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def st_conn(state, display_id):
+    s = cfg(state, "smartthings")
+    dev = (s.get("devices") or {}).get(display_id) or {}
+    return {"live": s.get("live", False), "token": s.get("token", ""), "device_id": dev.get("device_id", "")}
+
+
+def st_ready(conn):
+    return bool(conn.get("live") and conn.get("token") and conn.get("device_id"))
+
+
 # ---------------------------------------------------------------------------
 # Scene engine (shared by API + scheduler)
 # ---------------------------------------------------------------------------
@@ -175,12 +201,12 @@ def apply_scene(state: dict, scene_id: str) -> bool:
         log_cmd(state, drivers.matrix.route(living["output"], atv["input"], living["name"], atv["name"], mc))
         az = find(state["audio_zones"], "audio_living")
         az.update({"source": "atv1", "power": True, "mute": False, "volume": 45})
-        log_cmd(state, drivers.amp.set_source(az["amp_zone"], atv["input"], az["name"], atv["name"], ac))
+        log_cmd(state, drivers.amp.set_source(az["amp_zone"], amp_input(state, "atv1"), az["name"], atv["name"], ac))
 
     elif scene_id == "whole_home_audio":
         for z in state["audio_zones"]:
             z.update({"source": "spotify", "power": True, "mute": False, "volume": 30})
-            log_cmd(state, drivers.amp.set_source(z["amp_zone"], 5, z["name"], "Spotify Connect", ac))
+            log_cmd(state, drivers.amp.set_source(z["amp_zone"], amp_input(state, "spotify"), z["name"], "Spotify Connect", ac))
     return True
 
 
@@ -255,6 +281,10 @@ class DisplayPowerReq(BaseModel):
 class RemoteReq(BaseModel):
     source_id: str
     key: str
+
+class TvVolumeReq(BaseModel):
+    display_id: str
+    volume: int
 
 class ZoneReq(BaseModel):
     zone_id: str
@@ -337,10 +367,29 @@ async def display_power(req: DisplayPowerReq):
     if not display:
         raise HTTPException(404, "Display not found")
     display["power"] = req.power
+    stc = st_conn(state, display["id"])
+    use_st = req.power and st_ready(stc)  # SmartThings selects the exact HDMI input on power-on
     log_cmd(state, drivers.matrix.power(display["output"], req.power, display["name"], cfg(state, "matrix")))
-    log_cmd(state, drivers.tv.power(display["name"], req.power, tv_conn(state, display["id"])))
+    log_cmd(state, drivers.tv.power(display["name"], req.power, tv_conn(state, display["id"]), select_input=not use_st))
+    if use_st:
+        hdmi = int((cfg(state, "tv").get("sets") or {}).get(display["id"], {}).get("hdmi_input", 1) or 1)
+        log_cmd(state, drivers.smartthings.set_input(display["name"], f"HDMI{hdmi}", stc))
     await save_state(state)
     return state
+
+
+@api_router.post("/display/tvvolume")
+async def display_tvvolume(req: TvVolumeReq):
+    state = await get_state()
+    display = find(state["displays"], req.display_id)
+    if not display:
+        raise HTTPException(404, "Display not found")
+    vol = max(0, min(100, req.volume))
+    display["tv_volume"] = vol
+    stc = st_conn(state, display["id"])
+    log_cmd(state, drivers.smartthings.set_volume(display["name"], vol, stc if st_ready(stc) else {"live": False}))
+    await save_state(state)
+    return {"ok": True, "tv_volume": vol, "command_log": state["command_log"]}
 
 
 @api_router.post("/display/tvkey")
@@ -377,7 +426,7 @@ async def audio_zone(req: ZoneReq):
         if not src:
             raise HTTPException(404, "Audio source not found")
         zone["source"], zone["power"] = req.source, True
-        log_cmd(state, drivers.amp.set_source(zone["amp_zone"], 1, zone["name"], src["name"], ac))
+        log_cmd(state, drivers.amp.set_source(zone["amp_zone"], amp_input(state, req.source), zone["name"], src["name"], ac))
     if req.volume is not None:
         zone["volume"] = max(0, min(100, req.volume))
         log_cmd(state, drivers.amp.set_volume(zone["amp_zone"], round(zone["volume"] * 38 / 100), zone["name"], zone["volume"], ac))
@@ -401,7 +450,7 @@ async def audio_group(req: AudioGroupReq):
     vol = max(0, min(100, req.volume))
     for zone in state["audio_zones"]:
         zone.update({"source": req.source_id, "volume": vol, "mute": False, "power": True})
-        log_cmd(state, drivers.amp.set_source(zone["amp_zone"], 1, zone["name"], src["name"], ac))
+        log_cmd(state, drivers.amp.set_source(zone["amp_zone"], amp_input(state, req.source_id), zone["name"], src["name"], ac))
         log_cmd(state, drivers.amp.set_volume(zone["amp_zone"], round(vol * 38 / 100), zone["name"], vol, ac))
     await save_state(state)
     return state
@@ -489,6 +538,13 @@ async def test_connection(device: str):
                 raise RuntimeError("No TV IP addresses configured")
             with socket.create_connection((sets[0]["ip"], 8001), timeout=4):
                 pass
+        elif device == "smartthings":
+            import requests
+            if not conn.get("token"):
+                raise RuntimeError("No SmartThings token configured")
+            r = requests.get("https://api.smartthings.com/v1/devices",
+                             headers={"Authorization": f"Bearer {conn.get('token','')}"}, timeout=8)
+            r.raise_for_status()
         else:
             raise RuntimeError("No test available for this device")
         return {"device": device, "ok": True, "detail": "Reachable"}

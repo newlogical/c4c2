@@ -25,6 +25,10 @@ export const WatchTab = () => {
   const tvVol = async (d, key) => {
     await api.tvKey(d.id, key);
   };
+  const setTvVolume = async (d, v) => {
+    await api.tvVolume(d.id, v);
+    toast.success(`${d.name} volume ${v}%`, { description: "SmartThings absolute level" });
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6 pb-8" data-testid="watch-tab">
@@ -168,6 +172,19 @@ export const WatchTab = () => {
                   <button data-testid={`tv-volup-${d.id}`} onClick={() => tvVol(d, "KEY_VOLUP")} className="glass-elevated rounded-xl py-2 flex items-center justify-center gap-1 text-[11px] font-semibold active:scale-95 transition">
                     <Volume2 className="w-3.5 h-3.5" /> TV Vol+
                   </button>
+                </div>
+
+                <div className="mt-2 flex items-center gap-2.5 px-1">
+                  <span className="text-[9px] font-bold uppercase tracking-wider shrink-0" style={{ color: "var(--c4-muted)" }}>TV Vol</span>
+                  <input
+                    type="range" min="0" max="100"
+                    defaultValue={d.tv_volume ?? 30}
+                    data-testid={`tv-abs-vol-${d.id}`}
+                    onMouseUp={(e) => setTvVolume(d, Number(e.target.value))}
+                    onTouchEnd={(e) => setTvVolume(d, Number(e.target.value))}
+                    className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{ accentColor: "var(--c4-cyan)", background: "var(--c4-border)" }}
+                  />
                 </div>
               </motion.div>
             );

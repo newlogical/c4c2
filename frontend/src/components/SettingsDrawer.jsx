@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -82,6 +82,13 @@ export const SettingsDrawer = ({ open, onClose }) => {
       ...p,
       tv: { ...p.tv, sets: { ...(p.tv?.sets || {}), [displayId]: { ...((p.tv?.sets || {})[displayId] || {}), [field]: val } } },
     }));
+  const setAmpInput = (sourceId, val) =>
+    setConfig((p) => ({ ...p, amp: { ...p.amp, input_map: { ...(p.amp?.input_map || {}), [sourceId]: val } } }));
+  const setStDevice = (displayId, val) =>
+    setConfig((p) => ({
+      ...p,
+      smartthings: { ...p.smartthings, devices: { ...(p.smartthings?.devices || {}), [displayId]: { device_id: val } } },
+    }));
   const toggle = (device) =>
     setConfig((p) => ({ ...p, [device]: { ...p[device], live: !p[device]?.live } }));
 
@@ -124,6 +131,23 @@ export const SettingsDrawer = ({ open, onClose }) => {
               Toggle a device to <b style={{ color: "var(--c4-emerald)" }}>LIVE</b> and enter its LAN address to control real hardware when self-hosted. Left in DEMO, the app simulates responses.
             </p>
 
+            <details className="mx-5 mt-3 rounded-xl glass" data-testid="commissioning-guide">
+              <summary className="px-4 py-3 text-xs font-semibold cursor-pointer flex items-center gap-2" style={{ color: "var(--c4-text)" }}>
+                <BookOpen className="w-4 h-4" style={{ color: "var(--c4-primary)" }} /> On-site commissioning guide
+              </summary>
+              <div className="px-4 pb-4 text-[11px] space-y-1.5" style={{ color: "var(--c4-muted)" }}>
+                <p>1. Self-host on a Pi/mini-PC on the apartment LAN (full steps in <code>SELF_HOST.md</code>).</p>
+                <p>2. <b>Matrix</b>: enable Telnet, enter its IP (port 23).</p>
+                <p>3. <b>WS66i</b>: set the rear switch to ETHERNET, enter IP, map each source to its wired input.</p>
+                <p>4. <b>Ecobee</b>: paste an API token from the developer portal.</p>
+                <p>5. <b>UniFi</b>: paste the camera's RTSP URL.</p>
+                <p>6. <b>Apple TVs</b>: pair on the host via <code>atvremote</code>.</p>
+                <p>7. <b>Samsung TVs</b>: enter IP + MAC, enable "Network standby"; accept the Allow prompt on first connect.</p>
+                <p>8. <b>SmartThings</b> (optional): PAT + device IDs for exact HDMI & absolute volume.</p>
+                <p className="pt-1">Flip each device to LIVE → Test connection → Save.</p>
+              </div>
+            </details>
+
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-3">
               <DeviceCard icon={Cable} title="JTECH-MXT40 Matrix" subtitle="HDMI video routing" device="matrix" conn={c("matrix")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="Host / IP" value={c("matrix").host} placeholder="192.168.1.1" onChange={(v) => setField("matrix", "host", v)} testid="matrix-host-input" />
@@ -132,6 +156,24 @@ export const SettingsDrawer = ({ open, onClose }) => {
 
               <DeviceCard icon={Radio} title="WS66i Amplifier" subtitle="6-zone audio" device="amp" conn={c("amp")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="Host / IP" value={c("amp").host} placeholder="192.168.1.50" onChange={(v) => setField("amp", "host", v)} testid="amp-host-input" />
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold mb-1.5" style={{ color: "var(--c4-muted)" }}>Source → WS66i physical input (1–6)</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(state?.audio_sources || []).map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}>
+                        <span className="text-[11px] truncate">{s.name}</span>
+                        <input
+                          type="number" min="1" max="6"
+                          value={(c("amp").input_map || {})[s.id] ?? 1}
+                          data-testid={`amp-input-${s.id}`}
+                          onChange={(e) => setAmpInput(s.id, Number(e.target.value))}
+                          className="w-12 rounded-md px-2 py-1 text-xs outline-none text-center"
+                          style={{ background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </DeviceCard>
 
               <DeviceCard icon={Thermometer} title="Ecobee Thermostat" subtitle="Climate control" device="ecobee" conn={c("ecobee")} onToggle={toggle} onTest={test} testing={testing}>
@@ -188,6 +230,44 @@ export const SettingsDrawer = ({ open, onClose }) => {
                     </button>
                     <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
                       Each TV stays on its wired HDMI input; power-on uses Wake-on-LAN (needs the MAC and "Network standby" enabled on the TV).
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="glass rounded-2xl p-4" data-testid="settings-smartthings">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: c("smartthings").live ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)" }}>
+                      <Cloud className="w-4.5 h-4.5" style={{ color: c("smartthings").live ? "var(--c4-emerald)" : "var(--c4-muted)" }} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">SmartThings</p>
+                      <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Exact HDMI input + absolute TV volume</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold" style={{ color: c("smartthings").live ? "var(--c4-emerald)" : "var(--c4-muted)" }}>{c("smartthings").live ? "LIVE" : "DEMO"}</span>
+                    <Toggle on={!!c("smartthings").live} onChange={() => toggle("smartthings")} testid="settings-live-smartthings" />
+                  </div>
+                </div>
+                {c("smartthings").live && (
+                  <div className="mt-3 space-y-3">
+                    <Field label="Personal Access Token" value={c("smartthings").token} placeholder="SmartThings PAT (expires ~24h)" onChange={(v) => setField("smartthings", "token", v)} testid="st-token-input" />
+                    {(state?.displays || []).map((d) => {
+                      const dev = (c("smartthings").devices || {})[d.id] || {};
+                      return (
+                        <div key={d.id} className="rounded-xl p-3 flex items-center gap-2" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }} data-testid={`settings-st-${d.id}`}>
+                          <span className="text-[11px] font-semibold w-24 shrink-0 truncate">{d.name}</span>
+                          <input placeholder="SmartThings device ID" value={dev.device_id || ""} data-testid={`st-device-${d.id}`} onChange={(e) => setStDevice(d.id, e.target.value)} className="flex-1 rounded-md px-2.5 py-2 text-xs outline-none" style={{ background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" }} />
+                        </div>
+                      );
+                    })}
+                    <button data-testid="settings-test-smartthings" onClick={() => test("smartthings")} className="w-full rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-2 active:scale-95 transition glass-elevated">
+                      {testing === "smartthings" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />} Test connection
+                    </button>
+                    <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
+                      Get a token at account.smartthings.com/tokens and each TV's device ID from the SmartThings API. HDMI numbers come from the Samsung TVs card above.
                     </p>
                   </div>
                 )}
