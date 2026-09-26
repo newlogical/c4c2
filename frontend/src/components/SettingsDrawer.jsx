@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound, Sparkles, Moon } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -65,7 +65,7 @@ const DeviceCard = ({ icon: Icon, title, subtitle, device, conn, onField, onTogg
   </div>
 );
 
-export const SettingsDrawer = ({ open, onClose }) => {
+export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSaver }) => {
   const { state, act, api } = useSystem();
   const [config, setConfig] = useState({});
   const [testing, setTesting] = useState(null);
@@ -182,6 +182,36 @@ export const SettingsDrawer = ({ open, onClose }) => {
             </details>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-3">
+              <button
+                data-testid="run-wizard-btn"
+                onClick={onRunWizard}
+                className="w-full glass rounded-2xl p-4 flex items-center gap-3 active:scale-[0.99] transition"
+              >
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.15)" }}>
+                  <Sparkles className="w-4.5 h-4.5" style={{ color: "var(--c4-indigo)" }} />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-semibold text-sm">Guided setup wizard</p>
+                  <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Walk through each device & test it</p>
+                </div>
+                <span className="text-xs font-semibold" style={{ color: "var(--c4-indigo)" }}>Open</span>
+              </button>
+
+              <div className="glass rounded-2xl p-4 flex items-center justify-between" data-testid="settings-screensaver">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: saverOn ? "rgba(6,182,212,0.15)" : "rgba(255,255,255,0.05)" }}>
+                    <Moon className="w-4.5 h-4.5" style={{ color: saverOn ? "var(--c4-cyan)" : "var(--c4-muted)" }} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Screen saver</p>
+                    <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Dim clock after 90s idle · tap to wake</p>
+                  </div>
+                </div>
+                <button data-testid="screensaver-toggle" onClick={onToggleSaver} className="w-11 h-6 rounded-full relative transition shrink-0" style={{ background: saverOn ? "var(--c4-emerald)" : "rgba(255,255,255,0.14)" }}>
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: saverOn ? "22px" : "2px" }} />
+                </button>
+              </div>
+
               <div className="glass rounded-2xl p-4" data-testid="settings-pin">
                 <div className="flex items-center gap-2.5 mb-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}>

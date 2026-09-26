@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "@/App.css";
 import { SystemProvider, useSystem } from "@/context/SystemContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,6 +7,8 @@ import { TopBar } from "@/components/TopBar";
 import { BottomNav } from "@/components/BottomNav";
 import { DriverDrawer } from "@/components/DriverDrawer";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
+import { SetupWizard } from "@/components/SetupWizard";
+import { ScreenSaver } from "@/components/ScreenSaver";
 import { HomeTab } from "@/components/tabs/HomeTab";
 import { WatchTab } from "@/components/tabs/WatchTab";
 import { ListenTab } from "@/components/tabs/ListenTab";
@@ -21,6 +23,24 @@ const Controller = () => {
   const [tab, setTab] = useState("home");
   const [driversOpen, setDriversOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardSeen, setWizardSeen] = useState(false);
+  const [saverOn, setSaverOn] = useState(() => localStorage.getItem("c4_saver") !== "off");
+
+  const toggleSaver = () => {
+    setSaverOn((v) => {
+      const nv = !v;
+      localStorage.setItem("c4_saver", nv ? "on" : "off");
+      return nv;
+    });
+  };
+
+  useEffect(() => {
+    if (unlocked && !wizardSeen && state && state.config && state.config.setup_done === false) {
+      setWizardOpen(true);
+      setWizardSeen(true);
+    }
+  }, [unlocked, state, wizardSeen]);
 
   if (loading) {
     return (
@@ -61,7 +81,15 @@ const Controller = () => {
       </main>
       <BottomNav active={tab} onChange={setTab} />
       <DriverDrawer open={driversOpen} onClose={() => setDriversOpen(false)} />
-      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDrawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onRunWizard={() => { setSettingsOpen(false); setWizardOpen(true); }}
+        saverOn={saverOn}
+        onToggleSaver={toggleSaver}
+      />
+      <SetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      <ScreenSaver enabled={saverOn} />
     </div>
   );
 };

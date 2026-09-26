@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import asyncio
 import bcrypt
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional, List
@@ -68,6 +69,7 @@ def default_config() -> dict:
             "tv_living": {"device_id": ""}, "tv_office": {"device_id": ""},
             "tv_master": {"device_id": ""}, "tv_guest": {"device_id": ""},
         }},
+        "setup_done": False,
     }
 
 
@@ -408,13 +410,34 @@ async def root():
     return {"message": "Control4-Style Home Controller API"}
 
 
+PIN_LOCK_THRESHOLD = 5
+PIN_LOCK_SECONDS = 30
+
+
 @api_router.post("/auth/pin")
 async def verify_pin(req: PinReq):
     doc = await db.auth.find_one({"key": "pin"})
     if not doc:
         await seed_pin()
         doc = await db.auth.find_one({"key": "pin"})
-    return {"success": verify_pin_hash(req.pin, doc["pin_hash"])}
+    now = datetime.now(timezone.utc)
+    locked_until = doc.get("locked_until")
+    if locked_until:
+        lu = datetime.fromisoformat(locked_until)
+        if lu > now:
+            return {"success": False, "locked": True, "retry_after": int((lu - now).total_seconds()) + 1, "attempts_left": 0}
+    if verify_pin_hash(req.pin, doc["pin_hash"]):
+        await db.auth.update_one({"key": "pin"}, {"$set": {"fails": 0}, "$unset": {"locked_until": ""}})
+        return {"success": True}
+    fails = int(doc.get("fails", 0)) + 1
+    update = {"fails": fails}
+    resp = {"success": False, "locked": False, "attempts_left": max(0, PIN_LOCK_THRESHOLD - fails)}
+    if fails >= PIN_LOCK_THRESHOLD:
+        secs = min(PIN_LOCK_SECONDS * (2 ** (fails - PIN_LOCK_THRESHOLD)), 300)
+        update["locked_until"] = (now + timedelta(seconds=secs)).isoformat()
+        resp.update({"locked": True, "retry_after": secs, "attempts_left": 0})
+    await db.auth.update_one({"key": "pin"}, {"$set": update})
+    return resp
 
 
 @api_router.post("/auth/change-pin")
@@ -424,7 +447,7 @@ async def change_pin(req: ChangePinReq):
         raise HTTPException(400, "Current PIN is incorrect")
     if not (req.new_pin.isdigit() and len(req.new_pin) == 4):
         raise HTTPException(400, "New PIN must be exactly 4 digits")
-    await db.auth.update_one({"key": "pin"}, {"$set": {"pin_hash": hash_pin(req.new_pin)}})
+    await db.auth.update_one({"key": "pin"}, {"$set": {"pin_hash": hash_pin(req.new_pin), "fails": 0}, "$unset": {"locked_until": ""}})
     return {"success": True}
 
 
