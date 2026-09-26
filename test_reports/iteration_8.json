@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 8 tested end-to-end. Backend: 15/15 pytest tests pass covering multi-camera state/streams/motion (incl. event automations & 404 on unknown cam), voice webhook (built-in movie_night + custom scene + 404), auto-discovery demo payload, plus regression on PIN/scenes/away. Frontend: Setup wizard auto-opens on unlock; wizard-scan-btn prefills matrix host=192.168.1.20 and turns live toggle on; wizard-skip closes. Security tab exposes camera-thumb-{cam_front|living|back|garage} + camera-motion-{...}; selecting a thumb updates primary-camera-name; motion button auto-selects the target camera (Backyard verified) and shows red ring. Fullscreen open/close works. Settings drawer shows saver-mode-clock/photos/camera (all persist to localStorage c4_saver_mode) and settings-voice with voice-copy-{all_off,good_night,movie_night,whole_home_audio}; clipboard receives correct {BACKEND}/api/voice/scene/{id} URL and toast fires.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter8.py",
+    "/app/test_reports/pytest/iter8_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 992 lines and growing; consider splitting into modules (auth, scenes, camera, voice, discover, automations) — flagged in previous iterations, still not addressed.",
+    "camera_stream_one handles cam_front specially (uses cfg.camera) while the other cams read cfg.cameras[cam_id]; cfg.cameras never gets a rtsp_url populated by the wizard (only cfg.camera does). All non-cam_front live streams therefore fall through to demo regardless of config — acceptable for demo but worth documenting or wiring in the wizard.",
+    "camera_motion resets motion=True but nothing clears it. State keeps every camera 'Motion now' forever once triggered. Consider auto-clearing after N seconds (mirror existing camera flow).",
+    "SecurityTab derives `primary` from `cameras.find(...) || cam` — since cameras[0] is cam_front but state.camera also holds `armed`, the arm ring uses `state.camera.armed` (not per-camera) which is fine, but the primary panel's 'Online/Motion now' badge is driven by the per-camera flag while arm status is global; UX-consistent, no bug.",
+    "Voice webhook is GET with no auth — expected for iOS Shortcuts, but any scene id (including delete-then-recreate) works publicly. Consider optional shared-token query param."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter8.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN=1234 (default); pin-demo-bypass button available on lock screen.",
+  "seed_data_creation": "None persistent. Tests create/delete a TEST_iter8_motion_auto automation and a TEST_iter8_custom_* scene inside their test bodies. State reset before/after via POST /api/state/reset.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 8 (custom screensaver, wizard auto-discovery, multi-camera, voice webhook) is fully passing. Regression across iter 1-7 flows was not re-executed here — prior test files test_iter2..7.py remain and can be run for that. Note that camera_motion doesn't auto-clear the motion flag; if a future test resets state or checks 'Online' after a delay it must reset first.",
+  "rca of the issue": "N/A — no failures observed."
+}

@@ -149,6 +149,16 @@ async def get_state() -> dict:
             {"id": "cam_back", "name": "Backyard", "online": True, "motion": False},
             {"id": "cam_garage", "name": "Garage", "online": True, "motion": False},
         ]
+    _now = datetime.now(timezone.utc)
+    for _c in doc.get("cameras", []):
+        if _c.get("motion") and _c.get("motion_at"):
+            try:
+                if (_now - datetime.fromisoformat(_c["motion_at"])).total_seconds() > 20:
+                    _c["motion"] = False
+                    if _c["id"] == "cam_front" and isinstance(doc.get("camera"), dict):
+                        doc["camera"]["motion"] = False
+            except Exception:
+                pass
     return doc
 
 
@@ -860,6 +870,7 @@ async def camera_motion(cam_id: str):
     if not cam:
         raise HTTPException(404, "Camera not found")
     cam["motion"] = True
+    cam["motion_at"] = datetime.now(timezone.utc).isoformat()
     if cam_id == "cam_front":
         state["camera"]["motion"] = True
     log_cmd(state, drivers.camera.command(f"motion {cam_id}", f"Motion on {cam['name']}", {}))
