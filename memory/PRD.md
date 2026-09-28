@@ -70,7 +70,14 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - frontend/public/setup-guide.html: standalone printable (Print/Save-as-PDF) commissioning guide, 13 parts + checklist.
 - Settings drawer: "Setup & install guide" link card (data-testid="setup-guide-link") opens /setup-guide.html in new tab.
 
+### Security lock-down (2026-06) — verified iteration_10 (24/24 backend, 100% frontend)
+- Session-token auth: `POST /api/auth/pin` (or `/api/auth/demo` in demo mode) issues an opaque `secrets` token stored in `db.sessions` (30-day expiry). `auth_gate` HTTP middleware requires `Authorization: Bearer` on all `/api` routes except public: `/`, `/bootstrap`, `/auth/pin`, `/auth/demo`, `/voice/scene/*`, `/camera/stream*`, `/camera/hls*`.
+- `POST /api/auth/logout` revokes token. Frontend: axios interceptor attaches Bearer from `localStorage['c4_token']`, 401 → `c4-unauthorized` event → lock screen. PinLock reads `/api/bootstrap` for name + demo_mode; demo-skip button only shows in demo mode.
+- Secret redaction: ecobee/smartthings/tv tokens masked as `"__stored__"` in `/api/state`; `_unmask` on `PUT /config` preserves stored secret (resend mask = keep, ''=clear, new=overwrite).
+- SSRF fix: `_ensure_ffmpeg` rejects non-`rtsp://` URLs + `-protocol_whitelist`. Path-traversal fix: `/camera/hls` sanitizes cam_id/filename + confines to HLS_DIR (404 on escape). CORS `allow_credentials=False` (Bearer, not cookies).
+
 ## Backlog / Remaining
+- P0 (next, approved): Replace Samsung TV driver with **Sony Bravia** driver — TVs are Sony KD-49X7000E (all 4). Use `pybravia` REST API + `X-Auth-PSK` + Wake-on-LAN; relabel Settings card "Sony Bravia TVs" (IP/MAC/PSK/HDMI port); remove Samsung-only SmartThings card.
 - P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; SELF_HOST.md + docker-compose provided).
 - P2: Lighting/shades zones, multi-property, PIN rate-limiting, per-user profiles.
 - P2: Low-latency camera (WebRTC/go2rtc), energy dashboard, richer automation conditions.

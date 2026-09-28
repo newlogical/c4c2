@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 10 verified the full security lock-down. 24/24 pytest cases pass: auth-gate returns 401 on all sensitive endpoints without Bearer token, public endpoints (/, /bootstrap, /auth/pin, /auth/demo, /voice/scene/*, /camera/stream) remain 200; PIN 1234 issues a 43-char urlsafe token, wrong PIN returns no token with attempts_left; demo bypass works in demo mode and correctly returns 403 after any device is set live:true; authed /state returns full state with all keys; scene/matrix/audio/climate/security/away control endpoints all work with Bearer; ecobee.token is masked as '__stored__' in /api/state and resending '__stored__' preserves the stored secret while '' clears it; path-traversal attempts on /camera/hls (encoded ../ and bad names) return 404; POST /auth/logout revokes the token and subsequent /state returns 401. Frontend Playwright flow verified: PIN screen shows property name ('Riverside Apartment') + demo bypass button in demo mode; PIN 1234 via pin-key-* unlocks and stores token; Home dashboard + Watch/Listen/Climate/Scenes tabs load; Settings drawer opens showing setup-guide-link and Change PIN card; reload preserves unlock; lock-btn clears token and returns to PIN screen; demo bypass re-unlocks. Devices restored to live:false at teardown.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bottom navigation", "issues": ["Nav labels are Home/Watch/Listen/Climate/Camera/Scenes — the review request mentions a 'Security' tab that isn't present as a dedicated tab; security is accessed via the Camera tab and the Home 'Leaving' card. Non-blocking but worth confirming with spec."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter10_security.py",
+    "/app/test_reports/pytest/iter10.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1160 lines — still trending up. Split into routers (auth, camera, config, scenes, voice, automations) for maintainability.",
+    "auth_gate middleware is defined after all routes and included via app.middleware — correct, but CORS middleware is added after auth_gate; since middlewares run in reverse-add order in Starlette, CORS wraps auth_gate correctly. Worth adding a comment because the ordering is subtle.",
+    "PUBLIC_PREFIXES includes '/api/camera/stream' and '/api/camera/hls' — /api/camera/hls is intentionally public so HLS segments load without a token; ensure ffmpeg output dir is not user-writable and that path-traversal guard (verified 404) stays in place.",
+    "POST /auth/demo has no rate limit; a bot could spam session creation while the app is in demo mode. Consider rate-limiting or capping db.sessions size.",
+    "_bearer strip is not shown here — verify it trims 'Bearer ' correctly and rejects malformed headers (all tests passed so it works)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter10_security.py"],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "100%"},
+  "test_credentials": "PIN 1234; demo bypass (pin-demo-bypass) available in demo mode.",
+  "seed_data_creation": "During tests: ecobee.token set to 'REAL_ECOBEE_TOKEN_TEST_12345' then cleared to ''; matrix.live toggled true then back to false. Teardown restored all device live flags to false. PIN unchanged (remains 1234).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Security lockdown is enforced by app.middleware auth_gate at server.py:1123-1132 with PUBLIC_EXACT/PUBLIC_PREFIXES at 1119-1120. Session tokens are in db.sessions with 30-day expiry. Frontend stores token in localStorage['c4_token'] and axios interceptor attaches Bearer + dispatches c4-unauthorized on 401. Backend request bodies use Pydantic models: security/arm & away use ToggleReq {enabled:bool}, /climate uses ClimateReq (mode/fan/target_heat/target_cool), /matrix/route uses RouteReq {display_id, source_id}, /audio/zone uses ZoneReq {zone_id, power/volume/source/mute}. Full pytest is at /app/backend/tests/test_iter10_security.py — reuse for regressions.",
+  "rca of the issue": "N/A — no issues found; security lockdown works end-to-end."
+}
