@@ -8,13 +8,19 @@ export const SystemProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const data = await api.getState();
-    setState(data);
-    setLoading(false);
+    try {
+      const data = await api.getState();
+      setState(data);
+    } catch (e) {
+      // 401 is handled globally (returns to lock screen)
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    refresh();
+    if (api.hasToken()) refresh();
+    else setLoading(false);
   }, [refresh]);
 
   // Run any api action that returns the full state, then commit it.

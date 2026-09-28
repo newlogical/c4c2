@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "@/App.css";
+import { api } from "@/lib/api";
 import { SystemProvider, useSystem } from "@/context/SystemContext";
 import { Toaster } from "@/components/ui/sonner";
 import { PinLock } from "@/components/PinLock";
@@ -18,8 +19,8 @@ import { ScenesTab } from "@/components/tabs/ScenesTab";
 import { AnimatePresence, motion } from "framer-motion";
 
 const Controller = () => {
-  const { state, loading } = useSystem();
-  const [unlocked, setUnlocked] = useState(false);
+  const { state, loading, refresh } = useSystem();
+  const [unlocked, setUnlocked] = useState(() => api.hasToken());
   const [tab, setTab] = useState("home");
   const [driversOpen, setDriversOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -41,6 +42,12 @@ const Controller = () => {
   };
 
   useEffect(() => {
+    const onUnauthorized = () => setUnlocked(false);
+    window.addEventListener("c4-unauthorized", onUnauthorized);
+    return () => window.removeEventListener("c4-unauthorized", onUnauthorized);
+  }, []);
+
+  useEffect(() => {
     if (unlocked && !wizardSeen && state && state.config && state.config.setup_done === false) {
       setWizardOpen(true);
       setWizardSeen(true);
@@ -56,7 +63,7 @@ const Controller = () => {
   }
 
   if (!unlocked) {
-    return <PinLock onUnlock={() => setUnlocked(true)} propertyName={state?.property_name} />;
+    return <PinLock onUnlock={async () => { await refresh(); setUnlocked(true); }} propertyName={state?.property_name} />;
   }
 
   const tabs = {
@@ -70,7 +77,7 @@ const Controller = () => {
 
   return (
     <div className="c4-shell min-h-screen flex flex-col">
-      <TopBar onLock={() => setUnlocked(false)} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
+      <TopBar onLock={() => { api.logout(); setUnlocked(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div

@@ -349,7 +349,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
               </DeviceCard>
 
               <DeviceCard icon={Thermometer} title="Ecobee Thermostat" subtitle="Climate control" device="ecobee" conn={c("ecobee")} onToggle={toggle} onTest={test} testing={testing}>
-                <Field label="API Access Token" value={c("ecobee").token} placeholder="Bearer token" onChange={(v) => setField("ecobee", "token", v)} testid="ecobee-token-input" />
+                <Field label="API Access Token" value={c("ecobee").token} placeholder="Bearer token" type="password" onChange={(v) => setField("ecobee", "token", v)} testid="ecobee-token-input" />
                 <Field label="Thermostat ID" value={c("ecobee").thermostat_id} placeholder="optional" onChange={(v) => setField("ecobee", "thermostat_id", v)} testid="ecobee-id-input" />
               </DeviceCard>
 
@@ -392,7 +392,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                             <input placeholder="IP e.g. 192.168.1.60" value={set.ip || ""} data-testid={`tv-ip-${d.id}`} onChange={(e) => setTvField(d.id, "ip", e.target.value)} className={inp} style={inpStyle} />
                             <input placeholder="MAC AA:BB:CC:.." value={set.mac || ""} data-testid={`tv-mac-${d.id}`} onChange={(e) => setTvField(d.id, "mac", e.target.value)} className={inp} style={inpStyle} />
                             <input placeholder="HDMI input #" type="number" value={set.hdmi_input ?? 1} data-testid={`tv-hdmi-${d.id}`} onChange={(e) => setTvField(d.id, "hdmi_input", Number(e.target.value))} className={inp} style={inpStyle} />
-                            <input placeholder="Token (optional)" value={set.token || ""} data-testid={`tv-token-${d.id}`} onChange={(e) => setTvField(d.id, "token", e.target.value)} className={inp} style={inpStyle} />
+                            <input placeholder="Token (optional)" type="password" value={set.token || ""} data-testid={`tv-token-${d.id}`} onChange={(e) => setTvField(d.id, "token", e.target.value)} className={inp} style={inpStyle} />
                           </div>
                         </div>
                       );
@@ -425,7 +425,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                 </div>
                 {c("smartthings").live && (
                   <div className="mt-3 space-y-3">
-                    <Field label="Personal Access Token" value={c("smartthings").token} placeholder="SmartThings PAT (expires ~24h)" onChange={(v) => setField("smartthings", "token", v)} testid="st-token-input" />
+                    <Field label="Personal Access Token" value={c("smartthings").token} placeholder="SmartThings PAT (expires ~24h)" type="password" onChange={(v) => setField("smartthings", "token", v)} testid="st-token-input" />
                     {(state?.displays || []).map((d) => {
                       const dev = (c("smartthings").devices || {})[d.id] || {};
                       return (

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import asyncio
 import socket
+import secrets
+import re
 import bcrypt
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -34,6 +36,9 @@ STATE_KEY = "main"
 LOG_LIMIT = 60
 HLS_DIR = Path("/tmp/hls")
 DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+SESSION_TTL_DAYS = int(os.environ.get("SESSION_TTL_DAYS", "30"))
+MASK_VALUE = "__stored__"
+SAFE_SEG = re.compile(r"^[A-Za-z0-9._-]+$")
 
 scheduler = AsyncIOScheduler()
 _ffmpeg_proc = None
@@ -177,6 +182,72 @@ def verify_pin_hash(pin: str, hashed: str) -> bool:
 async def seed_pin():
     if not await db.auth.find_one({"key": "pin"}):
         await db.auth.insert_one({"key": "pin", "pin_hash": hash_pin(os.environ.get("DEFAULT_PIN", "1234"))})
+
+
+async def create_session() -> str:
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    await db.sessions.insert_one({
+        "token": token,
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(days=SESSION_TTL_DAYS)).isoformat(),
+    })
+    return token
+
+
+async def valid_session(token: str) -> bool:
+    if not token:
+        return False
+    doc = await db.sessions.find_one({"token": token})
+    if not doc:
+        return False
+    try:
+        if datetime.fromisoformat(doc["expires_at"]) < datetime.now(timezone.utc):
+            await db.sessions.delete_one({"token": token})
+            return False
+    except Exception:
+        return False
+    return True
+
+
+def _bearer(request: Request) -> str:
+    auth = request.headers.get("Authorization", "")
+    return auth[7:] if auth.startswith("Bearer ") else ""
+
+
+def is_demo_mode(state: dict) -> bool:
+    """True when no device is configured LIVE (used to gate the demo skip button)."""
+    c = state.get("config") or {}
+    if any((c.get(d) or {}).get("live") for d in ("matrix", "amp", "ecobee", "appletv", "camera", "tv", "smartthings")):
+        return False
+    if any((v or {}).get("live") for v in (c.get("cameras") or {}).values()):
+        return False
+    return True
+
+
+def redact_secrets(state: dict) -> dict:
+    """Never serialize integration tokens to clients; mask any set value."""
+    s = copy.deepcopy(state)
+    c = s.get("config") or {}
+
+    def _mask(d):
+        if isinstance(d, dict) and d.get("token"):
+            d["token"] = MASK_VALUE
+
+    _mask(c.get("ecobee"))
+    _mask(c.get("smartthings"))
+    for tvset in ((c.get("tv") or {}).get("sets") or {}).values():
+        _mask(tvset)
+    return s
+
+
+def _unmask(update: dict, current: dict):
+    """Drop secret fields the client echoed back as MASK_VALUE so the stored value is kept."""
+    for k, v in list(update.items()):
+        if isinstance(v, dict) and isinstance(current.get(k), dict):
+            _unmask(v, current[k])
+        elif v == MASK_VALUE:
+            update.pop(k)
 
 
 async def save_state(state: dict):
@@ -458,7 +529,8 @@ async def verify_pin(req: PinReq):
             return {"success": False, "locked": True, "retry_after": int((lu - now).total_seconds()) + 1, "attempts_left": 0}
     if verify_pin_hash(req.pin, doc["pin_hash"]):
         await db.auth.update_one({"key": "pin"}, {"$set": {"fails": 0}, "$unset": {"locked_until": ""}})
-        return {"success": True}
+        token = await create_session()
+        return {"success": True, "token": token}
     fails = int(doc.get("fails", 0)) + 1
     update = {"fails": fails}
     resp = {"success": False, "locked": False, "attempts_left": max(0, PIN_LOCK_THRESHOLD - fails)}
@@ -481,16 +553,39 @@ async def change_pin(req: ChangePinReq):
     return {"success": True}
 
 
+@api_router.post("/auth/demo")
+async def demo_login():
+    state = await get_state()
+    if not is_demo_mode(state):
+        raise HTTPException(403, "Demo bypass is disabled once real devices are configured")
+    token = await create_session()
+    return {"success": True, "token": token}
+
+
+@api_router.post("/auth/logout")
+async def logout(request: Request):
+    token = _bearer(request)
+    if token:
+        await db.sessions.delete_one({"token": token})
+    return {"ok": True}
+
+
+@api_router.get("/bootstrap")
+async def bootstrap():
+    state = await get_state()
+    return {"property_name": state.get("property_name"), "demo_mode": is_demo_mode(state)}
+
+
 @api_router.get("/state")
 async def read_state():
-    return await get_state()
+    return redact_secrets(await get_state())
 
 
 @api_router.post("/state/reset")
 async def reset_state():
     fresh = default_state()
     await save_state(fresh)
-    return fresh
+    return redact_secrets(fresh)
 
 
 @api_router.post("/matrix/route")
@@ -503,7 +598,7 @@ async def matrix_route(req: RouteReq):
     log_cmd(state, drivers.matrix.route(display["output"], source["input"], display["name"], source["name"], cfg(state, "matrix")))
     link_zone_to_display(state, display)
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/matrix/broadcast")
@@ -518,7 +613,7 @@ async def matrix_broadcast(req: BroadcastReq):
         log_cmd(state, drivers.matrix.route(display["output"], source["input"], display["name"], source["name"], mc))
         link_zone_to_display(state, display)
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/display/power")
@@ -538,7 +633,7 @@ async def display_power(req: DisplayPowerReq):
     if req.power:
         link_zone_to_display(state, display)
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/display/tvvolume")
@@ -600,7 +695,7 @@ async def audio_zone(req: ZoneReq):
         zone["power"] = req.power
         log_cmd(state, drivers.amp.set_power(zone["amp_zone"], req.power, zone["name"], ac))
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/audio/group")
@@ -616,7 +711,7 @@ async def audio_group(req: AudioGroupReq):
         log_cmd(state, drivers.amp.set_source(zone["amp_zone"], amp_input(state, req.source_id), zone["name"], src["name"], ac))
         log_cmd(state, drivers.amp.set_volume(zone["amp_zone"], round(vol * 38 / 100), zone["name"], vol, ac))
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/climate")
@@ -636,7 +731,7 @@ async def climate(req: ClimateReq):
         t["target_cool"] = max(45, min(95, req.target_cool))
         log_cmd(state, drivers.thermostat.set_hold(t["target_heat"], t["target_cool"], tc))
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/scene/{scene_id}")
@@ -645,7 +740,7 @@ async def run_scene(scene_id: str):
     if not await apply_scene_any(state, scene_id):
         raise HTTPException(404, "Scene not found")
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.get("/scenes")
@@ -679,7 +774,7 @@ async def set_audio_follow(req: ToggleReq):
     state = await get_state()
     state["audio_follow_tv"] = req.enabled
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/security/arm")
@@ -688,7 +783,7 @@ async def set_arm(req: ToggleReq):
     state["camera"]["armed"] = req.enabled
     log_cmd(state, drivers.camera.command(f"arm {req.enabled}", f"Camera {'armed' if req.enabled else 'disarmed'}", cfg(state, "camera")))
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/away")
@@ -700,7 +795,7 @@ async def set_away(req: ToggleReq):
         apply_scene(state, "all_off")
         state["thermostat"]["mode"] = "auto"
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 # ---------------------------------------------------------------------------
@@ -720,10 +815,11 @@ def _deep_merge(base: dict, updates: dict) -> dict:
 async def update_config(req: ConfigReq):
     state = await get_state()
     merged = state.get("config") or default_config()
+    _unmask(req.config, merged)
     _deep_merge(merged, req.config)
     state["config"] = merged
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/config/test/{device}")
@@ -816,7 +912,7 @@ async def run_automation(auto_id: str):
     log_cmd(state, {"driver": "Automation", "transport": "manual", "command": auto["action"]["scene_id"],
                     "note": f"Ran '{auto['name']}' manually", "timestamp": drivers._ts(), "status": "sent"})
     await save_state(state)
-    return state
+    return redact_secrets(state)
 
 
 @api_router.post("/trigger/{event}")
@@ -834,7 +930,7 @@ async def fire_event(event: str):
                             "note": f"'{a['name']}' triggered by {event}", "timestamp": drivers._ts(), "status": "sent"})
             fired.append(a["name"])
     await save_state(state)
-    return {"event": event, "fired": fired, "state": state}
+    return {"event": event, "fired": fired, "state": redact_secrets(state)}
 
 
 # ---------------------------------------------------------------------------
@@ -883,7 +979,7 @@ async def camera_motion(cam_id: str):
             await apply_scene_any(state, a["action"]["scene_id"])
             fired.append(a["name"])
     await save_state(state)
-    return {"ok": True, "camera": cam_id, "fired": fired, "state": state}
+    return {"ok": True, "camera": cam_id, "fired": fired, "state": redact_secrets(state)}
 
 
 @api_router.get("/clips")
@@ -979,8 +1075,10 @@ async def camera_snapshot():
 
 @api_router.get("/camera/hls/{cam_id}/{filename}")
 async def camera_hls_cam(cam_id: str, filename: str):
-    path = HLS_DIR / cam_id / filename
-    if not path.exists():
+    if not SAFE_SEG.match(cam_id) or not SAFE_SEG.match(filename):
+        raise HTTPException(404, "Not found")
+    path = (HLS_DIR / cam_id / filename).resolve()
+    if not str(path).startswith(str(HLS_DIR.resolve()) + os.sep) or not path.exists():
         raise HTTPException(404, "Segment not ready")
     media = "application/vnd.apple.mpegurl" if filename.endswith(".m3u8") else "video/mp2t"
     return FileResponse(path, media_type=media, headers={"Cache-Control": "no-cache"})
@@ -988,21 +1086,26 @@ async def camera_hls_cam(cam_id: str, filename: str):
 
 @api_router.get("/camera/hls/{filename}")
 async def camera_hls(filename: str):
-    path = HLS_DIR / "cam_front" / filename
-    if not path.exists():
+    if not SAFE_SEG.match(filename):
+        raise HTTPException(404, "Not found")
+    path = (HLS_DIR / "cam_front" / filename).resolve()
+    if not str(path).startswith(str(HLS_DIR.resolve()) + os.sep) or not path.exists():
         raise HTTPException(404, "Segment not ready")
     media = "application/vnd.apple.mpegurl" if filename.endswith(".m3u8") else "video/mp2t"
     return FileResponse(path, media_type=media, headers={"Cache-Control": "no-cache"})
 
 
 def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
+    if not isinstance(rtsp_url, str) or not rtsp_url.startswith("rtsp://"):
+        return
     proc = _ffmpeg_procs.get(cam_id)
     if proc and proc.poll() is None:
         return
     out = HLS_DIR / cam_id
     out.mkdir(parents=True, exist_ok=True)
     _ffmpeg_procs[cam_id] = subprocess.Popen([
-        "ffmpeg", "-rtsp_transport", "tcp", "-i", rtsp_url,
+        "ffmpeg", "-protocol_whitelist", "rtsp,rtp,udp,tcp,tls,crypto",
+        "-rtsp_transport", "tcp", "-i", rtsp_url,
         "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
         "-f", "hls", "-hls_time", "2", "-hls_list_size", "6",
         "-hls_flags", "delete_segments+append_list",
@@ -1013,9 +1116,25 @@ def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
 
+PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap"}
+PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls")
+
+
+@app.middleware("http")
+async def auth_gate(request: Request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or not path.startswith("/api"):
+        return await call_next(request)
+    if path in PUBLIC_EXACT or path.startswith(PUBLIC_PREFIXES):
+        return await call_next(request)
+    if not await valid_session(_bearer(request)):
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1029,6 +1148,7 @@ logger = logging.getLogger(__name__)
 async def on_startup():
     await get_state()
     await seed_pin()
+    await db.sessions.create_index("token")
     if not scheduler.running:
         scheduler.start()
     await reload_jobs()

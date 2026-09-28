@@ -8,9 +8,18 @@ export const PinLock = ({ onUnlock, propertyName }) => {
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [attemptsLeft, setAttemptsLeft] = useState(null);
+  const [name, setName] = useState(propertyName);
+  const [demoMode, setDemoMode] = useState(false);
   const timerRef = useRef(null);
 
   const locked = retry > 0;
+
+  useEffect(() => {
+    api.getBootstrap().then((b) => {
+      if (b?.property_name) setName(b.property_name);
+      setDemoMode(!!b?.demo_mode);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (retry <= 0) return;
@@ -63,7 +72,7 @@ export const PinLock = ({ onUnlock, propertyName }) => {
         <div className="w-14 h-14 rounded-2xl glass-elevated glow-ring flex items-center justify-center mb-5">
           {locked ? <ShieldAlert className="w-6 h-6" style={{ color: "var(--c4-rose)" }} /> : <Lock className="w-6 h-6" style={{ color: "var(--c4-primary)" }} />}
         </div>
-        <h1 className="font-head text-2xl font-bold tracking-tight">{propertyName || "Home Control"}</h1>
+        <h1 className="font-head text-2xl font-bold tracking-tight">{name || "Home Control"}</h1>
         <p data-testid="pin-subtitle" className="text-sm mt-1 text-center" style={{ color: locked || (attemptsLeft != null && attemptsLeft < 5) ? "var(--c4-rose)" : "var(--c4-muted)" }}>
           {subtitle}
         </p>
@@ -101,14 +110,21 @@ export const PinLock = ({ onUnlock, propertyName }) => {
           )}
         </div>
 
-        <button
-          data-testid="pin-demo-bypass"
-          onClick={onUnlock}
-          className="mt-8 text-xs flex items-center gap-1.5"
-          style={{ color: "var(--c4-muted)" }}
-        >
-          <Home className="w-3.5 h-3.5" /> Demo — tap to skip (PIN 1234)
-        </button>
+        {demoMode && (
+          <button
+            data-testid="pin-demo-bypass"
+            onClick={async () => {
+              try {
+                const res = await api.demoBypass();
+                if (res?.success) onUnlock();
+              } catch (e) {}
+            }}
+            className="mt-8 text-xs flex items-center gap-1.5"
+            style={{ color: "var(--c4-muted)" }}
+          >
+            <Home className="w-3.5 h-3.5" /> Demo — tap to skip (PIN 1234)
+          </button>
+        )}
       </motion.div>
     </div>
   );
