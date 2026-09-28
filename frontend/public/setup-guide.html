@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apartment Controller — Full Setup &amp; Commissioning Guide</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#555; --line:#ccc; --accent:#1f6feb; --box:#f5f7fa; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink); line-height: 1.55; max-width: 820px;
+    margin: 0 auto; padding: 40px 32px; background:#fff;
+  }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); }
+  h3 { font-size: 15px; margin: 20px 0 6px; color:#000; }
+  p, li { font-size: 13.5px; }
+  code {
+    background: var(--box); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-family: "Consolas", monospace; font-size: 12.5px; color:#000;
+  }
+  pre {
+    background: var(--box); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-size: 12.5px;
+    font-family: "Consolas", monospace; white-space: pre-wrap; word-break: break-word;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
+  th, td { border: 1px solid var(--line); padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: var(--box); }
+  .note { background:#fff8e1; border:1px solid #f0d98a; border-radius:6px; padding:10px 14px; margin:14px 0; font-size:12.8px; }
+  .warn { background:#fdecea; border:1px solid #f2b8b5; border-radius:6px; padding:10px 14px; margin:14px 0; font-size:12.8px; }
+  .ok   { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:6px; padding:10px 14px; margin:14px 0; font-size:12.8px; }
+  .meta { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
+  .check { list-style:none; padding-left:0; }
+  .check li { padding-left: 26px; position: relative; margin: 6px 0; }
+  .check li:before { content:"\2610"; position:absolute; left:0; top:-1px; font-size:16px; }
+  .toc a { color: var(--accent); text-decoration:none; }
+  .pill { display:inline-block; background:var(--accent); color:#fff; border-radius:20px; padding:1px 10px; font-size:11px; font-weight:600; }
+  hr { border:none; border-top:1px solid var(--line); margin:26px 0; }
+  .page-break { page-break-before: always; }
+  @media print {
+    body { padding: 0 6px; max-width:none; }
+    h2 { page-break-after: avoid; }
+    pre, table, .note, .warn, .ok { page-break-inside: avoid; }
+    a { color:#000; text-decoration:none; }
+    .noprint { display:none; }
+  }
+  .btn { display:inline-block; background:var(--accent); color:#fff; padding:9px 16px; border-radius:6px; text-decoration:none; font-weight:600; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="noprint" style="text-align:right; margin-bottom:20px;">
+  <a href="javascript:window.print()" class="btn">🖨️ Print / Save as PDF</a>
+</div>
+
+<h1>Apartment Controller — Full Setup &amp; Commissioning Guide</h1>
+<div class="meta">
+  Self‑hosted Control4‑style controller &nbsp;•&nbsp; Windows 11 mini‑PC &nbsp;•&nbsp;
+  Host IP <strong>192.168.0.10</strong> &nbsp;•&nbsp; Viewed from an iPad on the same Wi‑Fi
+</div>
+
+<div class="note">
+  <strong>How this works in one sentence:</strong> the app runs on your always‑on mini‑PC on the
+  apartment network; your iPad opens it like an app; each real device (matrix, amp, TVs, thermostat,
+  cameras) is switched from <em>demo</em> to <em>LIVE</em> once you enter its address.
+</div>
+
+<h2>Contents</h2>
+<ol class="toc">
+  <li><a href="#part0">Part 0 — What you're building &amp; your equipment</a></li>
+  <li><a href="#part1">Part 1 — Prepare the mini‑PC</a></li>
+  <li><a href="#part2">Part 2 — Install the prerequisite software</a></li>
+  <li><a href="#part3">Part 3 — Get the app code onto the PC</a></li>
+  <li><a href="#part4">Part 4 — Start the backend (API)</a></li>
+  <li><a href="#part5">Part 5 — Build &amp; start the frontend (UI)</a></li>
+  <li><a href="#part6">Part 6 — Open the Windows firewall</a></li>
+  <li><a href="#part7">Part 7 — Open it on the iPad</a></li>
+  <li><a href="#part8">Part 8 — Switch each device to LIVE</a></li>
+  <li><a href="#part9">Part 9 — Auto‑start on boot</a></li>
+  <li><a href="#part10">Part 10 — Remote access (away from home)</a></li>
+  <li><a href="#part11">Part 11 — Security &amp; the PIN</a></li>
+  <li><a href="#part12">Part 12 — Troubleshooting</a></li>
+  <li><a href="#part13">Part 13 — Final checklist</a></li>
+</ol>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part0">Part 0 — What you're building &amp; your equipment</h2>
+
+<p>You are installing a touchscreen "smart apartment" controller — like Control4 — that runs on your own
+mini‑PC. It gives you one screen to watch video, play audio by room, control the thermostat, view
+cameras, and run "scenes" (one tap = many actions).</p>
+
+<h3>Your rack equipment this controls</h3>
+<table>
+  <tr><th>Device</th><th>What the app does with it</th><th>How it connects</th></tr>
+  <tr><td>J‑Tech JTECH‑MXT40 4×4 HDMI matrix</td><td>Routes any source (Apple TVs) to any TV</td><td>Telnet over LAN (port 23)</td></tr>
+  <tr><td>WS66i 6‑zone amplifier</td><td>Audio per room: Living, Office, Master, Bathroom — volume, mute, source</td><td>Ethernet (LAN IP)</td></tr>
+  <tr><td>4 × Apple TV</td><td>Central video sources + on‑screen remote</td><td>Companion pairing on the host</td></tr>
+  <tr><td>4 × Samsung TV (Living, Office, Master, Guest)</td><td>Power on/off, volume, HDMI input select</td><td>LAN IP + Wake‑on‑LAN (MAC)</td></tr>
+  <tr><td>Ecobee thermostat</td><td>Temperature, mode, setpoints</td><td>Ecobee cloud API token</td></tr>
+  <tr><td>UniFi cameras (Dream Machine / Protect)</td><td>Live camera tiles, motion, clips, screensaver feed</td><td>RTSP → HLS (ffmpeg on host)</td></tr>
+</table>
+
+<div class="note">Until you enter a device's real address and flip it to <strong>LIVE</strong>, that device
+runs in <strong>demo/simulation</strong> — perfectly safe to explore the app first.</div>
+
+<h3>You'll need these to hand before you start</h3>
+<ul>
+  <li>The mini‑PC connected by <strong>Ethernet cable</strong> to your network (not Wi‑Fi if possible).</li>
+  <li>Admin access to your <strong>UniFi router</strong> (to reserve the IP and later enable camera RTSP).</li>
+  <li>The <strong>iPad</strong> on the same Wi‑Fi.</li>
+  <li>About <strong>45–60 minutes</strong> for the software setup, plus time per device.</li>
+</ul>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part1">Part 1 — Prepare the mini‑PC</h2>
+
+<h3>1.1 Give it a permanent IP address</h3>
+<p>The app is reached at a fixed address, so the mini‑PC must always keep the same IP.</p>
+<ul>
+  <li>Log in to your <strong>UniFi</strong> controller (e.g. <code>https://unifi.ui.com</code> or the Dream Machine's local page).</li>
+  <li>Go to <strong>Client Devices</strong>, find the mini‑PC, open it, choose <strong>Settings → Fixed IP</strong> and set it to <strong>192.168.0.10</strong>.</li>
+  <li>Make sure the mini‑PC is on the <strong>same network/VLAN</strong> as the matrix, amp, TVs, Ecobee and cameras.</li>
+</ul>
+
+<h3>1.2 Stop it from sleeping</h3>
+<p>Windows → <strong>Settings → System → Power &amp; battery → Screen and sleep</strong>. Set every
+"Sleep" and "Screen off" option to <strong>Never</strong>. A controller must stay awake.</p>
+
+<div class="warn"><strong>Why not Docker on Windows?</strong> Docker Desktop on Windows isolates the
+network and <strong>breaks Wake‑on‑LAN</strong> (needed to power your TVs) and device discovery. So we
+run the app <strong>natively</strong> on Windows. (If you ever reinstall the PC with <em>Ubuntu Linux</em>,
+you can instead use the one‑command <code>docker compose up</code> method in <code>SELF_HOST.md</code>.)</div>
+
+<!-- ============================================================ -->
+<h2 id="part2">Part 2 — Install the prerequisite software</h2>
+
+<p>Download and install each of these on the mini‑PC. Where an installer offers <strong>"Add to PATH"</strong>, tick it.</p>
+<table>
+  <tr><th>Software</th><th>Where to get it</th><th>Important</th></tr>
+  <tr><td>Git for Windows</td><td>git-scm.com/download/win</td><td>Accept defaults</td></tr>
+  <tr><td>Python 3.11</td><td>python.org/downloads</td><td>✅ First screen: tick <strong>"Add python.exe to PATH"</strong></td></tr>
+  <tr><td>Node.js 20 LTS</td><td>nodejs.org/en/download</td><td>Accept defaults</td></tr>
+  <tr><td>MongoDB Community Server</td><td>mongodb.com/try/download/community</td><td>Choose <strong>"Install as a Service"</strong></td></tr>
+  <tr><td>ffmpeg</td><td>gyan.dev/ffmpeg/builds (get "release full")</td><td>Unzip to <code>C:\ffmpeg</code>, add <code>C:\ffmpeg\bin</code> to PATH</td></tr>
+</table>
+
+<h3>2.1 Enable Yarn</h3>
+<p>Open <strong>PowerShell</strong> (Start menu → type "PowerShell") and run:</p>
+<pre>corepack enable
+corepack prepare yarn@stable --activate</pre>
+
+<h3>2.2 Verify everything is installed</h3>
+<p>Close PowerShell, open a <strong>new</strong> one, and run:</p>
+<pre>git --version
+python --version
+node --version
+yarn --version
+ffmpeg -version</pre>
+<p>Each should print a version number. If one says <em>"not recognized"</em>, re‑run that installer and be
+sure "Add to PATH" is ticked, then open a fresh PowerShell.</p>
+
+<h3>2.3 Add ffmpeg to PATH (if the installer didn't)</h3>
+<p>Start menu → type "environment variables" → <strong>Edit the system environment variables</strong> →
+<strong>Environment Variables</strong> → under "System variables" select <strong>Path</strong> → <strong>Edit</strong>
+→ <strong>New</strong> → paste <code>C:\ffmpeg\bin</code> → OK. Reopen PowerShell and re‑test <code>ffmpeg -version</code>.</p>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part3">Part 3 — Get the app code onto the PC</h2>
+
+<h3>Recommended: via GitHub (lets you receive updates later)</h3>
+<ol>
+  <li>In the <strong>Emergent chat</strong>, click <strong>"Save to GitHub"</strong> and follow the prompts to push this project to your GitHub account. Copy the resulting repository URL.</li>
+  <li>On the mini‑PC, in PowerShell (replace with your real URL):</li>
+</ol>
+<pre>cd C:\
+git clone https://github.com/&lt;your-username&gt;/&lt;your-repo&gt;.git apartment-controller
+cd apartment-controller</pre>
+<p>To pull future updates later: <code>cd C:\apartment-controller</code> then <code>git pull</code>.</p>
+
+<h3>Alternative: ZIP download</h3>
+<p>Download the project as a ZIP, then extract it to <strong>C:\apartment-controller</strong>.</p>
+
+<div class="note">From here we assume the project lives at <strong>C:\apartment-controller</strong> and
+contains a <code>backend</code> folder and a <code>frontend</code> folder.</div>
+
+<!-- ============================================================ -->
+<h2 id="part4">Part 4 — Start the backend (the API)</h2>
+
+<p>In PowerShell:</p>
+<pre>cd C:\apartment-controller\backend
+
+# create an isolated Python environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# install dependencies
+pip install -r requirements.txt
+
+# optional: Apple TV control support
+pip install pyatv</pre>
+
+<h3>4.1 Create the backend config file</h3>
+<p>Create a file named exactly <strong>.env</strong> inside <code>C:\apartment-controller\backend</code>.
+Open Notepad, paste the block below, then <strong>File → Save As</strong>, set
+<em>"Save as type: All Files"</em>, and name it <code>.env</code> (not <code>.env.txt</code>).</p>
+<pre>MONGO_URL=mongodb://localhost:27017
+DB_NAME=c4clone
+CORS_ORIGINS=*
+DEFAULT_PIN=1234</pre>
+
+<h3>4.2 Run the backend</h3>
+<pre>.\.venv\Scripts\Activate.ps1
+uvicorn server:app --host 0.0.0.0 --port 8001</pre>
+<p><strong>Leave this window open.</strong> Test it: on the mini‑PC open a browser to
+<code>http://localhost:8001/api/</code> — you should get a response (not an error page).</p>
+
+<!-- ============================================================ -->
+<h2 id="part5">Part 5 — Build &amp; start the frontend (the UI)</h2>
+
+<p>Open a <strong>second</strong> PowerShell window (leave the backend running in the first):</p>
+<pre>cd C:\apartment-controller\frontend
+yarn install</pre>
+
+<h3>5.1 Create the frontend config file</h3>
+<p>Create a file named <strong>.env</strong> inside <code>C:\apartment-controller\frontend</code> with this
+one line. This bakes in the mini‑PC's IP so the iPad knows where the API is:</p>
+<pre>REACT_APP_BACKEND_URL=http://192.168.0.10:8001</pre>
+
+<h3>5.2 Build and serve the UI</h3>
+<pre>yarn build
+npx serve -s build -l 3000</pre>
+<p><strong>Leave this window open too.</strong> Test on the mini‑PC: <code>http://localhost:3000</code>.</p>
+
+<div class="warn"><strong>Remember:</strong> any time you change <code>frontend\.env</code> (e.g. a new IP),
+you must run <code>yarn build</code> again — the address is baked in at build time.</div>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part6">Part 6 — Open the Windows firewall</h2>
+<p>So the iPad can reach the mini‑PC. Right‑click Start → <strong>Terminal (Admin)</strong> / PowerShell (Admin), then:</p>
+<pre>New-NetFirewallRule -DisplayName "Apartment UI 3000"  -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+New-NetFirewallRule -DisplayName "Apartment API 8001" -Direction Inbound -Protocol TCP -LocalPort 8001 -Action Allow</pre>
+
+<!-- ============================================================ -->
+<h2 id="part7">Part 7 — Open it on the iPad</h2>
+<ol>
+  <li>Make sure the iPad is on the <strong>same Wi‑Fi</strong> as the mini‑PC.</li>
+  <li>Open <strong>Safari</strong> and go to: <code>http://192.168.0.10:3000</code></li>
+  <li>Enter the PIN — default <strong>1234</strong> (you'll change this in Part 11).</li>
+</ol>
+
+<h3>7.1 Make it a full‑screen app</h3>
+<ul>
+  <li>In Safari tap the <strong>Share</strong> icon → <strong>Add to Home Screen</strong>. Launch it from the new icon — it opens full‑screen, no browser bars.</li>
+  <li>If it's a wall‑mounted iPad: <strong>Settings → Display &amp; Brightness → Auto‑Lock → Never</strong>, and turn on <strong>Guided Access</strong> (Settings → Accessibility) to lock it to this one app.</li>
+</ul>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part8">Part 8 — Switch each device to LIVE</h2>
+
+<p>Everything is in <strong>demo</strong> until you do this. In the app tap <strong>Settings (gear, top‑right)
+→ On‑site commissioning guide</strong>. For each device: toggle <strong>LIVE</strong>, fill the fields, tap
+<strong>Test connection</strong>, then <strong>Save</strong>.</p>
+
+<h3>8.1 JTECH‑MXT40 matrix (video routing)</h3>
+<ul>
+  <li>In the matrix's own web page, enable <strong>Telnet</strong> (TCP port <strong>23</strong>).</li>
+  <li>App → <em>JTECH‑MXT40 Matrix</em> → enter its <strong>IP</strong> and port <strong>23</strong>.</li>
+</ul>
+
+<h3>8.2 WS66i amplifier (room audio)</h3>
+<ul>
+  <li>On the amp's rear network switch select <strong>ETHERNET</strong>; give it a fixed IP (reserve it in UniFi).</li>
+  <li>App → <em>WS66i Amplifier</em> → enter its <strong>IP</strong>.</li>
+  <li><strong>Source → input map:</strong> for each logical source (Apple TV 1‑4, Spotify, AirPlay, TV Audio) enter the <strong>physical WS66i input number (1‑6)</strong> it is actually wired to. This is what makes the correct source play in each zone.</li>
+</ul>
+
+<h3>8.3 Apple TVs (video sources + remote)</h3>
+<p>On the mini‑PC, with the backend venv active:</p>
+<pre>cd C:\apartment-controller\backend
+.\.venv\Scripts\Activate.ps1
+atvremote scan</pre>
+<p>Then pair each unit (repeat for all four, using each device's id from the scan):</p>
+<pre>atvremote --id &lt;device-id&gt; pair</pre>
+<p>Enter the PIN shown on that Apple TV screen, and save the credentials it prints. Then App →
+<em>Apple TVs</em> → enable <strong>LIVE</strong>.</p>
+
+<h3>8.4 Samsung TVs — Living, Office, Master, Guest</h3>
+<p><strong>On each TV first:</strong> Settings → General → Network → Expert →
+<strong>Power On with Mobile / Network standby = ON</strong> (this enables Wake‑on‑LAN).</p>
+<p>App → <em>Samsung TVs</em> → for each TV enter:</p>
+<ul>
+  <li><strong>IP address</strong> of the TV (reserve it in UniFi so it doesn't change).</li>
+  <li><strong>MAC address</strong> (needed for Wake‑on‑LAN power‑on).</li>
+  <li><strong>HDMI input #</strong> that its HDBaseT receiver feeds.</li>
+</ul>
+<p>The first time you connect LIVE, the TV shows an <strong>Allow</strong> prompt — accept it (that's the pairing
+token). Power‑off uses the network API; power‑on uses Wake‑on‑LAN, then the app retries selecting the
+HDMI input for a few seconds while the TV wakes.</p>
+
+<h3>8.5 SmartThings (optional, recommended for exact Samsung control)</h3>
+<ul>
+  <li>Create a <strong>Personal Access Token</strong> at <code>account.smartthings.com/tokens</code> with <code>r:devices:*</code> and <code>x:devices:*</code>.</li>
+  <li>Find each TV's device id: <code>curl -s https://api.smartthings.com/v1/devices -H "Authorization: Bearer &lt;PAT&gt;"</code></li>
+  <li>App → <em>SmartThings</em> → paste the token + each TV's device id. This gives exact HDMI input selection and an absolute (0‑100) volume slider.</li>
+</ul>
+<div class="warn">SmartThings Personal Access Tokens now expire in about <strong>24 hours</strong>. For a
+permanent install, paste a fresh token when it lapses, or set up a SmartThings OAuth app.</div>
+
+<h3>8.6 Ecobee thermostat</h3>
+<ul>
+  <li>Sign in at the <strong>Ecobee developer portal</strong> (<code>ecobee.com/home/developer</code>), create/authorize an app, and obtain an <strong>access token</strong>.</li>
+  <li>App → <em>Ecobee Thermostat</em> → paste the token (and thermostat id if you use one).</li>
+  <li>Ecobee tokens expire — refresh via Ecobee's OAuth flow when needed.</li>
+</ul>
+
+<h3>8.7 UniFi cameras</h3>
+<ul>
+  <li>In <strong>UniFi Protect</strong>, open each camera → enable <strong>RTSP</strong> and copy the stream URL (looks like <code>rtsp://&lt;NVR-IP&gt;:7447/&lt;streamID&gt;_0</code>).</li>
+  <li>App → <em>UniFi Protect Camera</em> (or the setup wizard) → paste each camera's <strong>RTSP URL</strong>.</li>
+  <li>The backend converts RTSP to a browser‑friendly stream using <strong>ffmpeg</strong> (installed in Part 2).</li>
+</ul>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part9">Part 9 — Auto‑start on boot</h2>
+<p>So the controller comes back by itself after a power cut. Create two small batch files.</p>
+
+<p><strong>C:\apartment-controller\start-backend.bat</strong></p>
+<pre>cd /d C:\apartment-controller\backend
+call .venv\Scripts\activate.bat
+uvicorn server:app --host 0.0.0.0 --port 8001</pre>
+
+<p><strong>C:\apartment-controller\start-frontend.bat</strong></p>
+<pre>cd /d C:\apartment-controller\frontend
+npx serve -s build -l 3000</pre>
+
+<p>Then open <strong>Task Scheduler</strong> → <strong>Create Task</strong> (do this once per .bat):</p>
+<ul>
+  <li><strong>General:</strong> tick "Run whether user is logged on or not".</li>
+  <li><strong>Triggers:</strong> New → Begin the task <strong>At startup</strong>.</li>
+  <li><strong>Actions:</strong> New → Start a program → browse to the .bat file.</li>
+</ul>
+<p>Both services now launch automatically at boot. (For a cleaner install you can run each as a Windows
+service using <strong>NSSM</strong> — nssm.cc.)</p>
+
+<!-- ============================================================ -->
+<h2 id="part10">Part 10 — Remote access (using it away from home)</h2>
+<div class="warn"><strong>Never</strong> forward ports 3000/8001 to the internet. Use a private VPN instead.</div>
+
+<h3>Option A — Tailscale (easiest, free)</h3>
+<ol>
+  <li>Install Tailscale on the mini‑PC (tailscale.com/download) and sign in.</li>
+  <li>Install the Tailscale app on the iPad and sign in with the same account.</li>
+  <li>Find the mini‑PC's tailnet IP (starts with <code>100.</code>).</li>
+  <li>Rebuild the frontend with that IP: edit <code>frontend\.env</code> →
+      <code>REACT_APP_BACKEND_URL=http://100.x.y.z:8001</code>, then <code>yarn build</code>. Open <code>http://100.x.y.z:3000</code> from anywhere.</li>
+</ol>
+
+<h3>Option B — UniFi WireGuard / Teleport</h3>
+<p>UniFi Network → <strong>VPN → WireGuard / Teleport</strong> → create a client, load it on the iPad. Once
+the VPN is connected, just browse to the normal LAN address <code>http://192.168.0.10:3000</code>.</p>
+
+<!-- ============================================================ -->
+<h2 id="part11">Part 11 — Security &amp; the PIN</h2>
+<ul>
+  <li>Change the default PIN from <strong>1234</strong> in the app: <strong>Settings → Change PIN</strong>.</li>
+  <li>Keep the controller on your LAN only; use the VPN in Part 10 for remote access.</li>
+  <li>Treat Ecobee / SmartThings tokens as secrets — don't share them.</li>
+</ul>
+
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2 id="part12">Part 12 — Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Fix</th></tr>
+  <tr><td>iPad can't load <code>http://192.168.0.10:3000</code></td><td>Firewall rules (Part 6) not added, or iPad on a different Wi‑Fi/VLAN, or the frontend window was closed.</td></tr>
+  <tr><td>UI loads but shows errors / no data</td><td>Frontend <code>.env</code> IP is wrong, or the backend window is closed. It must point to <code>http://192.168.0.10:8001</code>. Rebuild after any change.</td></tr>
+  <tr><td>"not recognized" for python/node/yarn/ffmpeg</td><td>Re‑run that installer with "Add to PATH", then open a fresh PowerShell.</td></tr>
+  <tr><td>Command log shows <strong>error</strong> for a device</td><td>Device unreachable/misconfigured — check its IP, that it's on the same subnet, and that its control feature is enabled.</td></tr>
+  <tr><td>TV won't power <strong>on</strong></td><td>Wake‑on‑LAN needs the correct <strong>MAC</strong> and "Network standby" enabled on the TV; the mini‑PC must be on the same L2 network.</td></tr>
+  <tr><td>TV powers on but wrong input</td><td>Set the HDMI input # on the Samsung card, or enable SmartThings for exact input.</td></tr>
+  <tr><td>Camera "Stream unavailable"</td><td>ffmpeg not on PATH, or wrong RTSP URL / camera RTSP disabled in UniFi.</td></tr>
+  <tr><td>SmartThings 401</td><td>Personal Access Token expired (~24 h) — paste a new one.</td></tr>
+  <tr><td>Everything still says <strong>simulated</strong></td><td>The device is still in DEMO — toggle it LIVE and Save.</td></tr>
+  <tr><td>Changed the IP but iPad still broken</td><td>You must run <code>yarn build</code> again after editing <code>frontend\.env</code>.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="part13">Part 13 — Final checklist</h2>
+<ul class="check">
+  <li>Mini‑PC has fixed IP 192.168.0.10 and never sleeps</li>
+  <li>Git, Python 3.11, Node 20, MongoDB (service), ffmpeg installed &amp; on PATH; Yarn enabled</li>
+  <li>Code cloned to C:\apartment-controller</li>
+  <li>backend\.env created; backend running on port 8001; <code>/api/</code> responds</li>
+  <li>frontend\.env points to http://192.168.0.10:8001; <code>yarn build</code> done; UI serving on port 3000</li>
+  <li>Firewall rules added for ports 3000 and 8001</li>
+  <li>iPad opens http://192.168.0.10:3000 and added to Home Screen</li>
+  <li>Each device entered &amp; switched to LIVE; "Test connection" passes</li>
+  <li>WS66i source → input map matches the actual wiring</li>
+  <li>Samsung TVs: IP + MAC + HDMI input entered; Network standby ON; "Allow" accepted</li>
+  <li>Auto‑start tasks created for backend &amp; frontend</li>
+  <li>Default PIN changed from 1234</li>
+  <li>(Optional) Tailscale/VPN set up for remote access</li>
+</ul>
+
+<hr>
+<p style="font-size:12px; color:var(--muted);">
+  Apartment Controller — self‑hosted commissioning guide. Keep this near the rack. The equivalent
+  developer notes live in <code>SELF_HOST.md</code> and <code>WINDOWS_SETUP.md</code> in the project folder.
+</p>
+
+</body>
+</html>
