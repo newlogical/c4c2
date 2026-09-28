@@ -65,6 +65,11 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - On-site commissioning: SELF_HOST.md + docker-compose.yml + Dockerfiles + in-app collapsible guide.
 - TV power-on Wake-on-LAN + HDMI-select retry (4x); live driver dispatch offloaded via asyncio.to_thread.
 
+### Deployment aids (2026-06)
+- WINDOWS_SETUP.md: full native-Windows-11 self-host walkthrough (user's mini-PC @ 192.168.0.10, iPad access).
+- frontend/public/setup-guide.html: standalone printable (Print/Save-as-PDF) commissioning guide, 13 parts + checklist.
+- Settings drawer: "Setup & install guide" link card (data-testid="setup-guide-link") opens /setup-guide.html in new tab.
+
 ## Backlog / Remaining
 - P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; SELF_HOST.md + docker-compose provided).
 - P2: Lighting/shades zones, multi-property, PIN rate-limiting, per-user profiles.

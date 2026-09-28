@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic } from "lucide-react";
+import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, Cloud, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic, Printer, ExternalLink } from "lucide-react";
 import { BACKEND } from "@/lib/api";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
@@ -194,6 +194,23 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
             </details>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-3">
+              <a
+                data-testid="setup-guide-link"
+                href="/setup-guide.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full glass rounded-2xl p-4 flex items-center gap-3 active:scale-[0.99] transition"
+              >
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(6,182,212,0.15)" }}>
+                  <Printer className="w-4.5 h-4.5" style={{ color: "var(--c4-cyan)" }} />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-semibold text-sm">Setup &amp; install guide</p>
+                  <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Full printable step-by-step walkthrough</p>
+                </div>
+                <ExternalLink className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />
+              </a>
+
               <button
                 data-testid="run-wizard-btn"
                 onClick={onRunWizard}
