@@ -213,11 +213,25 @@ class CameraDriver(BaseDriver):
         return self._dispatch(payload, f"{cam_name}: snapshot", conn)
 
 
-class TVDriver(BaseDriver):
-    """Samsung Tizen TV — samsungtvws WebSocket for keys/power-off, Wake-on-LAN for power-on."""
+class SonyBraviaDriver(BaseDriver):
+    """Sony Bravia Android TV (e.g. KD-49X7000E) — Bravia REST API with X-Auth-PSK,
+    IRCC-IP for remote keys, Wake-on-LAN for power-on ("Remote start")."""
 
-    name = "SamsungTV"
-    transport = "WS :8001 + WoL"
+    name = "SonyBravia"
+    transport = "Bravia REST + IRCC + WoL"
+
+    _IRCC = {
+        "KEY_POWER": "AAAAAQAAAAEAAAAvAw==",     # power off
+        "KEY_VOLUP": "AAAAAQAAAAEAAAASAw==",
+        "KEY_VOLDOWN": "AAAAAQAAAAEAAAATAw==",
+        "KEY_MUTE": "AAAAAQAAAAEAAAAUAw==",
+        "KEY_HOME": "AAAAAQAAAAEAAABgAw==",
+        "KEY_UP": "AAAAAQAAAAEAAAB0Aw==",
+        "KEY_DOWN": "AAAAAQAAAAEAAAB1Aw==",
+        "KEY_LEFT": "AAAAAQAAAAEAAAA0Aw==",
+        "KEY_RIGHT": "AAAAAQAAAAEAAAAzAw==",
+        "KEY_ENTER": "AAAAAQAAAAEAAABlAw==",
+    }
 
     def _wol(self, mac):
         clean = mac.replace(":", "").replace("-", "").strip()
@@ -231,84 +245,84 @@ class TVDriver(BaseDriver):
         finally:
             s.close()
 
-    def _tv(self, conn):
-        from samsungtvws import SamsungTVWS  # lazy: only needed live
-        return SamsungTVWS(host=conn["ip"], token=conn.get("token") or None, timeout=6)
+    def _rest(self, conn, service, method, params):
+        import requests
+        if not conn.get("ip"):
+            raise RuntimeError("TV IP not configured")
+        url = f"http://{conn['ip']}/sony/{service}"
+        headers = {"X-Auth-PSK": conn.get("psk", ""), "Content-Type": "application/json"}
+        body = {"method": method, "id": 1, "version": "1.0", "params": params}
+        r = requests.post(url, json=body, headers=headers, timeout=6)
+        r.raise_for_status()
+        if (r.json() or {}).get("error"):
+            raise RuntimeError(f"Bravia error {r.json()['error']}")
+
+    def _ircc(self, conn, code):
+        import requests
+        if not conn.get("ip"):
+            raise RuntimeError("TV IP not configured")
+        soap = (
+            '<?xml version="1.0"?>'
+            '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+            's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body>'
+            '<u:X_SendIRCC xmlns:u="urn:schemas-sony-com:service:IRCC:1">'
+            f'<IRCCCode>{code}</IRCCCode></u:X_SendIRCC></s:Body></s:Envelope>'
+        )
+        headers = {
+            "X-Auth-PSK": conn.get("psk", ""),
+            "Content-Type": "text/xml; charset=UTF-8",
+            "SOAPACTION": '"urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"',
+        }
+        r = requests.post(f"http://{conn['ip']}/sony/IRCC", data=soap.encode(), headers=headers, timeout=6)
+        r.raise_for_status()
 
     def power(self, output_display, on, conn=None, select_input=True):
         if on:
             hdmi = conn.get("hdmi_input", "?") if conn else "?"
-            payload = f"WoL magic packet -> {conn.get('mac','?') if conn else '?'}"
-            note = f"{output_display} power ON (Wake-on-LAN)" + (f" + HDMI{hdmi} (retry)" if select_input else "")
+            payload = f"WoL -> {conn.get('mac','?') if conn else '?'} + setPowerStatus true"
+            note = f"{output_display} power ON (Wake-on-LAN)" + (f" + HDMI{hdmi}" if select_input else "")
 
             def send():
                 self._wol(conn["mac"])
-                if not (select_input and conn.get("hdmi_input")):
-                    return
                 last = None
-                for _ in range(4):  # TV network stack wakes a few seconds after WoL
+                for _ in range(4):  # TV network wakes a few seconds after WoL
                     try:
-                        self._tv(conn).send_key("KEY_HDMI")  # each TV sits on its fixed matrix output
+                        self._rest(conn, "system", "setPowerStatus", [{"status": True}])
+                        if select_input and conn.get("hdmi_input"):
+                            self._rest(conn, "avContent", "setPlayContent",
+                                       [{"uri": f"extInput:hdmi?port={int(conn['hdmi_input'])}"}])
                         return
                     except Exception as e:
                         last = e
                         time.sleep(2)
                 raise last
         else:
-            payload = "send_key KEY_POWER"
+            payload = "setPowerStatus false"
             note = f"{output_display} power OFF"
 
             def send():
-                self._tv(conn).send_key("KEY_POWER")
+                self._rest(conn, "system", "setPowerStatus", [{"status": False}])
         return self._dispatch(payload, note, conn, sender=send)
 
-    def key(self, display_name, key, conn=None):
-        payload = f"send_key {key}"
-        return self._dispatch(payload, f"{display_name}: {key}", conn,
-                              sender=lambda: self._tv(conn).send_key(key))
-
-
-class SmartThingsDriver(BaseDriver):
-    """Samsung SmartThings cloud — exact HDMI input + absolute volume via REST commands."""
-
-    name = "SmartThings"
-    transport = "Cloud REST"
-    BASE = "https://api.smartthings.com/v1"
-
-    def _cmd(self, conn, commands):
-        import requests
-        if not conn.get("token") or not conn.get("device_id"):
-            raise RuntimeError("SmartThings token / device id not configured")
-        url = f"{self.BASE}/devices/{conn['device_id']}/commands"
-        headers = {
-            "Authorization": f"Bearer {conn['token']}",
-            "Content-Type": "application/json;charset=utf-8",
-        }
-        last = None
-        for _ in range(3):
-            try:
-                r = requests.post(url, json={"commands": commands}, headers=headers, timeout=(3.05, 15))
-                if r.status_code == 401:
-                    raise RuntimeError("SmartThings token expired / unauthorized")
-                r.raise_for_status()
-                return
-            except Exception as e:
-                last = e
-                time.sleep(1.5)
-        raise last
-
-    def set_input(self, display, hdmi, conn=None):
-        cmds = [{"component": "main", "capability": "mediaInputSource",
-                 "command": "setInputSource", "arguments": [hdmi]}]
-        return self._dispatch(f"setInputSource {hdmi}", f"{display} input -> {hdmi}", conn,
-                              sender=lambda: self._cmd(conn, cmds))
+    def set_input(self, display, port, conn=None):
+        uri = f"extInput:hdmi?port={int(port)}"
+        return self._dispatch(f"setPlayContent {uri}", f"{display} input -> HDMI{port}", conn,
+                              sender=lambda: self._rest(conn, "avContent", "setPlayContent", [{"uri": uri}]))
 
     def set_volume(self, display, vol, conn=None):
         vol = max(0, min(100, int(vol)))
-        cmds = [{"component": "main", "capability": "audioVolume",
-                 "command": "setVolume", "arguments": [vol]}]
-        return self._dispatch(f"setVolume {vol}", f"{display} volume -> {vol}%", conn,
-                              sender=lambda: self._cmd(conn, cmds))
+        return self._dispatch(f"setAudioVolume {vol}", f"{display} volume -> {vol}%", conn,
+                              sender=lambda: self._rest(conn, "audio", "setAudioVolume",
+                                                        [{"target": "speaker", "volume": str(vol)}]))
+
+    def key(self, display_name, key, conn=None):
+        code = self._IRCC.get(key)
+
+        def send():
+            if not code:
+                raise RuntimeError(f"Unsupported key {key}")
+            self._ircc(conn, code)
+        return self._dispatch(f"IRCC {key}", f"{display_name}: {key}", conn, sender=send)
 
 
 matrix = MatrixDriver()
@@ -316,8 +330,7 @@ amp = AmpDriver()
 appletv = AppleTVDriver()
 thermostat = ThermostatDriver()
 camera = CameraDriver()
-tv = TVDriver()
-smartthings = SmartThingsDriver()
+tv = SonyBraviaDriver()
 
 # A public test HLS feed so the live player streams video in the cloud demo.
 DEMO_HLS = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"

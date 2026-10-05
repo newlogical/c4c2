@@ -72,14 +72,10 @@ def default_config() -> dict:
             "cam_garage": {"live": False, "rtsp_url": ""},
         },
         "tv": {"live": False, "sets": {
-            "tv_living": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
-            "tv_office": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
-            "tv_master": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
-            "tv_guest": {"ip": "", "mac": "", "hdmi_input": 1, "token": ""},
-        }},
-        "smartthings": {"live": False, "token": "", "devices": {
-            "tv_living": {"device_id": ""}, "tv_office": {"device_id": ""},
-            "tv_master": {"device_id": ""}, "tv_guest": {"device_id": ""},
+            "tv_living": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
+            "tv_office": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
+            "tv_master": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
+            "tv_guest": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
         }},
         "setup_done": False,
     }
@@ -146,6 +142,11 @@ async def get_state() -> dict:
     doc.setdefault("audio_follow_tv", True)
     doc.setdefault("away", False)
     doc.pop("pin", None)  # PIN lives in db.auth, never in state
+    _cfgm = doc.get("config") or {}
+    for _s in ((_cfgm.get("tv") or {}).get("sets") or {}).values():  # migrate Samsung token -> Sony PSK
+        if isinstance(_s, dict) and "psk" not in _s:
+            _s["psk"] = _s.pop("token", "") or ""
+    _cfgm.pop("smartthings", None)  # SmartThings removed (Samsung-only)
     if isinstance(doc.get("camera"), dict):
         doc["camera"].setdefault("armed", False)
     if "cameras" not in doc:
@@ -218,7 +219,7 @@ def _bearer(request: Request) -> str:
 def is_demo_mode(state: dict) -> bool:
     """True when no device is configured LIVE (used to gate the demo skip button)."""
     c = state.get("config") or {}
-    if any((c.get(d) or {}).get("live") for d in ("matrix", "amp", "ecobee", "appletv", "camera", "tv", "smartthings")):
+    if any((c.get(d) or {}).get("live") for d in ("matrix", "amp", "ecobee", "appletv", "camera", "tv")):
         return False
     if any((v or {}).get("live") for v in (c.get("cameras") or {}).values()):
         return False
@@ -230,14 +231,13 @@ def redact_secrets(state: dict) -> dict:
     s = copy.deepcopy(state)
     c = s.get("config") or {}
 
-    def _mask(d):
-        if isinstance(d, dict) and d.get("token"):
-            d["token"] = MASK_VALUE
+    def _mask(d, k="token"):
+        if isinstance(d, dict) and d.get(k):
+            d[k] = MASK_VALUE
 
     _mask(c.get("ecobee"))
-    _mask(c.get("smartthings"))
     for tvset in ((c.get("tv") or {}).get("sets") or {}).values():
-        _mask(tvset)
+        _mask(tvset, "psk")
     return s
 
 
@@ -280,16 +280,6 @@ def amp_input(state, source_id):
         return int(m.get(source_id, 1))
     except (TypeError, ValueError):
         return 1
-
-
-def st_conn(state, display_id):
-    s = cfg(state, "smartthings")
-    dev = (s.get("devices") or {}).get(display_id) or {}
-    return {"live": s.get("live", False), "token": s.get("token", ""), "device_id": dev.get("device_id", "")}
-
-
-def st_ready(conn):
-    return bool(conn.get("live") and conn.get("token") and conn.get("device_id"))
 
 
 def link_zone_to_display(state, display):
@@ -623,13 +613,8 @@ async def display_power(req: DisplayPowerReq):
     if not display:
         raise HTTPException(404, "Display not found")
     display["power"] = req.power
-    stc = st_conn(state, display["id"])
-    use_st = req.power and st_ready(stc)  # SmartThings selects the exact HDMI input on power-on
     log_cmd(state, drivers.matrix.power(display["output"], req.power, display["name"], cfg(state, "matrix")))
-    log_cmd(state, await asyncio.to_thread(drivers.tv.power, display["name"], req.power, tv_conn(state, display["id"]), select_input=not use_st))
-    if use_st:
-        hdmi = int((cfg(state, "tv").get("sets") or {}).get(display["id"], {}).get("hdmi_input", 1) or 1)
-        log_cmd(state, await asyncio.to_thread(drivers.smartthings.set_input, display["name"], f"HDMI{hdmi}", stc))
+    log_cmd(state, await asyncio.to_thread(drivers.tv.power, display["name"], req.power, tv_conn(state, display["id"]), True))
     if req.power:
         link_zone_to_display(state, display)
     await save_state(state)
@@ -644,8 +629,7 @@ async def display_tvvolume(req: TvVolumeReq):
         raise HTTPException(404, "Display not found")
     vol = max(0, min(100, req.volume))
     display["tv_volume"] = vol
-    stc = st_conn(state, display["id"])
-    log_cmd(state, await asyncio.to_thread(drivers.smartthings.set_volume, display["name"], vol, stc if st_ready(stc) else {"live": False}))
+    log_cmd(state, await asyncio.to_thread(drivers.tv.set_volume, display["name"], vol, tv_conn(state, display["id"])))
     await save_state(state)
     return {"ok": True, "tv_volume": vol, "command_log": state["command_log"]}
 
@@ -847,15 +831,8 @@ async def test_connection(device: str):
             sets = [s for s in (conn.get("sets") or {}).values() if s.get("ip")]
             if not sets:
                 raise RuntimeError("No TV IP addresses configured")
-            with socket.create_connection((sets[0]["ip"], 8001), timeout=4):
+            with socket.create_connection((sets[0]["ip"], 80), timeout=4):
                 pass
-        elif device == "smartthings":
-            import requests
-            if not conn.get("token"):
-                raise RuntimeError("No SmartThings token configured")
-            r = requests.get("https://api.smartthings.com/v1/devices",
-                             headers={"Authorization": f"Bearer {conn.get('token','')}"}, timeout=8)
-            r.raise_for_status()
         else:
             raise RuntimeError("No test available for this device")
         return {"device": device, "ok": True, "detail": "Reachable"}

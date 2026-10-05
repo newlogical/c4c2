@@ -27,7 +27,7 @@ export const WatchTab = () => {
   };
   const setTvVolume = async (d, v) => {
     await api.tvVolume(d.id, v);
-    toast.success(`${d.name} volume ${v}%`, { description: "SmartThings absolute level" });
+    toast.success(`${d.name} volume ${v}%`, { description: "Sony Bravia absolute level" });
   };
 
   return (

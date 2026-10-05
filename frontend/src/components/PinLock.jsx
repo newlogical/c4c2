@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Delete, Lock, Home, ShieldAlert } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { api } from "@/lib/api";
 
 export const PinLock = ({ onUnlock, propertyName }) => {
@@ -125,6 +126,13 @@ export const PinLock = ({ onUnlock, propertyName }) => {
             <Home className="w-3.5 h-3.5" /> Demo — tap to skip (PIN 1234)
           </button>
         )}
+
+        <div className="mt-7 flex flex-col items-center gap-1.5" data-testid="setup-guide-qr">
+          <div className="p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.92)" }}>
+            <QRCodeCanvas value={`${window.location.origin}/setup-guide.html`} size={72} bgColor="#ffffff" fgColor="#0a0d14" level="M" />
+          </div>
+          <span className="text-[10px]" style={{ color: "var(--c4-muted)" }}>Scan for the setup guide</span>
+        </div>
       </motion.div>
     </div>
   );

@@ -10,7 +10,7 @@ const STEPS = [
   { key: "amp", title: "WS66i Amplifier", sub: "6-zone audio", icon: Radio, device: "amp", fields: [["host", "IP address", "192.168.1.50"]] },
   { key: "ecobee", title: "Ecobee Thermostat", sub: "Climate control", icon: Thermometer, device: "ecobee", fields: [["token", "API access token", "paste token"], ["thermostat_id", "Thermostat ID", "optional"]] },
   { key: "camera", title: "UniFi Camera", sub: "Live video feed", icon: Camera, device: "camera", fields: [["rtsp_url", "RTSP URL", "rtsp://NVR:7447/..."]] },
-  { key: "tv", title: "Samsung TVs", sub: "Power & volume", icon: MonitorSpeaker, device: "tv", tv: true },
+  { key: "tv", title: "Sony Bravia TVs", sub: "Power, volume & HDMI", icon: MonitorSpeaker, device: "tv", tv: true },
   { key: "done" },
 ];
 
@@ -169,13 +169,15 @@ export const SetupWizard = ({ open, onClose }) => {
                             <div className="grid grid-cols-2 gap-2">
                               <input data-testid={`wizard-tv-ip-${d.id}`} placeholder="IP" value={s.ip || ""} onChange={(e) => setTv(d.id, "ip", e.target.value)} className="rounded-md px-2 py-1.5 text-xs outline-none" style={inputStyle} />
                               <input data-testid={`wizard-tv-mac-${d.id}`} placeholder="MAC" value={s.mac || ""} onChange={(e) => setTv(d.id, "mac", e.target.value)} className="rounded-md px-2 py-1.5 text-xs outline-none" style={inputStyle} />
+                              <input data-testid={`wizard-tv-hdmi-${d.id}`} type="number" placeholder="HDMI #" value={s.hdmi_input ?? 1} onChange={(e) => setTv(d.id, "hdmi_input", Number(e.target.value))} className="rounded-md px-2 py-1.5 text-xs outline-none" style={inputStyle} />
+                              <input data-testid={`wizard-tv-psk-${d.id}`} type="password" placeholder="PSK" value={s.psk || ""} onChange={(e) => setTv(d.id, "psk", e.target.value)} className="rounded-md px-2 py-1.5 text-xs outline-none" style={inputStyle} />
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs py-2" style={{ color: "var(--c4-muted)" }}>Toggle on to enter each TV's IP + MAC (for Wake-on-LAN power).</p>
+                    <p className="text-xs py-2" style={{ color: "var(--c4-muted)" }}>Toggle on to enter each TV's IP, MAC, HDMI input and Pre-Shared Key.</p>
                   )}
                 </div>
               )}
