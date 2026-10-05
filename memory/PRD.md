@@ -76,8 +76,13 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Secret redaction: ecobee/smartthings/tv tokens masked as `"__stored__"` in `/api/state`; `_unmask` on `PUT /config` preserves stored secret (resend mask = keep, ''=clear, new=overwrite).
 - SSRF fix: `_ensure_ffmpeg` rejects non-`rtsp://` URLs + `-protocol_whitelist`. Path-traversal fix: `/camera/hls` sanitizes cam_id/filename + confines to HLS_DIR (404 on escape). CORS `allow_credentials=False` (Bearer, not cookies).
 
+### Sony Bravia TV driver + lock-screen QR (2026-06) — verified iteration_11 (100% backend+frontend)
+- TVs are Sony KD-49X7000E. Replaced Samsung `samsungtvws` driver with `SonyBraviaDriver` (drivers.py): Bravia REST API `http://<ip>/sony/<service>` with `X-Auth-PSK` header (power `system.setPowerStatus`, input `avContent.setPlayContent extInput:hdmi?port=N`, volume `audio.setAudioVolume`), IRCC-IP SOAP for remote keys (KEY_VOLUP/DOWN/MUTE/etc), Wake-on-LAN for power-on.
+- Config: `tv.sets.<id>` now `{ip, mac, hdmi_input, psk}` (psk replaces Samsung token, masked in /state). SmartThings removed entirely (Samsung-only). get_state migrates legacy token→psk and drops smartthings.
+- Settings + Setup Wizard cards relabeled "Sony Bravia TVs" (IP/MAC/HDMI/PSK fields); SmartThings card removed. WatchTab volume toast → "Sony Bravia absolute level".
+- PIN lock screen shows a QR code (qrcode.react) linking to `/setup-guide.html` ("Scan for the setup guide").
+
 ## Backlog / Remaining
-- P0 (next, approved): Replace Samsung TV driver with **Sony Bravia** driver — TVs are Sony KD-49X7000E (all 4). Use `pybravia` REST API + `X-Auth-PSK` + Wake-on-LAN; relabel Settings card "Sony Bravia TVs" (IP/MAC/PSK/HDMI port); remove Samsung-only SmartThings card.
-- P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; SELF_HOST.md + docker-compose provided).
+- P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; SELF_HOST.md + WINDOWS_SETUP.md + docker-compose provided). Validate Sony PSK + WoL against the actual KD-49X7000E units.
 - P2: Lighting/shades zones, multi-property, PIN rate-limiting, per-user profiles.
 - P2: Low-latency camera (WebRTC/go2rtc), energy dashboard, richer automation conditions.

@@ -1,0 +1,25 @@
+{
+  "summary": "Iter 11: Verified Sony Bravia driver replacing Samsung + SmartThings removal + lock-screen QR. Backend: 10/10 pytest passed (auth gate still holds, config shape has psk/no token/no smartthings, PSK mask + preserve-on-echo works, SonyBravia log entries with correct notes for power WoL / volume / IRCC KEY_MUTE, /config/test/tv returns demo-mode ok:false). Frontend: PIN keypad unlock works, QR + caption shown on lock screen, Settings TV card titled 'Sony Bravia TVs', all four TVs expose tv-ip/mac/hdmi/psk fields when LIVE, settings-smartthings is absent, setup-guide-link present, all 5 bottom tabs load without console errors. Setup Wizard code confirmed via grep: wizard-tv-hdmi-* and wizard-tv-psk-* present and labeled 'Sony Bravia TVs'. WatchTab toast string 'Sony Bravia absolute level' confirmed in source. Teardown verified: tv.live=false, PSK cleared, no smartthings key in config.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_sony.py",
+    "/app/test_reports/pytest/iter11.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SonyBraviaDriver.power(on=False) path doesn't send Wake-on-LAN (correct) but also runs setPowerStatus false; if TV already off this returns error upstream — acceptable for live scenarios.",
+    "server.py get_state mutates `_cfgm` locally but not the persisted doc; migration from legacy 'token'->'psk' is only in-memory per read. If an older doc has 'smartthings' it will be re-returned by future reads correctly since _cfgm is doc['config'] alias — OK.",
+    "No tests cover MAC validation in SonyBraviaDriver._wol; a malformed MAC in live mode would raise 'Invalid MAC address' and the whole /display/power would log status=error. Low priority for cloud demo."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter11_sony.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234",
+  "seed_data_creation": "None (PSK write test used TEST secret, cleaned up at end)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sony Bravia TV driver (replaces Samsung) + lock-screen QR are fully verified. SmartThings is cleanly removed from backend config and frontend Settings. All demo-mode invariants preserved so /auth/demo + pin-demo-bypass still function. For future iters re-run /app/backend/tests/test_iter11_sony.py as regression.",
+  "rca of the issue": "N/A — no issues found."
+}
