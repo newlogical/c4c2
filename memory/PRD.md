@@ -92,3 +92,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - SONY_TV_IPS in server.py; defaults + migration fills empty IPs; discovery probes these on port 80 (was Samsung 8001)
 - MACs not shown in screenshots: still pending (needed for Wake-on-LAN). PSKs pending.
 - Next: MACs, PSKs, HDMI ports, mini-PC install, Claude integration (not started)
+- MACs added (SONY_TV_MACS): Living 1C:D6:BE:B3:FB:1C, Office FA:8A:FD:3F:67:FC, Master FA:D8:24:B4:79:2F, Guest 8E:BF:A2:FC:72:BF. Office/Master/Guest are randomized private MACs -> disable Private MAC on TVs or WoL may fail.

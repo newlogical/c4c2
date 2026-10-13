@@ -59,6 +59,12 @@ SONY_TV_IPS = {
     "tv_master": "192.168.0.78",
     "tv_guest": "192.168.0.253",
 }
+SONY_TV_MACS = {
+    "tv_living": "1C:D6:BE:B3:FB:1C",
+    "tv_office": "FA:8A:FD:3F:67:FC",
+    "tv_master": "FA:D8:24:B4:79:2F",
+    "tv_guest": "8E:BF:A2:FC:72:BF",
+}
 
 # ---------------------------------------------------------------------------
 # Default apartment configuration
@@ -80,7 +86,7 @@ def default_config() -> dict:
             "cam_garage": {"live": False, "rtsp_url": ""},
         },
         "tv": {"live": False, "sets": {
-            tid: {"ip": ip, "mac": "", "hdmi_input": 1, "psk": ""} for tid, ip in SONY_TV_IPS.items()
+            tid: {"ip": ip, "mac": SONY_TV_MACS[tid], "hdmi_input": 1, "psk": ""} for tid, ip in SONY_TV_IPS.items()
         }},
         "setup_done": False,
     }
@@ -156,6 +162,8 @@ async def get_state() -> dict:
     for _tid, _ip in SONY_TV_IPS.items():  # fill UniFi-mapped IPs where not yet set
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("ip"):
             _sets[_tid]["ip"] = _ip
+        if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
+            _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
     for _d in doc.get("displays", []):
         if _d.get("id") == "tv_guest" and _d.get("name") == "Guest Bedroom TV":
             _d["name"] = "Guest Room TV"
@@ -1016,7 +1024,7 @@ async def discover(live: bool = False):
         "matrix": {"host": "192.168.1.20", "port": 23, "label": "JTECH-MXT40 (Telnet) @ 192.168.1.20"},
         "amp": {"host": "192.168.1.35", "label": "WS66i 6-zone @ 192.168.1.35"},
         "camera": {"rtsp_url": "rtsp://192.168.1.2:7447/2b9f1c-front", "label": "UniFi Front Entry"},
-        "tv": {tid: {"ip": ip, "mac": ""} for tid, ip in SONY_TV_IPS.items()},
+        "tv": {tid: {"ip": ip, "mac": SONY_TV_MACS[tid]} for tid, ip in SONY_TV_IPS.items()},
     }
     if not live:
         return {"demo": True, "devices": demo_devices}
@@ -1045,7 +1053,7 @@ async def discover(live: bool = False):
             found["matrix"] = {"host": matrix_hosts[0], "port": 23, "label": f"Telnet device @ {matrix_hosts[0]}"}
         for (disp, ip), ok in zip(SONY_TV_IPS.items(), tv_up):
             if ok:
-                found["tv"][disp] = {"ip": ip, "mac": ""}
+                found["tv"][disp] = {"ip": ip, "mac": SONY_TV_MACS[disp]}
     except Exception as e:
         return {"demo": True, "error": str(e), "devices": demo_devices}
     return {"demo": False, "devices": found}
