@@ -152,8 +152,9 @@ tap **Test connection**, then **Save**. Full per‑device field details are in `
 
 - **JTECH‑MXT40 matrix** — enable Telnet (port 23) in its web UI → enter its IP + port 23.
 - **WS66i amp** — set to Ethernet, give it a fixed IP → enter IP, then map each source to its physical input 1‑6.
-- **Samsung TVs** — per TV enter IP + **MAC** + HDMI input #; on the TV enable Network standby (for WOL).
-  First LIVE connect, tap **Allow** on the TV. (Optional SmartThings PAT for exact input/volume.)
+- **Sony Bravia TVs** — IPs/MACs are pre-mapped (Living .165, Office .177, Master .78, Guest .253).
+  On each TV: Settings → Network → Home network setup → **IP control** → Authentication *Normal and
+  Pre-Shared Key*, set a **PSK**, and turn **Remote start ON**. In the app enter each TV's PSK + HDMI port.
 - **Apple TVs** — in the backend venv run `atvremote scan` then `atvremote --id <id> pair`, save creds; enable LIVE.
 - **Ecobee** — local HomeKit: confirm IP `192.168.0.222`, enter the 8-digit HomeKit code (thermostat Menu → Settings → HomeKit) and tap **Pair thermostat**. Allow Python through Windows Firewall on **Private** networks so mDNS (UDP 5353) discovery works. Don't add the thermostat to Apple Home.
 - **UniFi cameras** — enable RTSP in UniFi Protect, paste each camera's `rtsp://...` URL (ffmpeg transcodes to HLS).

@@ -98,24 +98,18 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
   each unit; save the credentials.
 - Settings → *Apple TVs* → enable LIVE. (Device IDs/credentials are provisioned on the host.)
 
-### Samsung TVs — power / volume / input
-- On each TV: **Settings → General → Network → Expert → Power On with Mobile / Network standby = ON**
-  (enables Wake‑on‑LAN).
-- Settings → *Samsung TVs* → per TV enter **IP**, **MAC**, and the **HDMI input #** its HDBaseT
-  receiver feeds. First LIVE connect, the TV shows an **Allow** prompt (that's the token).
-- Power‑off uses the Samsung network API; **power‑on uses Wake‑on‑LAN**, then the app retries the
-  HDMI‑input select for a few seconds until the TV's network wakes.
-
-### SmartThings — exact HDMI input + absolute volume (optional but recommended for Samsung)
-- Get a **Personal Access Token** at [account.smartthings.com/tokens](https://account.smartthings.com/tokens)
-  with `r:devices:*` and `x:devices:*`. **PATs now expire in ~24 h** — for a permanent install use a
-  SmartThings OAuth app, or paste a fresh PAT when it lapses.
-- Find each TV's **device ID**:
-  ```bash
-  curl -s https://api.smartthings.com/v1/devices -H "Authorization: Bearer <PAT>"
-  ```
-- Settings → *SmartThings* → paste the token + each TV's device ID. When LIVE, power‑on selects the
-  exact `HDMI{n}` and the per‑TV volume slider sets an **absolute** level (0‑100).
+### Sony Bravia TVs (KD-49X7000E) — power / volume / input
+- Mapped TVs (from UniFi): Living Room `192.168.0.165`, Office `192.168.0.177`,
+  Master Bedroom `192.168.0.78`, Guest Room `192.168.0.253` — reserve these IPs in UniFi.
+- On each TV: **Settings → Network → Home network setup → IP control**
+  - **Authentication = Normal and Pre-Shared Key**, then set a **Pre-Shared Key** (e.g. a 4-digit code).
+  - **Remote start = ON** (lets the TV wake from the network).
+  - Turn **off** private/random Wi-Fi MAC so Wake-on-LAN and IP reservations stay valid.
+  - (Menu wording varies slightly by firmware.)
+- Settings → *Sony Bravia TVs* → per TV confirm **IP** + **MAC**, enter the **PSK** and the **HDMI port**
+  its HDBaseT receiver feeds.
+- Power-off / input / volume use the Bravia REST API (`X-Auth-PSK`); remote keys use IRCC;
+  **power-on sends Wake-on-LAN** plus `setPowerStatus`. Wired Ethernet is the most reliable for wake.
 
 ---
 
@@ -123,7 +117,8 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
 
 - Route an Apple TV to a TV (Watch tab) → the display should switch; the **Driver Log** (terminal icon)
   shows the command tagged **sent**.
-- Power a TV on → matrix + SamsungTV (+ SmartThings input) entries appear.
+- Power a TV on → matrix + SonyBravia entries appear.
+- Settings → **Device health** (or the pulse icon in the top bar) shows every mapped device online.
 - Change an audio zone source → the WS66i command uses the mapped physical input.
 - Automations (Scenes tab) run on schedule or on the **Simulate motion** event.
 
@@ -134,10 +129,10 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
 | Symptom | Fix |
 |---|---|
 | Command log shows **error** | Device unreachable/misconfigured. Check IP, same subnet, device control enabled. |
-| TV won't power **on** | Wake‑on‑LAN needs the correct **MAC** and "Network standby" enabled; host must be on the same L2 network. |
-| TV powers on but wrong input | Set the HDMI input # (Samsung card) or enable SmartThings for exact input. |
+| TV won't power **on** | Needs the correct **MAC**, **Remote start = ON**, and the host on the same L2 network. Wi-Fi wake is unreliable on Sony — use Ethernet if possible. |
+| TV powers on but wrong input | Set the correct HDMI port on that TV's card in *Sony Bravia TVs*. |
+| Sony command **error 403/401** | PSK mismatch or IP control authentication not set to *Normal and Pre-Shared Key*. |
 | Camera "Stream unavailable" | ffmpeg missing on host, or wrong RTSP URL / camera RTSP disabled. |
-| SmartThings 401 | PAT expired (24 h) — paste a new one. |
 | Everything says **simulated** | The device is still in DEMO — toggle it LIVE and Save. |
 
 ---

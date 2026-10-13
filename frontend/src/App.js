@@ -9,6 +9,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { DriverDrawer } from "@/components/DriverDrawer";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { SetupWizard } from "@/components/SetupWizard";
+import { DeviceHealthPanel } from "@/components/DeviceHealthPanel";
 import { ScreenSaver } from "@/components/ScreenSaver";
 import { HomeTab } from "@/components/tabs/HomeTab";
 import { WatchTab } from "@/components/tabs/WatchTab";
@@ -25,6 +26,7 @@ const Controller = () => {
   const [driversOpen, setDriversOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
   const [wizardSeen, setWizardSeen] = useState(false);
   const [saverOn, setSaverOn] = useState(() => localStorage.getItem("c4_saver") !== "off");
   const [saverMode, setSaverMode] = useState(() => localStorage.getItem("c4_saver_mode") || "clock");
@@ -77,7 +79,7 @@ const Controller = () => {
 
   return (
     <div className="c4-shell min-h-screen flex flex-col">
-      <TopBar onLock={() => { api.logout(); setUnlocked(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
+      <TopBar onLock={() => { api.logout(); setUnlocked(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
@@ -97,11 +99,13 @@ const Controller = () => {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onRunWizard={() => { setSettingsOpen(false); setWizardOpen(true); }}
+        onOpenHealth={() => { setSettingsOpen(false); setHealthOpen(true); }}
         saverOn={saverOn}
         onToggleSaver={toggleSaver}
         saverMode={saverMode}
         onChangeSaverMode={changeSaverMode}
       />
+      <DeviceHealthPanel open={healthOpen} onClose={() => setHealthOpen(false)} />
       <SetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <ScreenSaver enabled={saverOn} mode={saverMode} />
     </div>

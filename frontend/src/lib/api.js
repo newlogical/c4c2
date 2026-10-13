@@ -75,6 +75,7 @@ export const api = {
   clearClips: () => http.delete("/clips").then((r) => r.data),
   getVoicePhrases: () => http.get("/voice/phrases").then((r) => r.data),
   setVoicePhrases: (phrases) => http.put("/voice/phrases", { phrases }).then((r) => r.data),
+  deviceHealth: () => http.get("/health/devices").then((r) => r.data),
   discover: (live = false) => http.get(`/discover?live=${live}`).then((r) => r.data),
   // Device config
   updateConfig: (config) => http.put("/config", { config }).then((r) => r.data),

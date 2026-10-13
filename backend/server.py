@@ -1136,6 +1136,74 @@ async def discover(live: bool = False):
     return {"demo": False, "devices": found}
 
 
+async def _tcp_up(host, port, timeout=1.2):
+    loop = asyncio.get_running_loop()
+    t0 = loop.time()
+    try:
+        _r, w = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
+        w.close()
+        return True, round((loop.time() - t0) * 1000)
+    except Exception:
+        return False, None
+
+
+async def _ping_up(host):
+    is_win = os.name == "nt"
+    args = ["ping", "-n" if is_win else "-c", "1", "-w" if is_win else "-W", "1000" if is_win else "1", host]
+    if not shutil.which("ping"):
+        return False, None
+    loop = asyncio.get_running_loop()
+    t0 = loop.time()
+    try:
+        proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+        ok = (await asyncio.wait_for(proc.wait(), timeout=3)) == 0
+        return ok, round((loop.time() - t0) * 1000) if ok else None
+    except Exception:
+        return False, None
+
+
+def _health_targets(state):
+    c = state.get("config") or {}
+    names = {d["id"]: d["name"] for d in state.get("displays", [])}
+    out = []
+    for tid, tv in ((c.get("tv") or {}).get("sets") or {}).items():
+        if tv.get("ip"):
+            out.append({"id": tid, "name": names.get(tid, tid), "kind": "Sony Bravia TV", "ip": tv["ip"], "port": 80,
+                        "mac": tv.get("mac", ""), "live": bool((c.get("tv") or {}).get("live"))})
+    ec = c.get("ecobee") or {}
+    if ec.get("ip"):
+        out.append({"id": "ecobee", "name": "Thermostat", "kind": "Ecobee (HomeKit)", "ip": ec["ip"], "port": None,
+                    "mac": ec.get("mac", ""), "live": bool(ec.get("live"))})
+    m = c.get("matrix") or {}
+    if m.get("host"):
+        out.append({"id": "matrix", "name": "HDMI Matrix", "kind": "J-Tech MXT40", "ip": m["host"], "port": int(m.get("port", 23)),
+                    "mac": "", "live": bool(m.get("live"))})
+    a = c.get("amp") or {}
+    if a.get("host"):
+        out.append({"id": "amp", "name": "Audio Amp", "kind": "Soundavo WS66i", "ip": a["host"], "port": 8080,
+                    "mac": "", "live": bool(a.get("live"))})
+    cam_names = {x["id"]: x["name"] for x in state.get("cameras", [])}
+    cams = [("cam_front", c.get("camera") or {})] + list((c.get("cameras") or {}).items())
+    for cid, cam in cams:
+        url = cam.get("rtsp_url") or ""
+        mt = re.match(r"^rtsps?://(?:[^@/]*@)?([^:/]+)(?::(\d+))?", url)
+        if mt:
+            out.append({"id": cid, "name": cam_names.get(cid, cid), "kind": "UniFi Camera (RTSP)", "ip": mt.group(1),
+                        "port": int(mt.group(2) or 554), "mac": "", "live": bool(cam.get("live"))})
+    return out
+
+
+@api_router.get("/health/devices")
+async def device_health():
+    state = await get_state()
+    targets = _health_targets(state)
+    results = await asyncio.gather(*[(_tcp_up(t["ip"], t["port"]) if t["port"] else _ping_up(t["ip"])) for t in targets])
+    for t, (ok, ms) in zip(targets, results):
+        t.update({"online": ok, "latency_ms": ms, "check": f"TCP {t['port']}" if t["port"] else "ping"})
+    return {"checked_at": datetime.now(timezone.utc).isoformat(), "devices": targets,
+            "online": sum(1 for t in targets if t["online"]), "total": len(targets)}
+
+
 @api_router.post("/camera/snapshot")
 async def camera_snapshot():
     state = await get_state()

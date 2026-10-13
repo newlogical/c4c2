@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic, Printer, ExternalLink } from "lucide-react";
+import { Activity, X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic, Printer, ExternalLink } from "lucide-react";
 import { BACKEND } from "@/lib/api";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
@@ -105,7 +105,7 @@ const HomeKitPair = ({ conn, onBeforePair }) => {
   );
 };
 
-export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSaver, saverMode, onChangeSaverMode }) => {
+export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saverOn, onToggleSaver, saverMode, onChangeSaverMode }) => {
   const { state, act, api } = useSystem();
   const [config, setConfig] = useState({});
   const [testing, setTesting] = useState(null);
@@ -227,6 +227,19 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
             </details>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-3">
+              <button
+                data-testid="settings-health-card"
+                onClick={onOpenHealth}
+                className="w-full glass rounded-2xl p-4 flex items-center gap-3 active:scale-[0.99] transition text-left"
+              >
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}>
+                  <Activity className="w-4.5 h-4.5" style={{ color: "var(--c4-emerald)" }} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Device health</p>
+                  <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Every mapped device with IP and online status</p>
+                </div>
+              </button>
               <a
                 data-testid="setup-guide-link"
                 href="/setup-guide.html"

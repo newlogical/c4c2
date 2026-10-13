@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Lock, Wifi, Cable, Radio, Terminal, Settings, Maximize, Minimize } from "lucide-react";
+import { Lock, Wifi, Cable, Radio, Terminal, Settings, Maximize, Minimize, Activity } from "lucide-react";
+import { useDeviceHealth } from "@/components/DeviceHealthPanel";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -16,8 +17,10 @@ const StatusDot = ({ ok, label, icon: Icon }) => (
   </div>
 );
 
-export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings }) => {
+export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings, onOpenHealth }) => {
   const { state } = useSystem();
+  const { data: health } = useDeviceHealth(true);
+  const hColor = !health || !health.total ? "var(--c4-muted)" : health.online === health.total ? "var(--c4-emerald)" : health.online ? "var(--c4-amber)" : "var(--c4-rose)";
   const [now, setNow] = useState(new Date());
   const [fs, setFs] = useState(false);
 
@@ -65,6 +68,19 @@ export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings }) => {
           <StatusDot ok={net.matrix_linked} label="Matrix" icon={Cable} />
           <StatusDot ok={net.amp_linked} label="Amp" icon={Radio} />
         </div>
+        <button
+          data-testid="open-health-btn"
+          onClick={onOpenHealth}
+          className="relative w-9 h-9 rounded-xl glass flex items-center justify-center active:scale-95 transition"
+          title="Device health"
+        >
+          <Activity className="w-4 h-4" style={{ color: hColor }} />
+          {health && (
+            <span data-testid="topbar-health-count" className="absolute -top-1 -right-1 text-[9px] font-bold font-mono px-1 rounded-full" style={{ background: hColor, color: "#0A0D14" }}>
+              {health.online}/{health.total}
+            </span>
+          )}
+        </button>
         <button
           data-testid="open-drivers-btn"
           onClick={onOpenDrivers}

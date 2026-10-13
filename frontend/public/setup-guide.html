@@ -99,7 +99,7 @@ cameras, and run "scenes" (one tap = many actions).</p>
   <tr><td>J‑Tech JTECH‑MXT40 4×4 HDMI matrix</td><td>Routes any source (Apple TVs) to any TV</td><td>Telnet over LAN (port 23)</td></tr>
   <tr><td>WS66i 6‑zone amplifier</td><td>Audio per room: Living, Office, Master, Bathroom — volume, mute, source</td><td>Ethernet (LAN IP)</td></tr>
   <tr><td>4 × Apple TV</td><td>Central video sources + on‑screen remote</td><td>Companion pairing on the host</td></tr>
-  <tr><td>4 × Samsung TV (Living, Office, Master, Guest)</td><td>Power on/off, volume, HDMI input select</td><td>LAN IP + Wake‑on‑LAN (MAC)</td></tr>
+  <tr><td>4 × Sony Bravia KD‑49X7000E (Living, Office, Master, Guest)</td><td>Power on/off, volume, HDMI input, remote keys</td><td>LAN IP + Pre‑Shared Key + Wake‑on‑LAN (MAC)</td></tr>
   <tr><td>Ecobee thermostat</td><td>Temperature, mode, setpoints</td><td>HomeKit setup code (local, no cloud)</td></tr>
   <tr><td>UniFi cameras (Dream Machine / Protect)</td><td>Live camera tiles, motion, clips, screensaver feed</td><td>RTSP → HLS (ffmpeg on host)</td></tr>
 </table>
@@ -292,29 +292,25 @@ atvremote scan</pre>
 <p>Enter the PIN shown on that Apple TV screen, and save the credentials it prints. Then App →
 <em>Apple TVs</em> → enable <strong>LIVE</strong>.</p>
 
-<h3>8.4 Samsung TVs — Living, Office, Master, Guest</h3>
-<p><strong>On each TV first:</strong> Settings → General → Network → Expert →
-<strong>Power On with Mobile / Network standby = ON</strong> (this enables Wake‑on‑LAN).</p>
-<p>App → <em>Samsung TVs</em> → for each TV enter:</p>
+<h3>8.4 Sony Bravia TVs — Living, Office, Master, Guest</h3>
+<table>
+  <tr><th>TV</th><th>IP</th><th>MAC</th></tr>
+  <tr><td>Living Room TV</td><td>192.168.0.165</td><td>1C:D6:BE:B3:FB:1C</td></tr>
+  <tr><td>Office TV</td><td>192.168.0.177</td><td>FA:8A:FD:3F:67:FC</td></tr>
+  <tr><td>Master Bedroom TV</td><td>192.168.0.78</td><td>FA:D8:24:B4:79:2F</td></tr>
+  <tr><td>Guest Room TV</td><td>192.168.0.253</td><td>8E:BF:A2:FC:72:BF</td></tr>
+</table>
+<p><strong>On each TV first:</strong> Settings → Network → Home network setup → <strong>IP control</strong>:</p>
 <ul>
-  <li><strong>IP address</strong> of the TV (reserve it in UniFi so it doesn't change).</li>
-  <li><strong>MAC address</strong> (needed for Wake‑on‑LAN power‑on).</li>
-  <li><strong>HDMI input #</strong> that its HDBaseT receiver feeds.</li>
+  <li><strong>Authentication</strong> = <em>Normal and Pre‑Shared Key</em>, then set a <strong>Pre‑Shared Key</strong> (e.g. a 4‑digit code).</li>
+  <li><strong>Remote start</strong> = ON (wake from the network).</li>
+  <li>Turn <strong>off</strong> private / random Wi‑Fi MAC so Wake‑on‑LAN and the UniFi IP reservation keep matching.</li>
 </ul>
-<p>The first time you connect LIVE, the TV shows an <strong>Allow</strong> prompt — accept it (that's the pairing
-token). Power‑off uses the network API; power‑on uses Wake‑on‑LAN, then the app retries selecting the
-HDMI input for a few seconds while the TV wakes.</p>
+<p>App → <em>Sony Bravia TVs</em> → for each TV confirm IP + MAC, then enter the <strong>PSK</strong> and the
+<strong>HDMI port</strong> its HDBaseT receiver feeds. Power‑on sends Wake‑on‑LAN; everything else uses the Bravia REST/IRCC API.</p>
+<div class="warn">Waking a Sony over Wi‑Fi is often unreliable. A wired Ethernet connection to each TV gives the most dependable power‑on.</div>
 
-<h3>8.5 SmartThings (optional, recommended for exact Samsung control)</h3>
-<ul>
-  <li>Create a <strong>Personal Access Token</strong> at <code>account.smartthings.com/tokens</code> with <code>r:devices:*</code> and <code>x:devices:*</code>.</li>
-  <li>Find each TV's device id: <code>curl -s https://api.smartthings.com/v1/devices -H "Authorization: Bearer &lt;PAT&gt;"</code></li>
-  <li>App → <em>SmartThings</em> → paste the token + each TV's device id. This gives exact HDMI input selection and an absolute (0‑100) volume slider.</li>
-</ul>
-<div class="warn">SmartThings Personal Access Tokens now expire in about <strong>24 hours</strong>. For a
-permanent install, paste a fresh token when it lapses, or set up a SmartThings OAuth app.</div>
-
-<h3>8.6 Ecobee thermostat</h3>
+<h3>8.5 Ecobee thermostat</h3>
 <ul>
   <li>Ecobee no longer issues developer API keys, so the app pairs locally over <strong>HomeKit</strong>.</li>
   <li>Keep the thermostat <strong>out of Apple Home</strong> (it can only pair with one HomeKit controller at a time).</li>
@@ -322,7 +318,7 @@ permanent install, paste a fresh token when it lapses, or set up a SmartThings O
   <li>Windows: allow Python on <strong>Private</strong> networks so mDNS discovery (UDP 5353) works.</li>
 </ul>
 
-<h3>8.7 UniFi cameras</h3>
+<h3>8.6 UniFi cameras</h3>
 <ul>
   <li>In <strong>UniFi Protect</strong>, open each camera → enable <strong>RTSP</strong> and copy the stream URL (looks like <code>rtsp://&lt;NVR-IP&gt;:7447/&lt;streamID&gt;_0</code>).</li>
   <li>App → <em>UniFi Protect Camera</em> (or the setup wizard) → paste each camera's <strong>RTSP URL</strong>.</li>
@@ -386,10 +382,10 @@ the VPN is connected, just browse to the normal LAN address <code>http://192.168
   <tr><td>UI loads but shows errors / no data</td><td>Frontend <code>.env</code> IP is wrong, or the backend window is closed. It must point to <code>http://192.168.0.10:8001</code>. Rebuild after any change.</td></tr>
   <tr><td>"not recognized" for python/node/yarn/ffmpeg</td><td>Re‑run that installer with "Add to PATH", then open a fresh PowerShell.</td></tr>
   <tr><td>Command log shows <strong>error</strong> for a device</td><td>Device unreachable/misconfigured — check its IP, that it's on the same subnet, and that its control feature is enabled.</td></tr>
-  <tr><td>TV won't power <strong>on</strong></td><td>Wake‑on‑LAN needs the correct <strong>MAC</strong> and "Network standby" enabled on the TV; the mini‑PC must be on the same L2 network.</td></tr>
-  <tr><td>TV powers on but wrong input</td><td>Set the HDMI input # on the Samsung card, or enable SmartThings for exact input.</td></tr>
+  <tr><td>TV won't power <strong>on</strong></td><td>Needs the correct <strong>MAC</strong> and <strong>Remote start = ON</strong>; the mini‑PC must be on the same L2 network. Prefer Ethernet.</td></tr>
+  <tr><td>TV powers on but wrong input</td><td>Set the correct HDMI port on that TV in <em>Sony Bravia TVs</em>.</td></tr>
+  <tr><td>Sony command error 401/403</td><td>PSK mismatch, or IP control authentication isn't <em>Normal and Pre‑Shared Key</em>.</td></tr>
   <tr><td>Camera "Stream unavailable"</td><td>ffmpeg not on PATH, or wrong RTSP URL / camera RTSP disabled in UniFi.</td></tr>
-  <tr><td>SmartThings 401</td><td>Personal Access Token expired (~24 h) — paste a new one.</td></tr>
   <tr><td>Everything still says <strong>simulated</strong></td><td>The device is still in DEMO — toggle it LIVE and Save.</td></tr>
   <tr><td>Changed the IP but iPad still broken</td><td>You must run <code>yarn build</code> again after editing <code>frontend\.env</code>.</td></tr>
 </table>
@@ -406,7 +402,8 @@ the VPN is connected, just browse to the normal LAN address <code>http://192.168
   <li>iPad opens http://192.168.0.10:3000 and added to Home Screen</li>
   <li>Each device entered &amp; switched to LIVE; "Test connection" passes</li>
   <li>WS66i source → input map matches the actual wiring</li>
-  <li>Samsung TVs: IP + MAC + HDMI input entered; Network standby ON; "Allow" accepted</li>
+  <li>Sony TVs: IP control PSK set + Remote start ON; PSK + HDMI port entered in the app</li>
+  <li>Device health panel shows every device online</li>
   <li>Auto‑start tasks created for backend &amp; frontend</li>
   <li>Default PIN changed from 1234</li>
   <li>(Optional) Tailscale/VPN set up for remote access</li>
