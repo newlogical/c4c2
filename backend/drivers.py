@@ -3,7 +3,7 @@ Hardware driver abstraction layer.
 
 Each driver formats the exact wire protocol command for its device, records it
 in the command log, and — when that device is configured `live` — actually
-dispatches it over the LAN (socket/Telnet, pyws66i, Ecobee REST, pyatv CLI).
+dispatches it over the LAN (socket/Telnet, pyws66i, HomeKit HAP, pyatv CLI).
 When a device is not live (default / cloud demo, or if the transport fails) the
 command is logged with status "simulated" / "error" and application state still
 updates, so the UI always stays responsive.
@@ -156,50 +156,32 @@ class AppleTVDriver(BaseDriver):
 
 
 class ThermostatDriver(BaseDriver):
-    """Ecobee Smart Thermostat — HTTPS REST api.ecobee.com/1/thermostat."""
+    """Ecobee Smart Thermostat Premium — local HomeKit (HAP/IP) via aiohomekit."""
 
     name = "Ecobee"
-    transport = "HTTPS REST"
+    transport = "HomeKit HAP/IP (LAN)"
 
-    def _post(self, conn, body, desc):
-        import requests
-        url = "https://api.ecobee.com/1/thermostat?format=json"
-        headers = {
-            "Authorization": f"Bearer {conn.get('token', '')}",
-            "Content-Type": "application/json;charset=UTF-8",
-        }
-        r = requests.post(url, json=body, headers=headers, timeout=8)
-        r.raise_for_status()
+    def _send(self, values):
+        import homekit
+        homekit.thermostat.write(values)
 
     def set_mode(self, mode, conn=None):
-        body = {
-            "selection": {"selectionType": "registered", "selectionMatch": ""},
-            "thermostat": {"settings": {"hvacMode": mode}},
-        }
-        return self._dispatch(f'POST /1/thermostat settings.hvacMode="{mode}"',
-                              f"Set mode = {mode}", conn, sender=lambda: self._post(conn, body, "mode"))
+        import homekit
+        hap = homekit.MODE_TO_HAP.get(mode)
+        return self._dispatch(f"PUT TargetHeatingCoolingState={hap} ({mode})", f"Set mode = {mode}", conn,
+                              sender=lambda: self._send({"target_state": hap}))
 
     def set_fan(self, fan, conn=None):
-        body = {
-            "selection": {"selectionType": "registered", "selectionMatch": ""},
-            "thermostat": {"settings": {"vent": fan}},
-        }
-        return self._dispatch(f'POST /1/thermostat settings.fan="{fan}"',
-                              f"Set fan = {fan}", conn, sender=lambda: self._post(conn, body, "fan"))
+        values = {"target_fan": 1} if fan == "auto" else {"target_fan": 0, "fan_active": 1}
+        return self._dispatch(f"PUT Fan {values}", f"Set fan = {fan}", conn, sender=lambda: self._send(values))
 
-    def set_hold(self, heat_f, cool_f, conn=None):
-        body = {
-            "selection": {"selectionType": "registered", "selectionMatch": ""},
-            "functions": [{
-                "type": "setHold",
-                "params": {"holdType": "nextTransition",
-                           "heatHoldTemp": int(heat_f * 10),
-                           "coolHoldTemp": int(cool_f * 10)},
-            }],
-        }
-        return self._dispatch(f'POST /1/thermostat setHold heat={heat_f} cool={cool_f}',
-                              f"Hold heat {heat_f}° / cool {cool_f}°", conn,
-                              sender=lambda: self._post(conn, body, "hold"))
+    def set_hold(self, heat_f, cool_f, conn=None, mode=None):
+        import homekit
+        values = {"heat_threshold": homekit.f_to_c(heat_f), "cool_threshold": homekit.f_to_c(cool_f)}
+        if mode in ("heat", "cool"):
+            values["target_temp"] = homekit.f_to_c(heat_f if mode == "heat" else cool_f)
+        return self._dispatch(f"PUT thresholds heat={values['heat_threshold']}C cool={values['cool_threshold']}C",
+                              f"Hold heat {heat_f}° / cool {cool_f}°", conn, sender=lambda: self._send(values))
 
 
 class CameraDriver(BaseDriver):

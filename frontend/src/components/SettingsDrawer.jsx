@@ -66,6 +66,45 @@ const DeviceCard = ({ icon: Icon, title, subtitle, device, conn, onField, onTogg
   </div>
 );
 
+const HomeKitPair = ({ conn, onBeforePair }) => {
+  const { act, api } = useSystem();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async (fn, ok) => {
+    setBusy(true);
+    try {
+      await act(fn());
+      toast.success(ok);
+      setCode("");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "HomeKit request failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (conn.paired) {
+    return (
+      <div className="mt-3 flex items-center justify-between rounded-lg px-3 py-2" style={{ background: "rgba(16,185,129,0.1)" }} data-testid="homekit-paired">
+        <span className="text-xs font-semibold" style={{ color: "var(--c4-emerald)" }}>Paired via HomeKit (local)</span>
+        <button data-testid="homekit-unpair-btn" disabled={busy} onClick={() => run(api.homekitUnpair, "Thermostat unpaired")} className="text-[11px] font-semibold underline" style={{ color: "var(--c4-muted)" }}>Unpair</button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3">
+      <Field label="HomeKit setup code (on thermostat: Menu → Settings → HomeKit)" value={code} placeholder="123-45-678" onChange={setCode} testid="homekit-code-input" />
+      <button
+        data-testid="homekit-pair-btn" disabled={busy || code.replace(/\D/g, "").length !== 8}
+        onClick={() => run(async () => { await onBeforePair(); return api.homekitPair(code); }, "Thermostat paired")}
+        className="mt-2 w-full rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-2 active:scale-95 transition disabled:opacity-40"
+        style={{ background: "var(--c4-emerald)", color: "#04120c" }}
+      >
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />} Pair thermostat
+      </button>
+    </div>
+  );
+};
+
 export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSaver, saverMode, onChangeSaverMode }) => {
   const { state, act, api } = useSystem();
   const [config, setConfig] = useState({});
@@ -165,7 +204,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                 <p>1. Self-host on a Pi/mini-PC on the apartment LAN (full steps in <code>SELF_HOST.md</code>).</p>
                 <p>2. <b>Matrix</b>: enable Telnet, enter its IP (port 23).</p>
                 <p>3. <b>WS66i</b>: set the rear switch to ETHERNET, enter IP, map each source to its wired input.</p>
-                <p>4. <b>Ecobee</b>: paste an API token from the developer portal.</p>
+                <p>4. <b>Ecobee</b>: enter the HomeKit setup code from the thermostat (Menu → Settings → HomeKit) and tap Pair.</p>
                 <p>5. <b>UniFi</b>: paste the camera's RTSP URL.</p>
                 <p>6. <b>Apple TVs</b>: pair on the host via <code>atvremote</code>.</p>
                 <p>7. <b>Sony Bravia TVs</b>: enter IP + MAC + PSK + HDMI input. On each TV set a Pre-Shared Key (Network → IP control) and enable "Remote start" for Wake-on-LAN.</p>
@@ -342,11 +381,10 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                 </div>
               </DeviceCard>
 
-              <DeviceCard icon={Thermometer} title="Ecobee Thermostat" subtitle="Climate control" device="ecobee" conn={c("ecobee")} onToggle={toggle} onTest={test} testing={testing}>
-                <Field label="API Access Token" value={c("ecobee").token} placeholder="Bearer token" type="password" onChange={(v) => setField("ecobee", "token", v)} testid="ecobee-token-input" />
-                <Field label="Thermostat ID" value={c("ecobee").thermostat_id} placeholder="optional" onChange={(v) => setField("ecobee", "thermostat_id", v)} testid="ecobee-id-input" />
+              <DeviceCard icon={Thermometer} title="Ecobee Thermostat" subtitle="Local HomeKit control (no cloud)" device="ecobee" conn={c("ecobee")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="LAN IP (from UniFi)" value={c("ecobee").ip} placeholder="192.168.0.222" onChange={(v) => setField("ecobee", "ip", v)} testid="ecobee-ip-input" />
                 <Field label="MAC Address" value={c("ecobee").mac} placeholder="44:61:32:DF:C2:A9" onChange={(v) => setField("ecobee", "mac", v)} testid="ecobee-mac-input" />
+                <HomeKitPair conn={c("ecobee")} onBeforePair={() => api.updateConfig(config)} />
               </DeviceCard>
 
               <DeviceCard icon={Camera} title="UniFi Protect Camera" subtitle="Live RTSP → HLS stream" device="camera" conn={c("camera")} onToggle={toggle} onTest={test} testing={testing}>

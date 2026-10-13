@@ -82,11 +82,10 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
 - **Source → input map**: for each logical source (Apple TV 1‑4, Spotify, AirPlay, TV Audio) enter the
   **physical WS66i input number (1‑6)** it's actually wired to. (Defaults 1‑6; fix to match your wiring.)
 
-### Ecobee — thermostat
-- Create an app at the [Ecobee developer portal](https://www.ecobee.com/home/developer/loginDeveloper.jsp),
-  authorize it, and obtain an **access token**.
-- Settings → *Ecobee Thermostat* → paste the token (+ thermostat id if you use one).
-- Tokens expire — refresh per Ecobee's OAuth flow.
+### Ecobee — thermostat (local HomeKit, no cloud)
+- Ecobee closed its developer API to new accounts (2024), so the app pairs over HomeKit (HAP/IP) on the LAN.
+- Settings → *Ecobee Thermostat* → LIVE → confirm LAN IP → enter the HomeKit setup code (Menu → Settings → HomeKit) → **Pair thermostat**.
+- One HomeKit controller at a time: keep the thermostat out of Apple Home. mDNS (UDP 5353) must reach the host.
 
 ### UniFi Protect — camera
 - In UniFi Protect, enable **RTSP** on the camera and copy the stream URL
@@ -146,7 +145,7 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
 ## 7. Security
 - Keep this on your LAN. Do **not** port‑forward 8001/3000 to the internet; use a VPN/Tailscale for
   remote access.
-- Treat Ecobee/SmartThings tokens as secrets. Change the app **PIN** from the default `1234`
+- Treat Sony PSKs and HomeKit pairing data as secrets. Change the app **PIN** from the default `1234`
   (in `backend/server.py` `default_state()` → `pin`, or via the database).
 
 ---

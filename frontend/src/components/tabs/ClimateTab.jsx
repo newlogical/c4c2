@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Flame, Snowflake, RefreshCw, Power, Fan, Minus, Plus, Droplets, Sun } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 
@@ -70,7 +70,15 @@ const Stepper = ({ label, value, color, onDec, onInc, testid }) => (
 );
 
 export const ClimateTab = () => {
-  const { state, act, api } = useSystem();
+  const { state, act, api, setState } = useSystem();
+  const hkLive = !!(state?.config?.ecobee?.live && state?.config?.ecobee?.paired);
+  useEffect(() => {
+    if (!hkLive) return;
+    const pull = () => api.climateRefresh().then((r) => r?.ok && setState(r.state)).catch(() => {});
+    pull();
+    const id = setInterval(pull, 60000);
+    return () => clearInterval(id);
+  }, [hkLive, api, setState]);
   if (!state) return null;
   const t = state.thermostat;
 

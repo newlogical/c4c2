@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 import drivers
+import homekit
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -78,7 +79,7 @@ def default_config() -> dict:
             "atv1": 1, "atv2": 2, "atv3": 3, "atv4": 4,
             "spotify": 5, "airplay": 6, "tv_audio": 6,
         }},
-        "ecobee": {"live": False, "token": "", "thermostat_id": "", **ECOBEE_LAN},
+        "ecobee": {"live": False, "paired": False, **ECOBEE_LAN},
         "appletv": {"live": False, "devices": {}},
         "camera": {"live": False, "rtsp_url": ""},
         "cameras": {
@@ -166,6 +167,9 @@ async def get_state() -> dict:
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
             _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
     if isinstance(_cfgm.get("ecobee"), dict):
+        for _old in ("token", "thermostat_id"):  # Ecobee cloud API retired -> HomeKit
+            _cfgm["ecobee"].pop(_old, None)
+        _cfgm["ecobee"].setdefault("paired", False)
         for _k, _v in ECOBEE_LAN.items():
             if not _cfgm["ecobee"].get(_k):
                 _cfgm["ecobee"][_k] = _v
@@ -260,7 +264,6 @@ def redact_secrets(state: dict) -> dict:
         if isinstance(d, dict) and d.get(k):
             d[k] = MASK_VALUE
 
-    _mask(c.get("ecobee"))
     for tvset in ((c.get("tv") or {}).get("sets") or {}).values():
         _mask(tvset, "psk")
     return s
@@ -350,7 +353,8 @@ def apply_scene(state: dict, scene_id: str) -> bool:
             log_cmd(state, drivers.amp.set_mute(z["amp_zone"], True, z["name"], ac))
         state["thermostat"]["mode"] = "cool"
         state["thermostat"]["target_cool"] = 68
-        log_cmd(state, drivers.thermostat.set_hold(state["thermostat"]["target_heat"], 68, tc))
+        log_cmd(state, drivers.thermostat.set_mode("cool", tc))
+        log_cmd(state, drivers.thermostat.set_hold(state["thermostat"]["target_heat"], 68, tc, mode="cool"))
 
     elif scene_id == "movie_night":
         living = find(state["displays"], "tv_living")
@@ -404,7 +408,8 @@ def apply_snapshot(state: dict, snap: dict):
     t = snap.get("thermostat")
     if t:
         state["thermostat"].update(t)
-        log_cmd(state, drivers.thermostat.set_hold(state["thermostat"]["target_heat"], state["thermostat"]["target_cool"], tc))
+        log_cmd(state, drivers.thermostat.set_mode(state["thermostat"]["mode"], tc))
+        log_cmd(state, drivers.thermostat.set_hold(state["thermostat"]["target_heat"], state["thermostat"]["target_cool"], tc, mode=state["thermostat"]["mode"]))
 
 
 async def apply_scene_any(state: dict, scene_id: str) -> bool:
@@ -729,18 +734,85 @@ async def climate(req: ClimateReq):
     t, tc = state["thermostat"], cfg(state, "ecobee")
     if req.mode is not None:
         t["mode"] = req.mode
-        log_cmd(state, drivers.thermostat.set_mode(req.mode, tc))
+        log_cmd(state, await asyncio.to_thread(drivers.thermostat.set_mode, req.mode, tc))
     if req.fan is not None:
         t["fan"] = req.fan
-        log_cmd(state, drivers.thermostat.set_fan(req.fan, tc))
-    if req.target_heat is not None:
-        t["target_heat"] = max(45, min(90, req.target_heat))
-        log_cmd(state, drivers.thermostat.set_hold(t["target_heat"], t["target_cool"], tc))
-    if req.target_cool is not None:
-        t["target_cool"] = max(45, min(95, req.target_cool))
-        log_cmd(state, drivers.thermostat.set_hold(t["target_heat"], t["target_cool"], tc))
+        log_cmd(state, await asyncio.to_thread(drivers.thermostat.set_fan, req.fan, tc))
+    if req.target_heat is not None or req.target_cool is not None:
+        if req.target_heat is not None:
+            t["target_heat"] = max(45, min(90, req.target_heat))
+        if req.target_cool is not None:
+            t["target_cool"] = max(45, min(95, req.target_cool))
+        log_cmd(state, await asyncio.to_thread(drivers.thermostat.set_hold, t["target_heat"], t["target_cool"], tc, t["mode"]))
     await save_state(state)
     return redact_secrets(state)
+
+
+class HomeKitPairReq(BaseModel):
+    code: str
+
+
+@api_router.post("/homekit/pair")
+async def homekit_pair(req: HomeKitPairReq):
+    state = await get_state()
+    ec = state["config"]["ecobee"]
+    if not ec.get("ip"):
+        raise HTTPException(400, "Set the thermostat LAN IP first")
+    try:
+        data = await asyncio.to_thread(homekit.thermostat.pair, ec["ip"], req.code)
+    except Exception as e:
+        raise HTTPException(400, f"Pairing failed: {str(e)[:200]}")
+    await db.homekit.replace_one({"key": "ecobee"}, {"key": "ecobee", "pairing": data}, upsert=True)
+    ec.update({"paired": True, "live": True})
+    log_cmd(state, {"driver": "Ecobee", "transport": "HomeKit HAP/IP (LAN)", "command": "pair-setup",
+                    "note": f"Paired with thermostat @ {ec['ip']}", "timestamp": drivers._ts(), "status": "sent"})
+    await save_state(state)
+    return redact_secrets(state)
+
+
+@api_router.delete("/homekit/pair")
+async def homekit_unpair():
+    state = await get_state()
+    try:
+        await asyncio.to_thread(homekit.thermostat.unpair)
+    except Exception as e:
+        logging.getLogger(__name__).warning("HomeKit unpair: %s", e)
+    await db.homekit.delete_one({"key": "ecobee"})
+    state["config"]["ecobee"].update({"paired": False, "live": False})
+    await save_state(state)
+    return redact_secrets(state)
+
+
+def _apply_homekit_reading(t: dict, r: dict):
+    if r.get("current_temp") is not None:
+        t["current_temp"] = homekit.c_to_f(r["current_temp"])
+    if r.get("humidity") is not None:
+        t["humidity"] = round(r["humidity"])
+    if r.get("target_state") in homekit.HAP_TO_MODE:
+        t["mode"] = homekit.HAP_TO_MODE[r["target_state"]]
+    if r.get("heat_threshold") is not None:
+        t["target_heat"] = homekit.c_to_f(r["heat_threshold"])
+    if r.get("cool_threshold") is not None:
+        t["target_cool"] = homekit.c_to_f(r["cool_threshold"])
+    if r.get("target_temp") is not None and t.get("mode") in ("heat", "cool"):
+        t["target_heat" if t["mode"] == "heat" else "target_cool"] = homekit.c_to_f(r["target_temp"])
+    if r.get("target_fan") is not None:
+        t["fan"] = "auto" if r["target_fan"] == 1 else "on"
+
+
+@api_router.post("/climate/refresh")
+async def climate_refresh():
+    state = await get_state()
+    ec = cfg(state, "ecobee")
+    if not (ec.get("live") and ec.get("paired")):
+        return {"live": False, "state": redact_secrets(state)}
+    try:
+        reading = await asyncio.to_thread(homekit.thermostat.read)
+    except Exception as e:
+        return {"live": True, "ok": False, "error": str(e)[:200], "state": redact_secrets(state)}
+    _apply_homekit_reading(state["thermostat"], reading)
+    await save_state(state)
+    return {"live": True, "ok": True, "state": redact_secrets(state)}
 
 
 @api_router.post("/scene/{scene_id}")
@@ -845,10 +917,10 @@ async def test_connection(device: str):
             with socket.create_connection((conn["host"], 8080), timeout=4):
                 pass
         elif device == "ecobee":
-            import requests
-            r = requests.get("https://api.ecobee.com/1/thermostat?format=json&body=%7B%22selection%22%3A%7B%22selectionType%22%3A%22registered%22%2C%22selectionMatch%22%3A%22%22%7D%7D",
-                             headers={"Authorization": f"Bearer {conn.get('token','')}"}, timeout=8)
-            r.raise_for_status()
+            if not conn.get("paired"):
+                raise RuntimeError("Not paired — enter the HomeKit setup code and tap Pair")
+            r = await asyncio.to_thread(homekit.thermostat.read)
+            return {"device": device, "ok": True, "detail": f"HomeKit OK — {homekit.c_to_f(r.get('current_temp') or 0)}°F, {r.get('humidity')}% RH"}
         elif device == "camera":
             if not conn.get("rtsp_url"):
                 raise RuntimeError("No RTSP URL configured")
@@ -1151,6 +1223,12 @@ async def on_startup():
     if not scheduler.running:
         scheduler.start()
     await reload_jobs()
+    hk = await db.homekit.find_one({"key": "ecobee"}, {"_id": 0})
+    if hk and hk.get("pairing"):
+        try:
+            await asyncio.to_thread(homekit.thermostat.load, hk["pairing"])
+        except Exception as e:
+            logger.warning("HomeKit pairing load failed: %s", e)
 
 
 @app.on_event("shutdown")

@@ -100,7 +100,7 @@ cameras, and run "scenes" (one tap = many actions).</p>
   <tr><td>WS66i 6‑zone amplifier</td><td>Audio per room: Living, Office, Master, Bathroom — volume, mute, source</td><td>Ethernet (LAN IP)</td></tr>
   <tr><td>4 × Apple TV</td><td>Central video sources + on‑screen remote</td><td>Companion pairing on the host</td></tr>
   <tr><td>4 × Samsung TV (Living, Office, Master, Guest)</td><td>Power on/off, volume, HDMI input select</td><td>LAN IP + Wake‑on‑LAN (MAC)</td></tr>
-  <tr><td>Ecobee thermostat</td><td>Temperature, mode, setpoints</td><td>Ecobee cloud API token</td></tr>
+  <tr><td>Ecobee thermostat</td><td>Temperature, mode, setpoints</td><td>HomeKit setup code (local, no cloud)</td></tr>
   <tr><td>UniFi cameras (Dream Machine / Protect)</td><td>Live camera tiles, motion, clips, screensaver feed</td><td>RTSP → HLS (ffmpeg on host)</td></tr>
 </table>
 
@@ -316,9 +316,10 @@ permanent install, paste a fresh token when it lapses, or set up a SmartThings O
 
 <h3>8.6 Ecobee thermostat</h3>
 <ul>
-  <li>Sign in at the <strong>Ecobee developer portal</strong> (<code>ecobee.com/home/developer</code>), create/authorize an app, and obtain an <strong>access token</strong>.</li>
-  <li>App → <em>Ecobee Thermostat</em> → paste the token (and thermostat id if you use one).</li>
-  <li>Ecobee tokens expire — refresh via Ecobee's OAuth flow when needed.</li>
+  <li>Ecobee no longer issues developer API keys, so the app pairs locally over <strong>HomeKit</strong>.</li>
+  <li>Keep the thermostat <strong>out of Apple Home</strong> (it can only pair with one HomeKit controller at a time).</li>
+  <li>App → Settings → <em>Ecobee Thermostat</em> → LIVE → confirm IP <code>192.168.0.222</code> → enter the 8-digit code from the thermostat (Menu → Settings → HomeKit) → <strong>Pair thermostat</strong>.</li>
+  <li>Windows: allow Python on <strong>Private</strong> networks so mDNS discovery (UDP 5353) works.</li>
 </ul>
 
 <h3>8.7 UniFi cameras</h3>
@@ -373,7 +374,7 @@ the VPN is connected, just browse to the normal LAN address <code>http://192.168
 <ul>
   <li>Change the default PIN from <strong>1234</strong> in the app: <strong>Settings → Change PIN</strong>.</li>
   <li>Keep the controller on your LAN only; use the VPN in Part 10 for remote access.</li>
-  <li>Treat Ecobee / SmartThings tokens as secrets — don't share them.</li>
+  <li>Treat Sony PSKs and HomeKit pairing data as secrets — don't share them.</li>
 </ul>
 
 <!-- ============================================================ -->

@@ -155,7 +155,7 @@ tap **Test connection**, then **Save**. Full per‑device field details are in `
 - **Samsung TVs** — per TV enter IP + **MAC** + HDMI input #; on the TV enable Network standby (for WOL).
   First LIVE connect, tap **Allow** on the TV. (Optional SmartThings PAT for exact input/volume.)
 - **Apple TVs** — in the backend venv run `atvremote scan` then `atvremote --id <id> pair`, save creds; enable LIVE.
-- **Ecobee** — paste an access token + thermostat id.
+- **Ecobee** — local HomeKit: confirm IP `192.168.0.222`, enter the 8-digit HomeKit code (thermostat Menu → Settings → HomeKit) and tap **Pair thermostat**. Allow Python through Windows Firewall on **Private** networks so mDNS (UDP 5353) discovery works. Don't add the thermostat to Apple Home.
 - **UniFi cameras** — enable RTSP in UniFi Protect, paste each camera's `rtsp://...` URL (ffmpeg transcodes to HLS).
 
 ---

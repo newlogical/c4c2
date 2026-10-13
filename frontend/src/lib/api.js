@@ -56,6 +56,9 @@ export const api = {
   audioGroup: (source_id, volume) =>
     http.post("/audio/group", { source_id, volume }).then((r) => r.data),
   climate: (payload) => http.post("/climate", payload).then((r) => r.data),
+  climateRefresh: () => http.post("/climate/refresh").then((r) => r.data),
+  homekitPair: (code) => http.post("/homekit/pair", { code }).then((r) => r.data),
+  homekitUnpair: () => http.delete("/homekit/pair").then((r) => r.data),
   cameraSnapshot: () => http.post("/camera/snapshot").then((r) => r.data),
   scene: (scene_id) => http.post(`/scene/${scene_id}`).then((r) => r.data),
   getScenes: () => http.get("/scenes").then((r) => r.data),
