@@ -278,7 +278,8 @@ New-NetFirewallRule -DisplayName "Apartment API 8001" -Direction Inbound -Protoc
 <h3>8.2 WS66i amplifier (room audio)</h3>
 <ul>
   <li>On the amp's rear network switch select <strong>ETHERNET</strong>; give it a fixed IP (reserve it in UniFi).</li>
-  <li>App → <em>WS66i Amplifier</em> → enter its <strong>IP</strong>.</li>
+  <li>App → <em>WS66i Amplifier</em> → IP is pre-mapped to <strong>192.168.0.43</strong> (the "Manual Device IP" in the Soundavo app). Reserve it in UniFi.</li>
+  <li>Its built-in streaming modules show in UniFi as "Arylic A50+": <code>192.168.0.213</code> (00:22:6C:22:18:5E) and <code>192.168.0.224</code> (00:22:6C:1E:6F:39). They appear in Device health; reserve them too.</li>
   <li><strong>Source → input map:</strong> for each logical source (Apple TV 1‑4, Spotify, AirPlay, TV Audio) enter the <strong>physical WS66i input number (1‑6)</strong> it is actually wired to. This is what makes the correct source play in each zone.</li>
 </ul>
 

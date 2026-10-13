@@ -78,7 +78,7 @@ toggle **LIVE**, fill in the fields, tap **Test connection**, then **Save**.
 
 ### WS66i amplifier — audio zones
 - Set the rear network switch to **ETHERNET** and give it a static IP/DHCP reservation.
-- Settings → *WS66i Amplifier* → Host/IP.
+- Settings → *WS66i Amplifier* → Host/IP (pre-mapped `192.168.0.43`; streaming modules `192.168.0.213`, `192.168.0.224`).
 - **Source → input map**: for each logical source (Apple TV 1‑4, Spotify, AirPlay, TV Audio) enter the
   **physical WS66i input number (1‑6)** it's actually wired to. (Defaults 1‑6; fix to match your wiring.)
 

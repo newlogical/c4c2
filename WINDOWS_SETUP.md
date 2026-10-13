@@ -151,7 +151,7 @@ top‑right) → On‑site commissioning guide**. For each device toggle **LIVE*
 tap **Test connection**, then **Save**. Full per‑device field details are in `SELF_HOST.md` §4, summarised:
 
 - **JTECH‑MXT40 matrix** — enable Telnet (port 23) in its web UI → enter its IP + port 23.
-- **WS66i amp** — set to Ethernet, give it a fixed IP → enter IP, then map each source to its physical input 1‑6.
+- **WS66i amp** — pre-mapped to `192.168.0.43` (streaming modules .213 / .224). Reserve these in UniFi, then map each source to its physical input 1‑6.
 - **Sony Bravia TVs** — IPs/MACs are pre-mapped (Living .165, Office .177, Master .78, Guest .253).
   On each TV: Settings → Network → Home network setup → **IP control** → Authentication *Normal and
   Pre-Shared Key*, set a **PSK**, and turn **Remote start ON**. In the app enter each TV's PSK + HDMI port.

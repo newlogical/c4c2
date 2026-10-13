@@ -373,7 +373,12 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
               </DeviceCard>
 
               <DeviceCard icon={Radio} title="WS66i Amplifier" subtitle="6-zone audio" device="amp" conn={c("amp")} onToggle={toggle} onTest={test} testing={testing}>
-                <Field label="Host / IP" value={c("amp").host} placeholder="192.168.1.50" onChange={(v) => setField("amp", "host", v)} testid="amp-host-input" />
+                <Field label="Host / IP" value={c("amp").host} placeholder="192.168.0.43" onChange={(v) => setField("amp", "host", v)} testid="amp-host-input" />
+                {Object.entries(c("amp").streamers || {}).map(([sid, st]) => (
+                  <p key={sid} className="text-[11px] font-mono mt-1.5" style={{ color: "var(--c4-muted)" }} data-testid={`amp-streamer-${sid}`}>
+                    Streaming module · {st.name}: {st.ip} · {st.mac}
+                  </p>
+                ))}
                 <div className="mt-3">
                   <p className="text-[11px] font-semibold mb-1.5" style={{ color: "var(--c4-muted)" }}>Source → WS66i physical input (1–6)</p>
                   <div className="grid grid-cols-2 gap-2">

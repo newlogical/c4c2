@@ -60,6 +60,11 @@ SONY_TV_IPS = {
     "tv_master": "192.168.0.78",
     "tv_guest": "192.168.0.253",
 }
+WS66I_HOST = "192.168.0.43"
+WS66I_STREAMERS = {
+    "stream_a": {"name": "Sound Amplifier", "ip": "192.168.0.213", "mac": "00:22:6C:22:18:5E"},
+    "stream_b": {"name": "Sound Amplifier B", "ip": "192.168.0.224", "mac": "00:22:6C:1E:6F:39"},
+}
 ECOBEE_LAN = {"ip": "192.168.0.222", "mac": "44:61:32:DF:C2:A9", "model": "Ecobee Smart Thermostat Premium"}
 SONY_TV_MACS = {
     "tv_living": "1C:D6:BE:B3:FB:1C",
@@ -75,7 +80,7 @@ SONY_TV_MACS = {
 def default_config() -> dict:
     return {
         "matrix": {"live": False, "host": "192.168.1.1", "port": 23},
-        "amp": {"live": False, "host": "192.168.1.50", "input_map": {
+        "amp": {"live": False, "host": WS66I_HOST, "streamers": copy.deepcopy(WS66I_STREAMERS), "input_map": {
             "atv1": 1, "atv2": 2, "atv3": 3, "atv4": 4,
             "spotify": 5, "airplay": 6, "tv_audio": 6,
         }},
@@ -166,6 +171,10 @@ async def get_state() -> dict:
             _sets[_tid]["ip"] = _ip
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
             _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
+    if isinstance(_cfgm.get("amp"), dict):
+        if _cfgm["amp"].get("host") in ("", None, "192.168.1.50"):
+            _cfgm["amp"]["host"] = WS66I_HOST
+        _cfgm["amp"].setdefault("streamers", copy.deepcopy(WS66I_STREAMERS))
     if isinstance(_cfgm.get("ecobee"), dict):
         for _old in ("token", "thermostat_id"):  # Ecobee cloud API retired -> HomeKit
             _cfgm["ecobee"].pop(_old, None)
@@ -1099,7 +1108,7 @@ async def discover(live: bool = False):
     the cloud demo returns sample results so the wizard flow is usable."""
     demo_devices = {
         "matrix": {"host": "192.168.1.20", "port": 23, "label": "JTECH-MXT40 (Telnet) @ 192.168.1.20"},
-        "amp": {"host": "192.168.1.35", "label": "WS66i 6-zone @ 192.168.1.35"},
+        "amp": {"host": WS66I_HOST, "label": f"WS66i 6-zone @ {WS66I_HOST}"},
         "camera": {"rtsp_url": "rtsp://192.168.1.2:7447/2b9f1c-front", "label": "UniFi Front Entry"},
         "tv": {tid: {"ip": ip, "mac": SONY_TV_MACS[tid]} for tid, ip in SONY_TV_IPS.items()},
     }
@@ -1182,6 +1191,10 @@ def _health_targets(state):
     if a.get("host"):
         out.append({"id": "amp", "name": "Audio Amp", "kind": "Soundavo WS66i", "ip": a["host"], "port": 8080,
                     "mac": "", "live": bool(a.get("live"))})
+    for sid, st in (a.get("streamers") or {}).items():
+        if st.get("ip"):
+            out.append({"id": sid, "name": st.get("name", sid), "kind": "WS66i streaming module (Arylic/Linkplay)", "ip": st["ip"],
+                        "port": 80, "mac": st.get("mac", ""), "live": bool(a.get("live"))})
     cam_names = {x["id"]: x["name"] for x in state.get("cameras", [])}
     cams = [("cam_front", c.get("camera") or {})] + list((c.get("cameras") or {}).items())
     for cid, cam in cams:
