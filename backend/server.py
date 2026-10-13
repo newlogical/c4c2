@@ -52,6 +52,14 @@ BUILTIN_SCENES = [
 ]
 
 
+# Sony Bravia IPs from the UniFi client list
+SONY_TV_IPS = {
+    "tv_living": "192.168.0.165",
+    "tv_office": "192.168.0.177",
+    "tv_master": "192.168.0.78",
+    "tv_guest": "192.168.0.253",
+}
+
 # ---------------------------------------------------------------------------
 # Default apartment configuration
 # ---------------------------------------------------------------------------
@@ -72,10 +80,7 @@ def default_config() -> dict:
             "cam_garage": {"live": False, "rtsp_url": ""},
         },
         "tv": {"live": False, "sets": {
-            "tv_living": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
-            "tv_office": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
-            "tv_master": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
-            "tv_guest": {"ip": "", "mac": "", "hdmi_input": 1, "psk": ""},
+            tid: {"ip": ip, "mac": "", "hdmi_input": 1, "psk": ""} for tid, ip in SONY_TV_IPS.items()
         }},
         "setup_done": False,
     }
@@ -95,7 +100,7 @@ def default_state() -> dict:
             {"id": "tv_living", "name": "Living Room TV", "output": 1, "source": "atv1", "power": True, "tv_volume": 30},
             {"id": "tv_office", "name": "Office TV", "output": 2, "source": "atv2", "power": False, "tv_volume": 30},
             {"id": "tv_master", "name": "Master Bedroom TV", "output": 3, "source": "atv3", "power": False, "tv_volume": 30},
-            {"id": "tv_guest", "name": "Guest Bedroom TV", "output": 4, "source": "atv4", "power": False, "tv_volume": 30},
+            {"id": "tv_guest", "name": "Guest Room TV", "output": 4, "source": "atv4", "power": False, "tv_volume": 30},
         ],
         "audio_sources": [
             {"id": "atv1", "name": "Apple TV 1"},
@@ -147,6 +152,13 @@ async def get_state() -> dict:
         if isinstance(_s, dict) and "psk" not in _s:
             _s["psk"] = _s.pop("token", "") or ""
     _cfgm.pop("smartthings", None)  # SmartThings removed (Samsung-only)
+    _sets = (_cfgm.get("tv") or {}).get("sets") or {}
+    for _tid, _ip in SONY_TV_IPS.items():  # fill UniFi-mapped IPs where not yet set
+        if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("ip"):
+            _sets[_tid]["ip"] = _ip
+    for _d in doc.get("displays", []):
+        if _d.get("id") == "tv_guest" and _d.get("name") == "Guest Bedroom TV":
+            _d["name"] = "Guest Room TV"
     if isinstance(doc.get("camera"), dict):
         doc["camera"].setdefault("armed", False)
     if "cameras" not in doc:
@@ -1004,12 +1016,7 @@ async def discover(live: bool = False):
         "matrix": {"host": "192.168.1.20", "port": 23, "label": "JTECH-MXT40 (Telnet) @ 192.168.1.20"},
         "amp": {"host": "192.168.1.35", "label": "WS66i 6-zone @ 192.168.1.35"},
         "camera": {"rtsp_url": "rtsp://192.168.1.2:7447/2b9f1c-front", "label": "UniFi Front Entry"},
-        "tv": {
-            "tv_living": {"ip": "192.168.1.60", "mac": "A4:B1:C2:00:11:01"},
-            "tv_office": {"ip": "192.168.1.61", "mac": "A4:B1:C2:00:11:02"},
-            "tv_master": {"ip": "192.168.1.62", "mac": "A4:B1:C2:00:11:03"},
-            "tv_guest": {"ip": "192.168.1.63", "mac": "A4:B1:C2:00:11:04"},
-        },
+        "tv": {tid: {"ip": ip, "mac": ""} for tid, ip in SONY_TV_IPS.items()},
     }
     if not live:
         return {"demo": True, "devices": demo_devices}
@@ -1032,11 +1039,13 @@ async def discover(live: bool = False):
             hits = await asyncio.gather(*[probe(f"{base}.{h}", port) for h in range(1, 255)])
             return [f"{base}.{h}" for h, ok in zip(range(1, 255), hits) if ok]
 
-        matrix_hosts, tv_hosts = await asyncio.gather(scan(23), scan(8001))
+        matrix_hosts, tv_up = await asyncio.gather(
+            scan(23), asyncio.gather(*[probe(ip, 80) for ip in SONY_TV_IPS.values()]))
         if matrix_hosts:
             found["matrix"] = {"host": matrix_hosts[0], "port": 23, "label": f"Telnet device @ {matrix_hosts[0]}"}
-        for idx, (disp, ip) in enumerate(zip(["tv_living", "tv_office", "tv_master", "tv_guest"], tv_hosts)):
-            found["tv"][disp] = {"ip": ip, "mac": ""}
+        for (disp, ip), ok in zip(SONY_TV_IPS.items(), tv_up):
+            if ok:
+                found["tv"][disp] = {"ip": ip, "mac": ""}
     except Exception as e:
         return {"demo": True, "error": str(e), "devices": demo_devices}
     return {"demo": False, "devices": found}

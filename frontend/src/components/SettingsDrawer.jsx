@@ -383,7 +383,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
                         <div key={d.id} className="rounded-xl p-3" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }} data-testid={`settings-tv-${d.id}`}>
                           <p className="text-xs font-semibold mb-2">{d.name}</p>
                           <div className="grid grid-cols-2 gap-2">
-                            <input placeholder="IP e.g. 192.168.1.60" value={set.ip || ""} data-testid={`tv-ip-${d.id}`} onChange={(e) => setTvField(d.id, "ip", e.target.value)} className={inp} style={inpStyle} />
+                            <input placeholder="IP e.g. 192.168.0.165" value={set.ip || ""} data-testid={`tv-ip-${d.id}`} onChange={(e) => setTvField(d.id, "ip", e.target.value)} className={inp} style={inpStyle} />
                             <input placeholder="MAC AA:BB:CC:.." value={set.mac || ""} data-testid={`tv-mac-${d.id}`} onChange={(e) => setTvField(d.id, "mac", e.target.value)} className={inp} style={inpStyle} />
                             <input placeholder="HDMI input #" type="number" value={set.hdmi_input ?? 1} data-testid={`tv-hdmi-${d.id}`} onChange={(e) => setTvField(d.id, "hdmi_input", Number(e.target.value))} className={inp} style={inpStyle} />
                             <input placeholder="Pre-Shared Key (PSK)" type="password" value={set.psk || ""} data-testid={`tv-psk-${d.id}`} onChange={(e) => setTvField(d.id, "psk", e.target.value)} className={inp} style={inpStyle} />

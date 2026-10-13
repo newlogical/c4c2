@@ -86,3 +86,9 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - P1: Real-hardware commissioning on-site (self-host on Pi/mini-PC; SELF_HOST.md + WINDOWS_SETUP.md + docker-compose provided). Validate Sony PSK + WoL against the actual KD-49X7000E units.
 - P2: Lighting/shades zones, multi-property, PIN rate-limiting, per-user profiles.
 - P2: Low-latency camera (WebRTC/go2rtc), energy dashboard, richer automation conditions.
+
+## 2026-06 Sony TV IP mapping
+- Mapped from UniFi screenshots (all Sony; ignore UniFi manufacturer labels): Living Room TV 192.168.0.165, Office TV 192.168.0.177, Master Bedroom TV 192.168.0.78, Guest Room TV 192.168.0.253 (renamed from Guest Bedroom TV)
+- SONY_TV_IPS in server.py; defaults + migration fills empty IPs; discovery probes these on port 80 (was Samsung 8001)
+- MACs not shown in screenshots: still pending (needed for Wake-on-LAN). PSKs pending.
+- Next: MACs, PSKs, HDMI ports, mini-PC install, Claude integration (not started)
