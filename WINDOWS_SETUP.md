@@ -155,7 +155,7 @@ tap **Test connection**, then **Save**. Full per‑device field details are in `
 - **Sony Bravia TVs** — IPs/MACs are pre-mapped (Living .165, Office .177, Master .78, Guest .253).
   On each TV: Settings → Network → Home network setup → **IP control** → Authentication *Normal and
   Pre-Shared Key*, set a **PSK**, and turn **Remote start ON**. In the app enter each TV's PSK + HDMI port.
-- **Apple TVs** — in the backend venv run `atvremote scan` then `atvremote --id <id> pair`, save creds; enable LIVE.
+- **Apple TVs** — pre-mapped (ATV1 .145, ATV2 .181, ATV3 .249, ATV4 .35). In the backend venv run `atvremote -s <ip> --protocol companion pair` and `--protocol airplay pair` for each; paste both credentials in Settings → Apple TVs; enable LIVE.
 - **Ecobee** — local HomeKit: confirm IP `192.168.0.222`, enter the 8-digit HomeKit code (thermostat Menu → Settings → HomeKit) and tap **Pair thermostat**. Allow Python through Windows Firewall on **Private** networks so mDNS (UDP 5353) discovery works. Don't add the thermostat to Apple Home.
 - **UniFi cameras** — enable RTSP in UniFi Protect, paste each camera's `rtsp://...` URL (ffmpeg transcodes to HLS).
 

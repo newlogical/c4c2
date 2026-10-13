@@ -206,7 +206,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 <p>3. <b>WS66i</b>: set the rear switch to ETHERNET, enter IP, map each source to its wired input.</p>
                 <p>4. <b>Ecobee</b>: enter the HomeKit setup code from the thermostat (Menu → Settings → HomeKit) and tap Pair.</p>
                 <p>5. <b>UniFi</b>: paste the camera's RTSP URL.</p>
-                <p>6. <b>Apple TVs</b>: pair on the host via <code>atvremote</code>.</p>
+                <p>6. <b>Apple TVs</b>: IPs are pre-mapped; pair each with <code>atvremote</code> (companion + airplay) and paste the credentials.</p>
                 <p>7. <b>Sony Bravia TVs</b>: enter IP + MAC + PSK + HDMI input. On each TV set a Pre-Shared Key (Network → IP control) and enable "Remote start" for Wake-on-LAN.</p>
                 <p className="pt-1">Flip each device to LIVE → Test connection → Save.</p>
               </div>
@@ -413,8 +413,21 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
 
               <DeviceCard icon={Tv} title="Apple TVs" subtitle="pyatv remote control" device="appletv" conn={c("appletv")} onToggle={toggle}>
                 <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
-                  Apple TV device IDs & pairing credentials are provisioned on the host via <code>atvremote</code>. Enable LIVE to route remote commands through pyatv.
+                  Pair each once on the mini-PC: <code>atvremote -s IP --protocol companion pair</code> and <code>--protocol airplay pair</code>, then paste the credentials.
                 </p>
+                {(state?.sources || []).map((src) => {
+                  const dv = (c("appletv").devices || {})[src.id] || {};
+                  const setAtv = (k, v) => setConfig((p) => ({ ...p, appletv: { ...p.appletv, devices: { ...(p.appletv?.devices || {}), [src.id]: { ...dv, [k]: v } } } }));
+                  return (
+                    <div key={src.id} className="mt-3 rounded-xl p-3" style={{ background: "var(--c4-bg)" }} data-testid={`atv-card-${src.id}`}>
+                      <p className="text-xs font-semibold">{src.name} <span style={{ color: "var(--c4-muted)" }}>· {src.location}</span></p>
+                      <Field label="IP" value={dv.ip} placeholder="192.168.0.x" onChange={(v) => setAtv("ip", v)} testid={`atv-ip-${src.id}`} />
+                      <Field label="MAC" value={dv.mac} placeholder="F0:B3:EC:..." onChange={(v) => setAtv("mac", v)} testid={`atv-mac-${src.id}`} />
+                      <Field label="Companion credentials" type="password" value={dv.credentials} placeholder="from atvremote pair" onChange={(v) => setAtv("credentials", v)} testid={`atv-cred-${src.id}`} />
+                      <Field label="AirPlay credentials" type="password" value={dv.airplay_credentials} placeholder="from atvremote pair" onChange={(v) => setAtv("airplay_credentials", v)} testid={`atv-apcred-${src.id}`} />
+                    </div>
+                  );
+                })}
               </DeviceCard>
 
               <div className="glass rounded-2xl p-4" data-testid="settings-tv">

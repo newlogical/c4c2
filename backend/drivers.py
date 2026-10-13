@@ -158,17 +158,22 @@ class AppleTVDriver(BaseDriver):
     }
 
     def key(self, source_name, key, conn=None, device=None):
-        payload = f"atvremote --id <id> {key}"
+        dev = ((conn or {}).get("devices") or {}).get(device or "", {})
+        target = f"-s {dev['ip']}" if dev.get("ip") else "--id <id>"
+        payload = f"atvremote {target} {key}"
 
         def send():
-            dev = (conn.get("devices") or {}).get(device or "", {})
-            if key not in self._KEYS or not dev.get("id"):
+            if key not in self._KEYS or not (dev.get("ip") or dev.get("id")):
                 raise RuntimeError("device not configured / unsupported key")
             if not shutil.which("atvremote"):
                 raise RuntimeError("pyatv (atvremote) not installed")
-            cmd = ["atvremote", "--id", dev["id"]]
+            cmd = ["atvremote", "-s", dev["ip"]] if dev.get("ip") else ["atvremote", "--id", dev["id"]]
+            if dev.get("id") and dev.get("ip"):
+                cmd += ["--id", dev["id"]]
             if dev.get("credentials"):
                 cmd += ["--companion-credentials", dev["credentials"]]
+            if dev.get("airplay_credentials"):
+                cmd += ["--airplay-credentials", dev["airplay_credentials"]]
             cmd.append(key)
             subprocess.run(cmd, timeout=6, check=True, capture_output=True)
         return self._dispatch(payload, f"{source_name}: {key}", conn, sender=send)

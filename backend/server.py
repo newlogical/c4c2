@@ -61,6 +61,12 @@ SONY_TV_IPS = {
     "tv_guest": "192.168.0.253",
 }
 JTECH_HOST = "192.168.0.254"
+APPLE_TVS = {
+    "atv1": {"ip": "192.168.0.145", "mac": "F0:B3:EC:35:5C:41"},
+    "atv2": {"ip": "192.168.0.181", "mac": "F0:B3:EC:3D:63:5E"},
+    "atv3": {"ip": "192.168.0.249", "mac": "58:D3:49:EF:E7:E2"},
+    "atv4": {"ip": "192.168.0.35", "mac": "F0:B3:EC:5E:7B:B9"},
+}
 WS66I_HOST = "192.168.0.43"
 WS66I_STREAMERS = {
     "stream_a": {"name": "Sound Amplifier", "ip": "192.168.0.213", "mac": "00:22:6C:22:18:5E"},
@@ -86,7 +92,7 @@ def default_config() -> dict:
             "spotify": 5, "airplay": 6, "tv_audio": 6,
         }},
         "ecobee": {"live": False, "paired": False, **ECOBEE_LAN},
-        "appletv": {"live": False, "devices": {}},
+        "appletv": {"live": False, "devices": {k: {**v, "id": "", "credentials": "", "airplay_credentials": ""} for k, v in APPLE_TVS.items()}},
         "camera": {"live": False, "rtsp_url": ""},
         "cameras": {
             "cam_living": {"live": False, "rtsp_url": ""},
@@ -172,6 +178,13 @@ async def get_state() -> dict:
             _sets[_tid]["ip"] = _ip
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
             _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
+    if isinstance(_cfgm.get("appletv"), dict):
+        _devs = _cfgm["appletv"].setdefault("devices", {})
+        for _aid, _a in APPLE_TVS.items():
+            _d = _devs.setdefault(_aid, {})
+            for _k, _v in {**_a, "id": "", "credentials": "", "airplay_credentials": ""}.items():
+                if not _d.get(_k):
+                    _d[_k] = _v
     if isinstance(_cfgm.get("matrix"), dict):
         if _cfgm["matrix"].get("host") in ("", None, "192.168.1.1"):
             _cfgm["matrix"]["host"] = JTECH_HOST
@@ -282,6 +295,9 @@ def redact_secrets(state: dict) -> dict:
     for tvset in ((c.get("tv") or {}).get("sets") or {}).values():
         _mask(tvset, "psk")
     _mask(c.get("matrix"), "password")
+    for _atv in ((c.get("appletv") or {}).get("devices") or {}).values():
+        _mask(_atv, "credentials")
+        _mask(_atv, "airplay_credentials")
     return s
 
 
@@ -1186,6 +1202,11 @@ def _health_targets(state):
         if tv.get("ip"):
             out.append({"id": tid, "name": names.get(tid, tid), "kind": "Sony Bravia TV", "ip": tv["ip"], "port": 80,
                         "mac": tv.get("mac", ""), "live": bool((c.get("tv") or {}).get("live"))})
+    src_names = {x["id"]: x["name"] for x in state.get("sources", [])}
+    for aid, atv in ((c.get("appletv") or {}).get("devices") or {}).items():
+        if atv.get("ip"):
+            out.append({"id": aid, "name": src_names.get(aid, aid), "kind": "Apple TV 4K", "ip": atv["ip"], "port": 7000,
+                        "mac": atv.get("mac", ""), "live": bool((c.get("appletv") or {}).get("live"))})
     ec = c.get("ecobee") or {}
     if ec.get("ip"):
         out.append({"id": "ecobee", "name": "Thermostat", "kind": "Ecobee (HomeKit)", "ip": ec["ip"], "port": None,

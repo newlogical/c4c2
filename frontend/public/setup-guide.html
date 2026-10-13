@@ -289,10 +289,18 @@ New-NetFirewallRule -DisplayName "Apartment API 8001" -Direction Inbound -Protoc
 <pre>cd C:\apartment-controller\backend
 .\.venv\Scripts\Activate.ps1
 atvremote scan</pre>
-<p>Then pair each unit (repeat for all four, using each device's id from the scan):</p>
-<pre>atvremote --id &lt;device-id&gt; pair</pre>
-<p>Enter the PIN shown on that Apple TV screen, and save the credentials it prints. Then App →
-<em>Apple TVs</em> → enable <strong>LIVE</strong>.</p>
+<table>
+  <tr><th>Source</th><th>IP</th><th>MAC</th></tr>
+  <tr><td>Apple TV 1</td><td>192.168.0.145</td><td>F0:B3:EC:35:5C:41</td></tr>
+  <tr><td>Apple TV 2</td><td>192.168.0.181</td><td>F0:B3:EC:3D:63:5E</td></tr>
+  <tr><td>Apple TV 3</td><td>192.168.0.249</td><td>58:D3:49:EF:E7:E2</td></tr>
+  <tr><td>Apple TV 4</td><td>192.168.0.35</td><td>F0:B3:EC:5E:7B:B9</td></tr>
+</table>
+<p>Pair each unit twice (Companion for remote keys, AirPlay for the control channel), e.g. Apple TV 1:</p>
+<pre>atvremote -s 192.168.0.145 --protocol companion pair
+atvremote -s 192.168.0.145 --protocol airplay pair</pre>
+<p>Enter the PIN shown on that Apple TV each time and copy the credentials it prints. App → <em>Apple TVs</em> →
+enable <strong>LIVE</strong> → paste them into that Apple TV's <em>Companion</em> and <em>AirPlay credentials</em> → Save.</p>
 
 <h3>8.4 Sony Bravia TVs — Living, Office, Master, Guest</h3>
 <table>
