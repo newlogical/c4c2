@@ -101,3 +101,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Settings Ecobee card: IP, MAC, HomeKit code + Pair/Unpair. Token/thermostat_id removed (migration pops).
 - Iteration 12: 100% pass (cloud error paths only). Real pairing pending on mini-PC; needs Windows Firewall Private allow for mDNS.
 - Stale Samsung/SmartThings sections still in SELF_HOST.md / setup-guide.html 8.5 (cleanup pending).
+
+## 2026-06 Device Health + guide cleanup
+- GET /api/health/devices: TCP probe (TVs :80, matrix :port, amp :8080, cameras RTSP host:port) / ping (Ecobee). DeviceHealthPanel.jsx opened from TopBar pulse icon (online/total badge, polls 30s) and Settings card.
+- SELF_HOST.md, WINDOWS_SETUP.md, setup-guide.html: Samsung/SmartThings removed; Sony Bravia steps (IP control PSK, Remote start, private MAC off) + IP/MAC table. Iteration 13: 100% pass.
+- Note: matrix/amp still default placeholder IPs (192.168.1.1 / .1.50) - user needs real IPs.
