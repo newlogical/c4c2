@@ -59,6 +59,7 @@ SONY_TV_IPS = {
     "tv_master": "192.168.0.78",
     "tv_guest": "192.168.0.253",
 }
+ECOBEE_LAN = {"ip": "192.168.0.222", "mac": "44:61:32:DF:C2:A9", "model": "Ecobee Smart Thermostat Premium"}
 SONY_TV_MACS = {
     "tv_living": "1C:D6:BE:B3:FB:1C",
     "tv_office": "FA:8A:FD:3F:67:FC",
@@ -77,7 +78,7 @@ def default_config() -> dict:
             "atv1": 1, "atv2": 2, "atv3": 3, "atv4": 4,
             "spotify": 5, "airplay": 6, "tv_audio": 6,
         }},
-        "ecobee": {"live": False, "token": "", "thermostat_id": ""},
+        "ecobee": {"live": False, "token": "", "thermostat_id": "", **ECOBEE_LAN},
         "appletv": {"live": False, "devices": {}},
         "camera": {"live": False, "rtsp_url": ""},
         "cameras": {
@@ -164,6 +165,10 @@ async def get_state() -> dict:
             _sets[_tid]["ip"] = _ip
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
             _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
+    if isinstance(_cfgm.get("ecobee"), dict):
+        for _k, _v in ECOBEE_LAN.items():
+            if not _cfgm["ecobee"].get(_k):
+                _cfgm["ecobee"][_k] = _v
     for _d in doc.get("displays", []):
         if _d.get("id") == "tv_guest" and _d.get("name") == "Guest Bedroom TV":
             _d["name"] = "Guest Room TV"

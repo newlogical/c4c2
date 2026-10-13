@@ -93,3 +93,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - MACs not shown in screenshots: still pending (needed for Wake-on-LAN). PSKs pending.
 - Next: MACs, PSKs, HDMI ports, mini-PC install, Claude integration (not started)
 - MACs added (SONY_TV_MACS): Living 1C:D6:BE:B3:FB:1C, Office FA:8A:FD:3F:67:FC, Master FA:D8:24:B4:79:2F, Guest 8E:BF:A2:FC:72:BF. Office/Master/Guest are randomized private MACs -> disable Private MAC on TVs or WoL may fail.
+- Ecobee mapped: ip 192.168.0.222, mac 44:61:32:DF:C2:A9, model Smart Thermostat Premium (ECOBEE_LAN in server.py; shown in Settings). Control still via Ecobee cloud API token — IP is reference only.

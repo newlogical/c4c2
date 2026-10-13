@@ -345,6 +345,8 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, saverOn, onToggleSa
               <DeviceCard icon={Thermometer} title="Ecobee Thermostat" subtitle="Climate control" device="ecobee" conn={c("ecobee")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="API Access Token" value={c("ecobee").token} placeholder="Bearer token" type="password" onChange={(v) => setField("ecobee", "token", v)} testid="ecobee-token-input" />
                 <Field label="Thermostat ID" value={c("ecobee").thermostat_id} placeholder="optional" onChange={(v) => setField("ecobee", "thermostat_id", v)} testid="ecobee-id-input" />
+                <Field label="LAN IP (from UniFi)" value={c("ecobee").ip} placeholder="192.168.0.222" onChange={(v) => setField("ecobee", "ip", v)} testid="ecobee-ip-input" />
+                <Field label="MAC Address" value={c("ecobee").mac} placeholder="44:61:32:DF:C2:A9" onChange={(v) => setField("ecobee", "mac", v)} testid="ecobee-mac-input" />
               </DeviceCard>
 
               <DeviceCard icon={Camera} title="UniFi Protect Camera" subtitle="Live RTSP → HLS stream" device="camera" conn={c("camera")} onToggle={toggle} onTest={test} testing={testing}>
