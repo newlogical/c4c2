@@ -94,3 +94,10 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Next: MACs, PSKs, HDMI ports, mini-PC install, Claude integration (not started)
 - MACs added (SONY_TV_MACS): Living 1C:D6:BE:B3:FB:1C, Office FA:8A:FD:3F:67:FC, Master FA:D8:24:B4:79:2F, Guest 8E:BF:A2:FC:72:BF. Office/Master/Guest are randomized private MACs -> disable Private MAC on TVs or WoL may fail.
 - Ecobee mapped: ip 192.168.0.222, mac 44:61:32:DF:C2:A9, model Smart Thermostat Premium (ECOBEE_LAN in server.py; shown in Settings). Control still via Ecobee cloud API token — IP is reference only.
+
+## 2026-06 Ecobee -> local HomeKit
+- Ecobee developer API closed to new accounts (2024). Replaced cloud REST with HomeKit HAP/IP via aiohomekit 4.0.1 (backend/homekit.py, drivers.ThermostatDriver).
+- Endpoints: POST/DELETE /api/homekit/pair {code}, POST /api/climate/refresh (ClimateTab polls 60s when live+paired). Pairing data in db.homekit {key:ecobee}; loaded at startup. Setup code NOT stored.
+- Settings Ecobee card: IP, MAC, HomeKit code + Pair/Unpair. Token/thermostat_id removed (migration pops).
+- Iteration 12: 100% pass (cloud error paths only). Real pairing pending on mini-PC; needs Windows Firewall Private allow for mDNS.
+- Stale Samsung/SmartThings sections still in SELF_HOST.md / setup-guide.html 8.5 (cleanup pending).

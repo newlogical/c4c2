@@ -1,0 +1,26 @@
+{
+  "summary": "Iter 12 verified Ecobee cloud -> Local HomeKit (HAP/IP via aiohomekit) migration. Backend 10/10 pytest passed: /api/state config.ecobee has ip 192.168.0.222 + mac 44:61:32:DF:C2:A9 + paired false + NO token/thermostat_id; POST /api/homekit/pair requires auth (401), rejects bad code 12 with '8 digits', and returns 400 'No HomeKit accessory advertising at 192.168.0.222' (~10s discover timeout) for valid-format code 111-22-333; POST /api/climate/refresh returns {live:false,...} when unpaired; DELETE /api/homekit/pair returns paired false; POST /api/climate still updates state and logs Ecobee entries with transport 'HomeKit HAP/IP (LAN)' status 'simulated'; good_night scene logs an Ecobee 'Set mode = cool' entry; /api/config/test/ecobee with live=true paired=false returns ok=false, 'Not paired' detail. Frontend: PIN demo bypass unlock, Settings drawer -> toggle Ecobee LIVE exposes ecobee-ip-input, ecobee-mac-input, homekit-code-input, homekit-pair-btn (disabled until 8 digits). Typing 524-03-699 enabled the button; clicking produced error toast 'Pairing failed: No HomeKit accessory advertising at 192.168.0.222 (check same LAN, mDNS, firewall)'. ecobee-token-input absent (confirmed). Climate tab mode-heat/cool/auto/off + fan-auto/on all present. Teardown: toggled Ecobee back to DEMO + saved + verified via /api/state (ecobee.live=false, paired=false).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter12_homekit.py",
+    "/app/test_reports/pytest/iter12.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "homekit.py HomeKitThermostat uses a dedicated background asyncio loop + threading.Lock to bridge sync drivers.py <-> async aiohomekit. Reasonable, but failure modes aren't surfaced: aiohomekit import errors would reach the pair endpoint as a 400 'Pairing failed: ...'. OK for cloud demo.",
+    "server.py /homekit/pair catches *all* exceptions as 400; this is fine for user-facing errors but means e.g. a 500-worthy aiohomekit bug would be returned as 400. Low priority.",
+    "server.py get_state() mutates the ecobee dict to drop legacy 'token'/'thermostat_id' only in-memory; next save_state will persist cleaned shape. Verified via /api/state response.",
+    "ClimateReq.target_cool clamp allows up to 95; set_hold writes cool_threshold = f_to_c(95) ~= 35C which is at HAP spec limit for most Ecobee cool threshold. Minor live-mode concern only."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter12_homekit.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 (demo bypass works since no device set LIVE at test start/end)",
+  "seed_data_creation": "None (ecobee live toggled true during /config/test/ecobee check then restored to false)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Ecobee cloud API fully retired; backend now exposes POST/DELETE /api/homekit/pair + POST /api/climate/refresh for local HomeKit. aiohomekit is on backend requirements. Real pairing cannot be exercised from cloud (no LAN mDNS); error path validated. Regression file /app/backend/tests/test_iter12_homekit.py takes ~13s mainly from the ~10s discover timeout in test_pair_valid_format_no_accessory.",
+  "rca of the issue": "N/A — no bugs. All review items green."
+}
