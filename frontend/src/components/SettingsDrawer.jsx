@@ -368,8 +368,10 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
               </div>
 
               <DeviceCard icon={Cable} title="JTECH-MXT40 Matrix" subtitle="HDMI video routing" device="matrix" conn={c("matrix")} onToggle={toggle} onTest={test} testing={testing}>
-                <Field label="Host / IP" value={c("matrix").host} placeholder="192.168.1.1" onChange={(v) => setField("matrix", "host", v)} testid="matrix-host-input" />
+                <Field label="Host / IP" value={c("matrix").host} placeholder="192.168.0.254" onChange={(v) => setField("matrix", "host", v)} testid="matrix-host-input" />
                 <Field label="Telnet Port" value={c("matrix").port} placeholder="23" type="number" onChange={(v) => setField("matrix", "port", Number(v))} testid="matrix-port-input" />
+                <Field label="Username" value={c("matrix").username} placeholder="admin" onChange={(v) => setField("matrix", "username", v)} testid="matrix-username-input" />
+                <Field label="Password" value={c("matrix").password} placeholder="admin" type="password" onChange={(v) => setField("matrix", "password", v)} testid="matrix-password-input" />
               </DeviceCard>
 
               <DeviceCard icon={Radio} title="WS66i Amplifier" subtitle="6-zone audio" device="amp" conn={c("amp")} onToggle={toggle} onTest={test} testing={testing}>

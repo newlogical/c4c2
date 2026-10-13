@@ -271,6 +271,7 @@ New-NetFirewallRule -DisplayName "Apartment API 8001" -Direction Inbound -Protoc
 
 <h3>8.1 JTECH‑MXT40 matrix (video routing)</h3>
 <ul>
+  <li>Pre-mapped to <strong>192.168.0.254</strong>, Telnet port 23, login <code>admin</code> (factory default). If the matrix asks for a Telnet login, the app answers it automatically. Change the default password in its web UI, then update it in the app.</li>
   <li>In the matrix's own web page, enable <strong>Telnet</strong> (TCP port <strong>23</strong>).</li>
   <li>App → <em>JTECH‑MXT40 Matrix</em> → enter its <strong>IP</strong> and port <strong>23</strong>.</li>
 </ul>

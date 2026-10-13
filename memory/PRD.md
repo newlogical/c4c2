@@ -107,3 +107,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - SELF_HOST.md, WINDOWS_SETUP.md, setup-guide.html: Samsung/SmartThings removed; Sony Bravia steps (IP control PSK, Remote start, private MAC off) + IP/MAC table. Iteration 13: 100% pass.
 - Note: matrix/amp still default placeholder IPs (192.168.1.1 / .1.50) - user needs real IPs.
 - WS66i mapped: host 192.168.0.43 (Soundavo app Manual IP, control TCP 8080). Streaming modules (UniFi "Arylic A50+"): stream_a 192.168.0.213 00:22:6C:22:18:5E, stream_b 192.168.0.224 00:22:6C:1E:6F:39 -> config.amp.streamers, shown in health + Settings. User confirmed they are the WS66i streaming modules. All device IPs reserved in UniFi (user confirmed).
+- J-Tech MXT40 mapped: 192.168.0.254 :23, username/password (factory admin/admin) in config.matrix, password masked in /api/state. Driver answers Telnet login prompt only if presented (verified with fake telnet server).

@@ -60,6 +60,7 @@ SONY_TV_IPS = {
     "tv_master": "192.168.0.78",
     "tv_guest": "192.168.0.253",
 }
+JTECH_HOST = "192.168.0.254"
 WS66I_HOST = "192.168.0.43"
 WS66I_STREAMERS = {
     "stream_a": {"name": "Sound Amplifier", "ip": "192.168.0.213", "mac": "00:22:6C:22:18:5E"},
@@ -79,7 +80,7 @@ SONY_TV_MACS = {
 
 def default_config() -> dict:
     return {
-        "matrix": {"live": False, "host": "192.168.1.1", "port": 23},
+        "matrix": {"live": False, "host": JTECH_HOST, "port": 23, "username": "admin", "password": "admin"},
         "amp": {"live": False, "host": WS66I_HOST, "streamers": copy.deepcopy(WS66I_STREAMERS), "input_map": {
             "atv1": 1, "atv2": 2, "atv3": 3, "atv4": 4,
             "spotify": 5, "airplay": 6, "tv_audio": 6,
@@ -171,6 +172,11 @@ async def get_state() -> dict:
             _sets[_tid]["ip"] = _ip
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
             _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
+    if isinstance(_cfgm.get("matrix"), dict):
+        if _cfgm["matrix"].get("host") in ("", None, "192.168.1.1"):
+            _cfgm["matrix"]["host"] = JTECH_HOST
+        _cfgm["matrix"].setdefault("username", "admin")
+        _cfgm["matrix"].setdefault("password", "admin")
     if isinstance(_cfgm.get("amp"), dict):
         if _cfgm["amp"].get("host") in ("", None, "192.168.1.50"):
             _cfgm["amp"]["host"] = WS66I_HOST
@@ -275,6 +281,7 @@ def redact_secrets(state: dict) -> dict:
 
     for tvset in ((c.get("tv") or {}).get("sets") or {}).values():
         _mask(tvset, "psk")
+    _mask(c.get("matrix"), "password")
     return s
 
 
@@ -1107,7 +1114,7 @@ async def discover(live: bool = False):
     """Suggest device connection info. Real LAN scan only when self-hosted (live=true);
     the cloud demo returns sample results so the wizard flow is usable."""
     demo_devices = {
-        "matrix": {"host": "192.168.1.20", "port": 23, "label": "JTECH-MXT40 (Telnet) @ 192.168.1.20"},
+        "matrix": {"host": JTECH_HOST, "port": 23, "label": f"JTECH-MXT40 (Telnet) @ {JTECH_HOST}"},
         "amp": {"host": WS66I_HOST, "label": f"WS66i 6-zone @ {WS66I_HOST}"},
         "camera": {"rtsp_url": "rtsp://192.168.1.2:7447/2b9f1c-front", "label": "UniFi Front Entry"},
         "tv": {tid: {"ip": ip, "mac": SONY_TV_MACS[tid]} for tid, ip in SONY_TV_IPS.items()},

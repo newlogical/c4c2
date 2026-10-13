@@ -57,7 +57,26 @@ class MatrixDriver(BaseDriver):
         host = conn["host"]
         port = int(conn.get("port", 23))
         with socket.create_connection((host, port), timeout=4) as s:
+            self._login(s, conn)
             s.sendall((payload + "\r\n").encode())
+
+    @staticmethod
+    def _read(s, wait=0.8):
+        s.settimeout(wait)
+        try:
+            return s.recv(1024).decode(errors="ignore").lower()
+        except socket.timeout:
+            return ""
+
+    def _login(self, s, conn):
+        # Answer a Telnet login prompt only if the matrix presents one
+        banner = self._read(s)
+        if "login" in banner or "user" in banner:
+            s.sendall((conn.get("username", "") + "\r\n").encode())
+            banner = self._read(s, 1.5)
+        if "pass" in banner:
+            s.sendall((conn.get("password", "") + "\r\n").encode())
+            self._read(s, 1.5)
 
     def route(self, output_index, input_index, display, source, conn=None):
         payload = f"#video_d out{output_index} matrix={input_index}"
