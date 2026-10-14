@@ -4,7 +4,7 @@ import { X, UserRound } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { CameraPlayer } from "@/components/CameraPlayer";
 
-const SHOW_FOR_MS = 60000;
+const SHOW_FOR_MS = 15 * 60000; // alerts older than this are not shown on a freshly opened panel
 
 export const PersonAlert = () => {
   const { api } = useSystem();
@@ -21,12 +21,6 @@ export const PersonAlert = () => {
     const id = setInterval(poll, 4000);
     return () => clearInterval(id);
   }, [api]);
-
-  useEffect(() => {
-    if (!alert) return;
-    const t = setTimeout(() => close(), SHOW_FOR_MS);
-    return () => clearTimeout(t);
-  }, [alert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const close = () => {
     if (alert) {

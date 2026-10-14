@@ -1520,6 +1520,9 @@ OFFLINE_ALERT_AFTER_S = 180
 
 async def _record_person(state, camera_name, source):
     if not state["camera"].get("armed"):
+        log_cmd(state, {"driver": "UniFiProtect", "transport": source, "command": "person detected",
+                        "note": f"Person at {camera_name} (ignored — Security disarmed)", "timestamp": drivers._ts(), "status": "simulated"})
+        await save_state(state)
         return False
     state["person_alert"] = {"id": uuid.uuid4().hex[:10], "at": datetime.now(timezone.utc).isoformat(),
                              "camera": camera_name, "source": source}
@@ -1539,8 +1542,11 @@ async def protect_webhook(token: str, request: Request):
         body = await request.json()
     except Exception:
         body = {}
-    triggers = ((body.get("alarm") or {}).get("triggers") or [])
-    keys = {str(t.get("key", "")).lower() for t in triggers}
+    alarm = body.get("alarm") if isinstance(body, dict) else None
+    if not isinstance(alarm, dict):
+        return {"ok": True, "ignored": True}
+    triggers = alarm.get("triggers") or []
+    keys = {str(t.get("key", "")).lower() for t in triggers if isinstance(t, dict)}
     if triggers and not keys & {"person", "smartdetectzone", "smart_detect", "motion"}:
         return {"ok": True, "ignored": True}
     shown = await _record_person(state, state["camera"].get("name", "Front Entry"), "Protect webhook")

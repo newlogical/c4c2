@@ -141,3 +141,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Endpoints: /api/tunein/search|browse/{cat|cNNN|gNN}|saved (CRUD), /api/stream/{sid}/play_station, /api/spotify/status|login|callback|library|link, /api/stream/{sid}/play_spotify. Preset steps tunein_station, spotify_play (+label).
 - state.tunein_saved seeded: WFAN direct Audacy url (live.amperwave.net/direct/audacy-wfanamaac-imc; WFAN not on TuneIn), ESPN Radio s25876, FOX Sports Radio s28060, NBC Sports Radio s353779, Bloomberg s165740, CNBC s110052, Bloomberg TV s47135.
 - Pandora = Linkplay favourites (no API). UI: StreamPanel sheet tabs Favourites·Pandora / TuneIn (TuneInBrowser.jsx) / Spotify (SpotifyBrowser.jsx); SpotifyCard.jsx in Settings. Client Premium status unknown.
+
+## 2026-06 Game-day / Morning brief / Person + offline alerts
+- Seeded once (db.meta seed_music_presets): preset_yankees_wfan (WFAN stream_a, 4 zones airplay @40, pinned), preset_morning_brief (Bloomberg s165740 stream_b, office airplay2 @20) + automation auto_morning_brief weekdays(1-5) 08:00.
+- Person: public POST /api/protect/webhook/{config.camera.webhook_token} (Protect Alarm Manager webhook); alerts only when camera.armed; state.person_alert; POST /api/protect/test-person, /api/protect/webhook-token (rotate). GET /api/alerts (light poll). PersonAlert.jsx global modal (polls 4s, live CameraPlayer, auto-close 60s).
+- Offline: scheduler job offline_watch every 60s (reload_jobs keeps it); devices live && offline >=180s -> state.offline_alerts; OfflineBanner.jsx on Home (polls 30s, opens Device health).
