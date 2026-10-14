@@ -116,3 +116,6 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Endpoints: GET /api/ptz/presets, POST /api/ptz/goto|patrol|move; upstream errors -> HTTP 424 (502 is eaten by preview proxy). Config camera: protect_api_key, protect_user, protect_password (masked), ptz_presets names.
 - PtzControls.jsx on Security tab (Front Entry): presets, patrol toggle, hold-to-move D-pad + zoom.
 - Apple TV pairing: POST /api/appletv/{aid}/pair/start {protocol companion|airplay} + /pair/finish {pin}; pyatv 0.18 (protobuf 6.x). AtvPair.jsx in Settings.
+
+## 2026-06 WS66i input map (user confirmed)
+- Inputs: 1 Apple TV 1, 2 Apple TV 2, 3 AirPlay 1 (streaming module), 4 AirPlay 2, 5-6 unused. Spotify -> input 3 (assumed; user unsure which module is 3 vs 4). audio_sources = atv1, atv2, airplay, airplay2, spotify (ATV3/4 + TV Audio removed from Listen). One-time migration flag ws66i_wiring_v1.

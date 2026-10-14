@@ -73,6 +73,15 @@ APPLE_TVS = {
     "atv4": {"ip": "192.168.0.35", "mac": "F0:B3:EC:5E:7B:B9"},
 }
 WS66I_HOST = "192.168.0.43"
+# Physical WS66i wiring (user confirmed): 1-2 Apple TVs, 3-4 streaming modules, 5-6 unused
+WS66I_INPUT_MAP = {"atv1": 1, "atv2": 2, "airplay": 3, "airplay2": 4, "spotify": 3}
+WS66I_AUDIO_SOURCES = [
+    {"id": "atv1", "name": "Apple TV 1"},
+    {"id": "atv2", "name": "Apple TV 2"},
+    {"id": "airplay", "name": "AirPlay 1"},
+    {"id": "airplay2", "name": "AirPlay 2"},
+    {"id": "spotify", "name": "Spotify Connect"},
+]
 WS66I_STREAMERS = {
     "stream_a": {"name": "Sound Amplifier", "ip": "192.168.0.213", "mac": "00:22:6C:22:18:5E"},
     "stream_b": {"name": "Sound Amplifier B", "ip": "192.168.0.224", "mac": "00:22:6C:1E:6F:39"},
@@ -93,9 +102,7 @@ def default_config() -> dict:
     return {
         "matrix": {"live": False, "host": JTECH_HOST, "port": 23, "username": "admin", "password": "admin"},
         "amp": {"live": False, "host": WS66I_HOST, "streamers": copy.deepcopy(WS66I_STREAMERS), "input_map": {
-            "atv1": 1, "atv2": 2, "atv3": 3, "atv4": 4,
-            "spotify": 5, "airplay": 6, "tv_audio": 6,
-        }},
+**WS66I_INPUT_MAP}},
         "ecobee": {"live": False, "paired": False, **ECOBEE_LAN},
         "appletv": {"live": False, "devices": {k: {**v, "id": "", "credentials": "", "airplay_credentials": ""} for k, v in APPLE_TVS.items()}},
         "camera": {"live": False, "rtsp_url": "", **G6_PTZ, **PTZ_DEFAULTS},
@@ -128,11 +135,9 @@ def default_state() -> dict:
         "audio_sources": [
             {"id": "atv1", "name": "Apple TV 1"},
             {"id": "atv2", "name": "Apple TV 2"},
-            {"id": "atv3", "name": "Apple TV 3"},
-            {"id": "atv4", "name": "Apple TV 4"},
+            {"id": "airplay", "name": "AirPlay 1"},
+            {"id": "airplay2", "name": "AirPlay 2"},
             {"id": "spotify", "name": "Spotify Connect"},
-            {"id": "airplay", "name": "AirPlay 2"},
-            {"id": "tv_audio", "name": "TV Audio"},
         ],
         "audio_zones": [
             {"id": "audio_living", "name": "Living Room", "amp_zone": 1, "source": "atv1", "volume": 35, "mute": False, "power": True, "paired_tv": "tv_living"},
@@ -200,6 +205,15 @@ async def get_state() -> dict:
             _cfgm["matrix"]["host"] = JTECH_HOST
         _cfgm["matrix"].setdefault("username", "admin")
         _cfgm["matrix"].setdefault("password", "admin")
+    if not doc.get("ws66i_wiring_v1"):  # one-time: apply the confirmed amp wiring
+        doc["audio_sources"] = copy.deepcopy(WS66I_AUDIO_SOURCES)
+        if isinstance(_cfgm.get("amp"), dict):
+            _cfgm["amp"]["input_map"] = dict(WS66I_INPUT_MAP)
+        for _z in doc.get("audio_zones", []):
+            if _z.get("source") not in WS66I_INPUT_MAP:
+                _z["source"] = "atv1"
+        doc["ws66i_wiring_v1"] = True
+        await save_state(doc)
     if isinstance(_cfgm.get("amp"), dict):
         if _cfgm["amp"].get("host") in ("", None, "192.168.1.50"):
             _cfgm["amp"]["host"] = WS66I_HOST
