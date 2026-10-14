@@ -110,3 +110,9 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - J-Tech MXT40 mapped: 192.168.0.254 :23, username/password (factory admin/admin) in config.matrix, password masked in /api/state. Driver answers Telnet login prompt only if presented (verified with fake telnet server).
 - Apple TVs mapped (config.appletv.devices): atv1 .145 F0:B3:EC:35:5C:41, atv2 .181 F0:B3:EC:3D:63:5E, atv3 .249 58:D3:49:EF:E7:E2, atv4 .35 F0:B3:EC:5E:7B:B9. Driver uses atvremote -s IP + companion/airplay creds (masked). Health checks TCP 7000. Pairing via CLI on mini-PC (in-app pairing not built).
 - Cameras: only G6 PTZ (cam_front "Front Entry", 192.168.0.73, 8C:ED:E1:DA:15:4F); demo cams removed by migration. NVR config.nvr 192.168.0.166 74:FA:29:4B:01:30 (health TCP 7441). rtsp_url masked; ffmpeg now accepts rtsps:// and strips ?enableSrtp; camera test probes NVR port. Iteration 14 100%. User could not find RTSPS toggle - gave instructions; link still pending.
+
+## 2026-06 PTZ + in-app Apple TV pairing
+- protect.py: official Integration API (X-API-KEY) goto preset/patrol; experimental private /proxy/protect/api/cameras/{id}/move continuous (-1000..1000) via local user login + CSRF, 1.5s dead-man auto-stop. Camera id resolved by MAC.
+- Endpoints: GET /api/ptz/presets, POST /api/ptz/goto|patrol|move; upstream errors -> HTTP 424 (502 is eaten by preview proxy). Config camera: protect_api_key, protect_user, protect_password (masked), ptz_presets names.
+- PtzControls.jsx on Security tab (Front Entry): presets, patrol toggle, hold-to-move D-pad + zoom.
+- Apple TV pairing: POST /api/appletv/{aid}/pair/start {protocol companion|airplay} + /pair/finish {pin}; pyatv 0.18 (protobuf 6.x). AtvPair.jsx in Settings.
