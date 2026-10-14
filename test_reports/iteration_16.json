@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 16 - Matrix identify + wiring (POST /matrix/identify, PUT /matrix/map, MatrixWiring + MatrixIdentify UI). Backend: 10/10 pytest pass. Auth gates (401) on both endpoints. identify {input:2,output:3} -> {ok:true,status:'simulated'} and logs '#video_d out3 matrix=2'; input=5 and output=0 -> 400. map validation: duplicate output values -> 400 'Each output number can only be used once', unknown id -> 400 'Unknown id(s): ...', value out of 1-4 -> 400. Valid swap {outputs:{tv_living:2,tv_office:1},inputs:{atv1:2,atv2:1}} updates displays[].output and sources[].input and subsequent POST /matrix/route produces '#video_d out2 matrix=2'. Defaults restored (tv_living 1, tv_office 2, tv_master 3, tv_guest 4; atv1..4 -> 1..4). Frontend @390px: unlocked via pin-demo-bypass; Settings drawer shows matrix-wiring-card without enabling LIVE; matrix-output-<tvId> & matrix-input-<atvId> selects present; changing tv_living to 2 auto-swaps Office to 1 and shows toast 'Matrix wiring saved'. matrix-identify-open-btn opens matrix-identify-modal with matrix-identify-demo-note; Step 1 question 'Which TV just went black for a moment?'; tapping identify-tv-tv_office/tv_living/tv_master/tv_guest advances through 4 outputs then Step 2 asks 'Which Apple TV is on the Living Room TV now?'; identify-test-atv1 works; tapping identify-atv-atv1..atv4 saves (toast 'Matrix wiring saved') and closes modal. Dropdowns reflected wizard order Office/Living/Master/Guest -> outputs 1/2/3/4 respectively (tv_office=1, tv_living=2, etc.). matrix-identify-again-btn, matrix-identify-restart-btn, matrix-identify-close-btn all work. No horizontal overflow (page scrollWidth=390, wiring card scrollWidth=347 at 390px). Final state restored to defaults.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter16_matrix.py",
+    "/app/test_reports/pytest/iter16.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py now ~1575 lines; refactor into routers (matrix, display, audio, ptz, scenes, auth) remains overdue.",
+    "MatrixIdentify.show() is auto-invoked on every phase/n change via useEffect; on step transition from 'out' to 'in' it may route(input=n, output=viewOut) where viewOut depends on outs.tv_living which may be undefined if user picked a different TV for n=1 - falls back to state.displays[0].output. Works correctly but subtle; a comment or explicit mapping would improve clarity.",
+    "MatrixWiring.change() uses find(x[field]===val) to compute the swap partner. Works for 4-port 1-1 mapping but would need generalization for larger matrices (e.g. 8x8 if later added).",
+    "matrix_identify response surface: {ok, status, error} differs from matrix_map which returns full state. Not blocking, but documenting the per-endpoint response shape would help the frontend contract."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter16_matrix.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 (demo bypass available while all devices live=false)",
+  "seed_data_creation": "None persisted. During tests outputs/inputs were swapped and then restored to defaults (tv_living 1, tv_office 2, tv_master 3, tv_guest 4; atv1..atv4 -> 1..4). All devices left DEMO (live=false).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Matrix endpoints: POST /api/matrix/identify {input:1-4, output:1-4} -> {ok,status:'simulated',error} and logs #video_d out<N> matrix=<M>. PUT /api/matrix/map {outputs:{tvId:n},inputs:{atvId:n}} merges with current, enforces 1-4 range and uniqueness, returns redacted state. The actual routing endpoint is /api/matrix/route (NOT /display/route). command_log is prepended (newest first), capped at LOG_LIMIT. Frontend: MatrixWiring renders inside SettingsDrawer regardless of matrix.live and shows a demo note when !live. MatrixIdentify auto-sends an identify route on open and on phase/n change via useEffect.",
+  "rca of the issue": "N/A - feature implemented correctly."
+}
