@@ -126,3 +126,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 ## 2026-06 First-night checklist + fullscreen remote
 - GET /api/checklist (14 items, auto-detect from config/pin hash/device health; manual ids install, ipad_wifi, tv_setup, ptz_presets, remote_access), POST /api/checklist/{id} {done}. FirstNightChecklist.jsx (portal) from Settings card with Go buttons (scroll to settings-* testids / health / guide).
 - AppleTVRemote now full-screen via createPortal (framer transform on tab wrapper broke position:fixed -> cut off bottom-right). Scene/Automation modals centered with m-auto instead of translate. Modals inside SettingsDrawer (checklist, MatrixIdentify) portaled to body.
+- WS66i zones confirmed by user: 1 Living Room, 2 Office, 3 Master Bedroom, 4 Bathroom (matches defaults; protocol zone ids 11-14). Zones 5-6 unused.
