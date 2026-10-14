@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Volume2, VolumeX, Power, Radio, Speaker, Music, Link2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
+import { StreamPanel } from "@/components/StreamPanel";
 import { toast } from "sonner";
 
 const ZoneCard = ({ zone, sources, onChange }) => {
@@ -110,6 +111,8 @@ export const ListenTab = () => {
         <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c4-amber)" }}>WS66i · 6-Zone Amplifier</p>
         <h1 className="font-head text-2xl font-extrabold tracking-tight">Audio Zones</h1>
       </div>
+
+      <StreamPanel />
 
       {/* Sound follows screen */}
       <button

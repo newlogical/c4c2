@@ -23,6 +23,7 @@ from typing import Optional, List
 import drivers
 import homekit
 import protect
+import linkplay
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -83,8 +84,8 @@ WS66I_AUDIO_SOURCES = [
     {"id": "spotify", "name": "Spotify Connect"},
 ]
 WS66I_STREAMERS = {
-    "stream_a": {"name": "Sound Amplifier", "ip": "192.168.0.213", "mac": "00:22:6C:22:18:5E"},
-    "stream_b": {"name": "Sound Amplifier B", "ip": "192.168.0.224", "mac": "00:22:6C:1E:6F:39"},
+    "stream_a": {"name": "Sound Amplifier", "ip": "192.168.0.213", "mac": "00:22:6C:22:18:5E", "audio_source": "airplay"},
+    "stream_b": {"name": "Sound Amplifier B", "ip": "192.168.0.224", "mac": "00:22:6C:1E:6F:39", "audio_source": "airplay2"},
 }
 ECOBEE_LAN = {"ip": "192.168.0.222", "mac": "44:61:32:DF:C2:A9", "model": "Ecobee Smart Thermostat Premium"}
 SONY_TV_MACS = {
@@ -218,6 +219,8 @@ async def get_state() -> dict:
         if _cfgm["amp"].get("host") in ("", None, "192.168.1.50"):
             _cfgm["amp"]["host"] = WS66I_HOST
         _cfgm["amp"].setdefault("streamers", copy.deepcopy(WS66I_STREAMERS))
+        for _sid, _st in WS66I_STREAMERS.items():
+            _cfgm["amp"]["streamers"].setdefault(_sid, dict(_st)).setdefault("audio_source", _st["audio_source"])
     if isinstance(_cfgm.get("ecobee"), dict):
         for _old in ("token", "thermostat_id"):  # Ecobee cloud API retired -> HomeKit
             _cfgm["ecobee"].pop(_old, None)
@@ -470,13 +473,107 @@ def apply_snapshot(state: dict, snap: dict):
         log_cmd(state, drivers.thermostat.set_hold(state["thermostat"]["target_heat"], state["thermostat"]["target_cool"], tc, mode=state["thermostat"]["mode"]))
 
 
+# Preset steps: executed in order. TV-on first so later TV steps reach a powered set.
+PRESET_ACTIONS = {
+    "tv_power": ("display", "bool"), "tv_route": ("display", "source"), "tv_volume": ("display", "level"),
+    "amp_source": ("zone", "audio_source"), "amp_volume": ("zone", "level"), "amp_power": ("zone", "bool"),
+    "stream_preset": ("streamer", "preset"),
+}
+TV_WAKE_DELAY_S = 6
+LIVING_TV_PRESET = {
+    "id": "preset_living_tv_sound", "name": "Watch TV in Living Room with Sound", "icon": "Tv", "type": "vibrant",
+    "custom": True, "desc": "Living TV on · Apple TV 1 · TV muted to 0 · speakers on input 1",
+    "actions": [
+        {"type": "tv_power", "target": "tv_living", "value": True},
+        {"type": "tv_route", "target": "tv_living", "value": "atv1"},
+        {"type": "tv_volume", "target": "tv_living", "value": 0},
+        {"type": "amp_source", "target": "audio_living", "value": "atv1"},
+    ],
+}
+
+
+def validate_actions(state: dict, actions: list) -> list:
+    if not actions:
+        raise HTTPException(400, "Add at least one step")
+    out = []
+    streamers = [{"id": k} for k in (cfg(state, "amp").get("streamers") or {})]
+    lists = {"display": state["displays"], "zone": state["audio_zones"], "source": state["sources"],
+             "audio_source": state["audio_sources"], "streamer": streamers}
+    for a in actions:
+        kind = PRESET_ACTIONS.get(a.get("type"))
+        if not kind:
+            raise HTTPException(400, f"Unknown step type {a.get('type')}")
+        if not find(lists[kind[0]], a.get("target")):
+            raise HTTPException(400, f"Unknown {kind[0]} {a.get('target')}")
+        v = a.get("value")
+        if kind[1] == "bool":
+            v = bool(v)
+        elif kind[1] == "level":
+            if not isinstance(v, (int, float)) or not 0 <= v <= 100:
+                raise HTTPException(400, "Volume must be 0-100")
+            v = int(v)
+        elif kind[1] == "preset":
+            if not isinstance(v, int) or not 1 <= v <= 12:
+                raise HTTPException(400, "Favourite number must be 1-12")
+        elif not find(lists[kind[1]], v):
+            raise HTTPException(400, f"Unknown {kind[1]} {v}")
+        out.append({"type": a["type"], "target": a["target"], "value": v})
+    return out
+
+
+async def apply_actions(state: dict, actions: list):
+    mc, ac = cfg(state, "matrix"), cfg(state, "amp")
+    woke = set()
+    for a in actions:
+        t, tgt, v = a["type"], a["target"], a["value"]
+        if t.startswith("tv_"):
+            d = find(state["displays"], tgt)
+            if not d:
+                continue
+            if t == "tv_power":
+                d["power"] = v
+                log_cmd(state, drivers.matrix.power(d["output"], v, d["name"], mc))
+                log_cmd(state, await asyncio.to_thread(drivers.tv.power, d["name"], v, tv_conn(state, d["id"]), True))
+                if v:
+                    woke.add(d["id"])
+            elif t == "tv_route":
+                src = find(state["sources"], v)
+                d["source"], d["power"] = v, True
+                log_cmd(state, drivers.matrix.route(d["output"], src["input"], d["name"], src["name"], mc))
+            elif t == "tv_volume":
+                if d["id"] in woke and tv_conn(state, d["id"]).get("live"):
+                    await asyncio.sleep(TV_WAKE_DELAY_S)  # Sony needs a few seconds after Wake-on-LAN
+                    woke.discard(d["id"])
+                d["tv_volume"] = v
+                log_cmd(state, await asyncio.to_thread(drivers.tv.set_volume, d["name"], v, tv_conn(state, d["id"])))
+        elif t == "stream_preset":
+            await stream_play_preset(state, tgt, v)
+        else:
+            z = find(state["audio_zones"], tgt)
+            if not z:
+                continue
+            if t == "amp_source":
+                src = find(state["audio_sources"], v)
+                z.update({"source": v, "power": True, "mute": False})
+                log_cmd(state, drivers.amp.set_source(z["amp_zone"], amp_input(state, v), z["name"], src["name"], ac))
+            elif t == "amp_volume":
+                z["volume"] = v
+                log_cmd(state, drivers.amp.set_volume(z["amp_zone"], round(v * 38 / 100), z["name"], v, ac))
+            elif t == "amp_power":
+                z["power"] = v
+                log_cmd(state, drivers.amp.set_power(z["amp_zone"], v, z["name"], ac))
+
+
 async def apply_scene_any(state: dict, scene_id: str) -> bool:
     if apply_scene(state, scene_id):
         return True
     doc = await db.scenes.find_one({"id": scene_id}, {"_id": 0})
     if not doc:
         return False
-    apply_snapshot(state, doc["snapshot"])
+    if doc.get("actions"):
+        await apply_actions(state, doc["actions"])
+    else:
+        apply_snapshot(state, doc["snapshot"])
     return True
 
 
@@ -1002,6 +1099,175 @@ async def create_scene(req: SceneCreateReq):
     doc = {"id": str(uuid.uuid4()), "name": req.name.strip(), "desc": "Custom scene · snapshot", "icon": req.icon, "type": req.type, "custom": True, "snapshot": snap}
     await db.scenes.insert_one(copy.deepcopy(doc))
     doc.pop("_id", None)
+    return doc
+
+
+# ---------------------------------------------------------------------------
+# Streaming modules (Linkplay) — favourites, transport, now playing, room mapping
+DEMO_FAVOURITES = ["Jazz24 Radio", "Discover Weekly", "Chill Vibes", "NPR News", "Classical KUSC", "Morning Acoustic"]
+
+
+def _streamer(state, sid):
+    st = (cfg(state, "amp").get("streamers") or {}).get(sid)
+    if not st:
+        raise HTTPException(404, "Streaming module not found")
+    return st
+
+
+def _stream_live(state):
+    return bool(cfg(state, "amp").get("live"))
+
+
+def _sim(state, sid):
+    return state.setdefault("stream_sim", {}).setdefault(sid, {"status": "stop", "title": "", "artist": "", "vol": 60, "preset": None})
+
+
+async def stream_play_preset(state, sid, number):
+    st = _streamer(state, sid)
+    entry = {"driver": "Linkplay", "transport": "HTTP API", "command": f"MCUKeyShortClick:{number}",
+             "note": f"{st['name']} play favourite {number}", "timestamp": drivers._ts(), "status": "simulated"}
+    if _stream_live(state):
+        try:
+            await linkplay.play_preset(st["ip"], number)
+            entry["status"] = "sent"
+        except Exception as e:
+            entry.update({"status": "error", "error": str(e)[:200]})
+    else:
+        sim = _sim(state, sid)
+        name = DEMO_FAVOURITES[(number - 1) % len(DEMO_FAVOURITES)]
+        sim.update({"status": "play", "title": name, "artist": "Demo stream", "preset": number})
+    log_cmd(state, entry)
+    return entry
+
+
+def _zones_on(state, audio_source):
+    return [z["id"] for z in state["audio_zones"] if z.get("source") == audio_source and z.get("power")]
+
+
+class StreamPlayReq(BaseModel):
+    preset: Optional[int] = None
+    zones: List[str] = []
+
+
+class StreamCmdReq(BaseModel):
+    cmd: str
+    value: Optional[int] = None
+
+
+@api_router.get("/stream/status")
+async def stream_status():
+    state = await get_state()
+    live = _stream_live(state)
+    names = {x["id"]: x["name"] for x in state["audio_sources"]}
+    out = []
+    for i, (sid, st) in enumerate((cfg(state, "amp").get("streamers") or {}).items()):
+        src = st.get("audio_source")
+        item = {"id": sid, "label": f"Stream {i + 1}", "name": st.get("name", sid), "ip": st.get("ip"), "audio_source": src,
+                "source_name": names.get(src, src), "input": amp_input(state, src), "zones": _zones_on(state, src), "live": live}
+        if live:
+            try:
+                item.update(await linkplay.status(st["ip"]), online=True)
+            except Exception as e:
+                item.update(online=False, error=str(e)[:120], status="offline")
+        else:
+            sim = _sim(state, sid)
+            item.update(online=True, status=sim["status"], title=sim["title"], artist=sim["artist"], album="", art="", vol=sim["vol"])
+        out.append(item)
+    return {"modules": out}
+
+
+@api_router.get("/stream/{sid}/presets")
+async def stream_presets(sid: str):
+    state = await get_state()
+    st = _streamer(state, sid)
+    if not _stream_live(state):
+        return {"presets": [{"number": i + 1, "name": n, "source": "Demo", "art": ""} for i, n in enumerate(DEMO_FAVOURITES)]}
+    try:
+        return {"presets": await linkplay.presets(st["ip"])}
+    except Exception as e:
+        raise HTTPException(424, f"{e}")
+
+
+@api_router.post("/stream/{sid}/play")
+async def stream_play(sid: str, req: StreamPlayReq):
+    state = await get_state()
+    st = _streamer(state, sid)
+    for zid in req.zones:
+        if not find(state["audio_zones"], zid):
+            raise HTTPException(400, f"Unknown zone {zid}")
+    if req.preset is not None:
+        if not 1 <= req.preset <= 12:
+            raise HTTPException(400, "Favourite number must be 1-12")
+        entry = await stream_play_preset(state, sid, req.preset)
+        if entry["status"] == "error":
+            await save_state(state)
+            raise HTTPException(424, entry["error"])
+    src_id = st.get("audio_source")
+    src = find(state["audio_sources"], src_id)
+    ac = cfg(state, "amp")
+    for zid in req.zones:
+        z = find(state["audio_zones"], zid)
+        z.update({"source": src_id, "power": True, "mute": False})
+        log_cmd(state, drivers.amp.set_source(z["amp_zone"], amp_input(state, src_id), z["name"], src["name"] if src else src_id, ac))
+    await save_state(state)
+    return redact_secrets(state)
+
+
+@api_router.post("/stream/{sid}/cmd")
+async def stream_cmd(sid: str, req: StreamCmdReq):
+    if req.cmd not in linkplay.CMDS and req.cmd != "volume":
+        raise HTTPException(400, "Unknown command")
+    state = await get_state()
+    st = _streamer(state, sid)
+    if _stream_live(state):
+        try:
+            await linkplay.command(st["ip"], req.cmd, req.value)
+        except Exception as e:
+            raise HTTPException(424, f"{e}")
+    else:
+        sim = _sim(state, sid)
+        if req.cmd == "volume":
+            sim["vol"] = max(0, min(100, int(req.value or 0)))
+        elif req.cmd in ("play_pause",):
+            sim["status"] = "pause" if sim["status"] == "play" else "play"
+        elif req.cmd in ("pause", "stop"):
+            sim["status"] = req.cmd
+        elif req.cmd == "play":
+            sim["status"] = "play"
+    log_cmd(state, {"driver": "Linkplay", "transport": "HTTP API", "command": req.cmd if req.cmd != "volume" else f"vol:{req.value}",
+                    "note": f"{st['name']} {req.cmd}", "timestamp": drivers._ts(), "status": "sent" if _stream_live(state) else "simulated"})
+    await save_state(state)
+    return {"ok": True}
+
+
+class PresetReq(BaseModel):
+    name: str
+    icon: Optional[str] = "Sparkles"
+    actions: List[dict]
+
+
+def _preset_doc(state, req: PresetReq, pid: str):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(400, "Name is required")
+    actions = validate_actions(state, req.actions)
+    return {"id": pid, "name": name[:60], "icon": req.icon, "type": "vibrant", "custom": True,
+            "desc": f"Preset · {len(actions)} step{'s' if len(actions) != 1 else ''}", "actions": actions}
+
+
+@api_router.post("/presets")
+async def create_preset(req: PresetReq):
+    doc = _preset_doc(await get_state(), req, str(uuid.uuid4()))
+    await db.scenes.insert_one(copy.deepcopy(doc))
+    return doc
+
+
+@api_router.put("/presets/{preset_id}")
+async def update_preset(preset_id: str, req: PresetReq):
+    doc = _preset_doc(await get_state(), req, preset_id)
+    res = await db.scenes.replace_one({"id": preset_id, "actions": {"$exists": True}}, doc)
+    if not res.matched_count:
+        raise HTTPException(404, "Preset not found")
     return doc
 
 
@@ -1616,6 +1882,10 @@ async def on_startup():
     await get_state()
     await seed_pin()
     await db.sessions.create_index("token")
+    if not await db.meta.find_one({"key": "seed_living_tv_preset"}):
+        if not await db.scenes.find_one({"id": LIVING_TV_PRESET["id"]}):
+            await db.scenes.insert_one(copy.deepcopy(LIVING_TV_PRESET))
+        await db.meta.insert_one({"key": "seed_living_tv_preset"})
     if not scheduler.running:
         scheduler.start()
     await reload_jobs()

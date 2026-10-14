@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Power, Moon, Clapperboard, Radio, RotateCcw, Sparkles, Plus, Trash2, X, Film, Coffee, Sun } from "lucide-react";
+import { Power, Moon, Clapperboard, Radio, RotateCcw, Sparkles, Plus, Trash2, X, Film, Coffee, Sun, Pencil, ListPlus, Tv } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { Automations } from "@/components/Automations";
+import { PresetBuilder } from "@/components/PresetBuilder";
 import { toast } from "sonner";
 
 const icons = { all_off: Power, good_night: Moon, movie_night: Clapperboard, whole_home_audio: Radio };
-const iconByName = { Sparkles, Moon, Clapperboard, Radio, Film, Coffee, Sun, Power };
+const iconByName = { Sparkles, Moon, Clapperboard, Radio, Film, Coffee, Sun, Power, Tv };
 const PICKER = ["Sparkles", "Film", "Coffee", "Sun", "Moon", "Radio"];
 const colorFor = (type) => (type === "critical" ? "var(--c4-rose)" : type === "vibrant" ? "var(--c4-indigo)" : "var(--c4-primary)");
 
@@ -79,6 +80,7 @@ export const ScenesTab = () => {
   const { state, act, api } = useSystem();
   const [scenes, setScenes] = useState([]);
   const [modal, setModal] = useState(false);
+  const [builder, setBuilder] = useState(null);
 
   const load = async () => setScenes(await api.getScenes());
   useEffect(() => { load(); }, []);
@@ -112,6 +114,15 @@ export const ScenesTab = () => {
           <Sparkles className="w-5 h-5" style={{ color: "var(--c4-indigo)" }} />
           <h1 className="font-head text-2xl font-extrabold tracking-tight">Scenes</h1>
         </div>
+        <div className="flex gap-2">
+        <button
+          data-testid="new-preset-btn"
+          onClick={() => setBuilder({})}
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold active:scale-95 transition"
+          style={{ background: "var(--c4-indigo)", color: "#fff" }}
+        >
+          <ListPlus className="w-4 h-4" /> New preset
+        </button>
         <button
           data-testid="new-scene-btn"
           onClick={() => setModal(true)}
@@ -120,6 +131,7 @@ export const ScenesTab = () => {
         >
           <Plus className="w-4 h-4" /> Save current
         </button>
+        </div>
       </div>
       <p className="text-sm" style={{ color: "var(--c4-muted)" }}>
         One tap orchestrates the matrix, amplifier and thermostat together.
@@ -149,6 +161,11 @@ export const ScenesTab = () => {
                   <p className="text-xs mt-0.5" style={{ color: "var(--c4-muted)" }}>{sc.desc}</p>
                 </div>
               </button>
+              {sc.actions && (
+                <button data-testid={`scene-edit-${sc.id}`} onClick={() => setBuilder({ preset: sc })} className="w-9 h-9 rounded-lg glass-elevated flex items-center justify-center active:scale-90 transition">
+                  <Pencil className="w-4 h-4" style={{ color: "var(--c4-muted)" }} />
+                </button>
+              )}
               {sc.custom ? (
                 <button data-testid={`scene-delete-${sc.id}`} onClick={() => remove(sc)} className="w-9 h-9 rounded-lg glass-elevated flex items-center justify-center active:scale-90 transition">
                   <Trash2 className="w-4 h-4" style={{ color: "var(--c4-muted)" }} />
@@ -172,6 +189,7 @@ export const ScenesTab = () => {
         <RotateCcw className="w-4 h-4" /> Reset system to defaults
       </button>
 
+      <PresetBuilder open={!!builder} preset={builder?.preset} onClose={() => setBuilder(null)} onSaved={() => { setBuilder(null); load(); }} />
       <CreateSceneModal open={modal} onClose={() => setModal(false)} onCreate={create} />
     </div>
   );
