@@ -22,6 +22,20 @@ const defaultValue = (type, state) => ({
   tv_route: state.sources[0]?.id, amp_source: state.audio_sources[0]?.id,
 }[type]);
 
+const FavouriteSelect = ({ sid, value, onChange, tid }) => {
+  const { api } = useSystem();
+  const [favs, setFavs] = useState(null);
+  useEffect(() => {
+    api.streamPresets(sid).then((r) => setFavs(r.presets)).catch(() => setFavs([]));
+  }, [api, sid]);
+  const list = favs && favs.length ? favs : Array.from({ length: 10 }, (_, i) => ({ number: i + 1, name: "" }));
+  return (
+    <select data-testid={tid} className={sel} style={selStyle} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      {list.map((f) => <option key={f.number} value={f.number}>{f.number}. {f.name || `Favourite ${f.number}`}</option>)}
+    </select>
+  );
+};
+
 const ValueInput = ({ step, state, onChange, idx }) => {
   const t = step.type;
   const tid = `preset-step-value-${idx}`;
@@ -29,8 +43,7 @@ const ValueInput = ({ step, state, onChange, idx }) => {
     return <select data-testid={tid} className={sel} style={selStyle} value={step.value ? "on" : "off"} onChange={(e) => onChange(e.target.value === "on")}><option value="on">On</option><option value="off">Off</option></select>;
   if (t === "tv_volume" || t === "amp_volume")
     return <input data-testid={tid} type="number" min={0} max={100} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(Math.max(0, Math.min(100, Number(e.target.value))))} />;
-  if (t === "stream_preset")
-    return <select data-testid={tid} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(Number(e.target.value))}>{Array.from({ length: 10 }, (_, i) => <option key={i} value={i + 1}>Favourite {i + 1}</option>)}</select>;
+  if (t === "stream_preset") return <FavouriteSelect sid={step.target} value={step.value} onChange={onChange} tid={tid} />;
   const opts = t === "tv_route" ? state.sources : state.audio_sources;
   return <select data-testid={tid} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(e.target.value)}>{opts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>;
 };

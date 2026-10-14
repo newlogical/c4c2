@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 18 - Presets CRUD + Living-TV seeded preset + streaming modules (Linkplay sim). Backend pytest 21/21 PASS on /app/backend/tests/test_iter18_presets_streams.py. GET /api/scenes includes 'Watch TV in Living Room with Sound' (id=preset_living_tv_sound) with 4 actions in order [tv_power, tv_route, tv_volume, amp_source] on tv_living/atv1/audio_living. POST /api/scene/preset_living_tv_sound runs the preset: tv_living.power=True, source=atv1, tv_volume=0; audio_living source=atv1 (volume unchanged); command_log contains WS66i '<11CH01' (zone 1 input 1) and the J-Tech matrix route. Presets CRUD: create ok; update ok; PUT on built-in id 'all_off' -> 404; DELETE /api/scenes/{id} removes. Validation 400 for unknown type, unknown target, volume 200, stream fav 13, empty actions, blank name. All /api/presets routes require auth (401 without token). Streaming: GET /api/stream/status returns 2 modules {stream_a input 3 'AirPlay 1', stream_b input 4 'AirPlay 2'} with status/title/zones. GET /api/stream/stream_a/presets -> 6 demo favourites (index 1 'Discover Weekly'). POST /api/stream/stream_b/play {preset:2, zones:[audio_office, audio_bathroom]} logs MCUKeyShortClick:2 + '<12CH04' + '<14CH04'; subsequent /stream/status shows status=play, title='Discover Weekly', zones include the two. POST /stream/stream_b/cmd {cmd:'play_pause'} toggles status. Bad cmd -> 400, unknown module -> 404, unknown zone -> 400. Mixed preset (stream_preset + amp_source) executes and logs MCUKeyShortClick:3 and sets audio_master source=airplay. Frontend (390x844): Scenes tab new-preset-btn opens preset-builder covering viewport (0,0,390,844); preset-name-input, preset-add-step-btn, preset-step-type-0/target-0/value-0, remove button all functional; save produces toast and new scene card with scene-edit-<id>; editing loads existing name and steps; preset-builder-close-btn closes. Seeded scene-edit-preset_living_tv_sound exists and running scene-preset_living_tv_sound succeeds. Listen tab: stream-panel renders stream-module-stream_a and stream-module-stream_b with title/rooms/prev/playpause/next and stream-open; opening shows stream-sheet-stream_b full viewport; 6 stream-fav-stream_b-N chips load; selecting fav 2 + two zones + stream-play-btn-stream_b plays (sheet closes, title='Discover Weekly', rooms='Office, Bathroom'); stream-sheet-close-btn closes. No horizontal overflow at 390 or 1920 on Scenes/Listen.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter18_presets_streams.py",
+    "/app/test_reports/pytest/iter18.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1903 lines — splitting into FastAPI routers (auth, matrix, display, audio, scenes/presets, streaming, camera) is overdue; iteration-16/17 flagged the same.",
+    "PresetBuilder.jsx renders 10 favourite options for stream_preset (1..10) but backend accepts 1..12 and the Linkplay demo only exposes 6. Consider aligning the UI dropdown with the module's actual preset count (fetched via /api/stream/{sid}/presets) to prevent users from saving a preset that references a non-existent favourite.",
+    "stream_play passes src=None into drivers.amp.set_source when audio_source id is missing — defensive but a brief validation on streamer config at startup would be safer.",
+    "stream_play silently updates audio zones without a 'before' snapshot; a preset that both plays and routes could race if same zone touched by two steps. Current actions list is top-to-bottom so OK, but worth a note.",
+    "DEMO_FAVOURITES is a module-level constant; both stream_a and stream_b return the same 6 names. Fine for demo but a brief comment '// same list intentionally' would help future contributors."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter18_presets_streams.py",
+    "/app/test_reports/iteration_18.json"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 (used /api/auth/pin; demo bypass also works in demo mode).",
+  "seed_data_creation": "Transient test presets (TEST_preset_tmp, TEST_preset_updated, TEST_preset_del, TEST_mixed, TEST_UI_preset) were created and deleted in-test; none remain. Seeded preset_living_tv_sound preserved as instructed. stream_sim in state has stream_b status=play/title='<varies>' from toggle tests (DEMO sim only). No LIVE devices toggled.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_iter18_presets_streams.py cover presets CRUD, seeded preset_living_tv_sound, Linkplay streaming (status/presets/play/cmd), validation errors, and auth gating. Run with: REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/test_iter18_presets_streams.py -v -o addopts= . Seeded preset is one-shot (db.meta.seed_living_tv_preset marker) — if removed, restart backend to reseed. WS66i wire protocol: '<{zone}{aa|CH}{input:02d}' — e.g. zone 2 source input 4 -> '<12CH04'. amp_input_map maps audio_source id -> WS66i physical input (atv1=1, atv2=2, airplay=3, airplay2=4, spotify=3). Streaming amp.live=false so Linkplay calls are simulated (6 DEMO_FAVOURITES). PresetBuilder stream_preset dropdown lists 1..10; backend accepts 1..12. All /api routes except PUBLIC_EXACT and PUBLIC_PREFIXES require Bearer token.",
+  "rca of the issue": "N/A — no bugs found in this iteration. All review-request behaviours verified against spec."
+}
