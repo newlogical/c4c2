@@ -24,6 +24,9 @@ import drivers
 import homekit
 import protect
 import linkplay
+import music
+import secrets as _secrets
+from fastapi.responses import HTMLResponse
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -207,6 +210,8 @@ async def get_state() -> dict:
         _cfgm["matrix"].setdefault("username", "admin")
         _cfgm["matrix"].setdefault("password", "admin")
     doc.setdefault("pinned_scenes", [LIVING_TV_PRESET["id"]])
+    doc.setdefault("tunein_saved", copy.deepcopy(music.DEFAULT_STATIONS))
+    _cfgm.setdefault("spotify", {"client_id": "", "client_secret": "", "redirect_uri": "http://127.0.0.1:8001/api/spotify/callback"})
     if not doc.get("ws66i_wiring_v1"):  # one-time: apply the confirmed amp wiring
         doc["audio_sources"] = copy.deepcopy(WS66I_AUDIO_SOURCES)
         if isinstance(_cfgm.get("amp"), dict):
@@ -322,6 +327,7 @@ def redact_secrets(state: dict) -> dict:
     _mask(c.get("matrix"), "password")
     _mask(c.get("camera"), "rtsp_url")
     _mask(c.get("camera"), "protect_api_key")
+    _mask(c.get("spotify"), "client_secret")
     _mask(c.get("camera"), "protect_password")
     for _cam in (c.get("cameras") or {}).values():
         _mask(_cam, "rtsp_url")
@@ -479,6 +485,8 @@ PRESET_ACTIONS = {
     "tv_power": ("display", "bool"), "tv_route": ("display", "source"), "tv_volume": ("display", "level"),
     "amp_source": ("zone", "audio_source"), "amp_volume": ("zone", "level"), "amp_power": ("zone", "bool"),
     "stream_preset": ("streamer", "preset"),
+    "tunein_station": ("streamer", "station"),
+    "spotify_play": ("streamer", "spotify_uri"),
 }
 TV_WAKE_DELAY_S = 6
 LIVING_TV_PRESET = {
@@ -513,12 +521,21 @@ def validate_actions(state: dict, actions: list) -> list:
             if not isinstance(v, (int, float)) or not 0 <= v <= 100:
                 raise HTTPException(400, "Volume must be 0-100")
             v = int(v)
+        elif kind[1] == "station":
+            if not find(state.get("tunein_saved", []), v):
+                raise HTTPException(400, f"Unknown saved station {v}")
+        elif kind[1] == "spotify_uri":
+            if not (isinstance(v, str) and re.match(r"^spotify:(playlist|album|artist|show):[A-Za-z0-9]+$", v)):
+                raise HTTPException(400, "Invalid Spotify link")
         elif kind[1] == "preset":
             if not isinstance(v, int) or not 1 <= v <= 12:
                 raise HTTPException(400, "Favourite number must be 1-12")
         elif not find(lists[kind[1]], v):
             raise HTTPException(400, f"Unknown {kind[1]} {v}")
-        out.append({"type": a["type"], "target": a["target"], "value": v})
+        step = {"type": a["type"], "target": a["target"], "value": v}
+        if a.get("label"):
+            step["label"] = str(a["label"])[:80]
+        out.append(step)
     return out
 
 
@@ -549,6 +566,10 @@ async def apply_actions(state: dict, actions: list):
                 log_cmd(state, await asyncio.to_thread(drivers.tv.set_volume, d["name"], v, tv_conn(state, d["id"])))
         elif t == "stream_preset":
             await stream_play_preset(state, tgt, v)
+        elif t == "tunein_station":
+            await stream_play_station(state, tgt, find(state.get("tunein_saved", []), v))
+        elif t == "spotify_play":
+            await stream_play_spotify(state, tgt, v, a.get("label") or v)
         else:
             z = find(state["audio_zones"], tgt)
             if not z:
@@ -1241,6 +1262,232 @@ async def stream_cmd(sid: str, req: StreamCmdReq):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# TuneIn + Spotify on the streaming modules
+async def _stream_entry(state, sid, command, note, live_fn, sim_title, sim_artist):
+    st = _streamer(state, sid)
+    entry = {"driver": "Linkplay", "transport": "HTTP API", "command": command, "note": f"{st['name']} {note}",
+             "timestamp": drivers._ts(), "status": "simulated"}
+    if _stream_live(state):
+        try:
+            await live_fn(st)
+            entry["status"] = "sent"
+        except Exception as e:
+            entry.update({"status": "error", "error": str(e)[:200]})
+    else:
+        _sim(state, sid).update({"status": "play", "title": sim_title, "artist": sim_artist, "preset": None})
+    log_cmd(state, entry)
+    return entry
+
+
+async def stream_play_station(state, sid, station):
+    if not station:
+        raise HTTPException(404, "Station not found")
+
+    async def go(st):
+        url = await music.resolve(station)
+        await linkplay._get(st["ip"], music.stream_command(url))
+    return await _stream_entry(state, sid, f"play TuneIn {station.get('guide_id') or 'url'}", f"play {station['name']}",
+                               go, station["name"], station.get("category") or "Radio")
+
+
+async def _spotify_session():
+    tok = await db.spotify.find_one({"key": "token"}, {"_id": 0})
+    if not tok:
+        raise HTTPException(400, "Spotify is not connected")
+    conf = (await get_state())["config"].get("spotify") or {}
+    sp, fresh = await music.run(music.client, conf, tok["token"])
+    if fresh is not tok["token"]:
+        await db.spotify.update_one({"key": "token"}, {"$set": {"token": fresh}})
+    return sp
+
+
+async def stream_play_spotify(state, sid, uri, label):
+    async def go(st):
+        sp = await _spotify_session()
+        try:
+            await music.run(music.play_on, sp, st.get("spotify_name") or st["name"], uri)
+        except spotify_exc() as e:
+            if e.http_status == 403:
+                raise RuntimeError("Spotify Premium is required to start music on a speaker")
+            raise RuntimeError(e.msg)
+    return await _stream_entry(state, sid, f"spotify play {uri}", f"Spotify {label}", go, label, "Spotify")
+
+
+def spotify_exc():
+    import spotipy
+    return spotipy.SpotifyException
+
+
+class StationReq(BaseModel):
+    guide_id: Optional[str] = None
+    url: Optional[str] = None
+    name: str
+    image: Optional[str] = ""
+    category: Optional[str] = "Saved"
+
+
+class PlayStationReq(BaseModel):
+    station_id: Optional[str] = None
+    guide_id: Optional[str] = None
+    name: Optional[str] = None
+    zones: List[str] = []
+
+
+class PlaySpotifyReq(BaseModel):
+    uri: str
+    name: Optional[str] = None
+    zones: List[str] = []
+
+
+def _route_zones(state, sid, zones):
+    st = _streamer(state, sid)
+    src_id = st.get("audio_source")
+    src = find(state["audio_sources"], src_id)
+    for zid in zones:
+        z = find(state["audio_zones"], zid)
+        if not z:
+            raise HTTPException(400, f"Unknown zone {zid}")
+        z.update({"source": src_id, "power": True, "mute": False})
+        log_cmd(state, drivers.amp.set_source(z["amp_zone"], amp_input(state, src_id), z["name"], src["name"] if src else src_id, cfg(state, "amp")))
+
+
+@api_router.get("/tunein/search")
+async def tunein_search(q: str):
+    try:
+        return {"stations": await music.search(q[:80])}
+    except httpx_errors() as e:
+        raise HTTPException(424, f"TuneIn unavailable: {e}")
+
+
+@api_router.get("/tunein/browse/{cat}")
+async def tunein_browse(cat: str):
+    if cat not in music.BROWSE and not re.match(r"^[cg]\d+$", cat):
+        raise HTTPException(400, "Unknown category")
+    try:
+        return await music.browse(cat)
+    except httpx_errors() as e:
+        raise HTTPException(424, f"TuneIn unavailable: {e}")
+
+
+def httpx_errors():
+    import httpx
+    return (httpx.HTTPError, ValueError)
+
+
+@api_router.get("/tunein/saved")
+async def tunein_saved():
+    return {"stations": (await get_state()).get("tunein_saved", [])}
+
+
+@api_router.post("/tunein/saved")
+async def tunein_save(req: StationReq):
+    if not (req.guide_id or req.url):
+        raise HTTPException(400, "guide_id or url required")
+    if req.url and not re.match(r"^https?://", req.url):
+        raise HTTPException(400, "Stream URL must start with http(s)://")
+    state = await get_state()
+    sid = req.guide_id or f"url-{uuid.uuid4().hex[:8]}"
+    saved = [x for x in state.get("tunein_saved", []) if x["id"] != sid]
+    saved.append({"id": sid, "name": req.name[:80], "kind": "tunein" if req.guide_id else "url", "guide_id": req.guide_id,
+                  "url": req.url, "image": req.image or "", "category": (req.category or "Saved")[:30]})
+    state["tunein_saved"] = saved
+    await save_state(state)
+    return {"stations": saved}
+
+
+@api_router.delete("/tunein/saved/{station_id}")
+async def tunein_unsave(station_id: str):
+    state = await get_state()
+    state["tunein_saved"] = [x for x in state.get("tunein_saved", []) if x["id"] != station_id]
+    await save_state(state)
+    return {"stations": state["tunein_saved"]}
+
+
+@api_router.post("/stream/{sid}/play_station")
+async def stream_station(sid: str, req: PlayStationReq):
+    state = await get_state()
+    station = find(state.get("tunein_saved", []), req.station_id) if req.station_id else (
+        {"id": req.guide_id, "guide_id": req.guide_id, "kind": "tunein", "name": req.name or req.guide_id} if req.guide_id else None)
+    entry = await stream_play_station(state, sid, station)
+    if entry["status"] == "error":
+        await save_state(state)
+        raise HTTPException(424, entry["error"])
+    _route_zones(state, sid, req.zones)
+    await save_state(state)
+    return redact_secrets(state)
+
+
+@api_router.get("/spotify/status")
+async def spotify_status():
+    conf = (await get_state())["config"].get("spotify") or {}
+    tok = await db.spotify.find_one({"key": "token"}, {"_id": 0})
+    out = {"configured": bool(conf.get("client_id") and conf.get("client_secret")), "connected": bool(tok),
+           "redirect_uri": conf.get("redirect_uri")}
+    if tok:
+        out.update({"user": tok.get("user"), "premium": tok.get("premium")})
+    return out
+
+
+@api_router.get("/spotify/login")
+async def spotify_login():
+    conf = (await get_state())["config"].get("spotify") or {}
+    if not (conf.get("client_id") and conf.get("client_secret")):
+        raise HTTPException(400, "Enter the Spotify Client ID and Secret in Settings first")
+    state_tok = _secrets.token_urlsafe(24)
+    await db.spotify.replace_one({"key": "oauth_state"}, {"key": "oauth_state", "value": state_tok,
+                                 "at": datetime.now(timezone.utc).isoformat()}, upsert=True)
+    return {"auth_url": music.oauth(conf, state=state_tok).get_authorize_url()}
+
+
+@api_router.get("/spotify/callback")
+async def spotify_callback(code: str = "", state: str = "", error: str = ""):
+    saved = await db.spotify.find_one({"key": "oauth_state"})
+    if error or not code or not saved or not _secrets.compare_digest(saved["value"], state):
+        return HTMLResponse("<h2>Spotify sign-in failed</h2><p>Start again from the controller's Settings.</p>", status_code=400)
+    await db.spotify.delete_one({"key": "oauth_state"})
+    conf = (await get_state())["config"].get("spotify") or {}
+    try:
+        o = music.oauth(conf)
+        token = await music.run(lambda: o.get_access_token(code, as_dict=True, check_cache=False))
+        sp, token = await music.run(music.client, conf, token)
+        me = await music.run(sp.me)
+    except Exception as e:
+        return HTMLResponse(f"<h2>Spotify sign-in failed</h2><p>{str(e)[:200]}</p>", status_code=400)
+    await db.spotify.replace_one({"key": "token"}, {"key": "token", "token": token, "user": me.get("display_name") or me.get("id"),
+                                 "premium": me.get("product") == "premium"}, upsert=True)
+    return HTMLResponse("<h2>Spotify connected</h2><p>You can close this tab and go back to the controller.</p>")
+
+
+@api_router.delete("/spotify/link")
+async def spotify_unlink():
+    await db.spotify.delete_many({})
+    return {"ok": True}
+
+
+@api_router.get("/spotify/library")
+async def spotify_library():
+    sp = await _spotify_session()
+    try:
+        return await music.run(music.library, sp)
+    except Exception as e:
+        raise HTTPException(424, f"Spotify: {str(e)[:200]}")
+
+
+@api_router.post("/stream/{sid}/play_spotify")
+async def stream_spotify(sid: str, req: PlaySpotifyReq):
+    if not re.match(r"^spotify:(playlist|album|artist|show):[A-Za-z0-9]+$", req.uri):
+        raise HTTPException(400, "Invalid Spotify link")
+    state = await get_state()
+    entry = await stream_play_spotify(state, sid, req.uri, req.name or req.uri)
+    if entry["status"] == "error":
+        await save_state(state)
+        raise HTTPException(424, entry["error"])
+    _route_zones(state, sid, req.zones)
+    await save_state(state)
+    return redact_secrets(state)
+
+
 class PresetReq(BaseModel):
     name: str
     icon: Optional[str] = "Sparkles"
@@ -1871,7 +2118,7 @@ def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
 
-PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap"}
+PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap", "/api/spotify/callback"}
 PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls")
 
 

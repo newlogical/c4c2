@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Play, Pause, SkipBack, SkipForward, Star, Music2, X, Speaker, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSystem } from "@/context/SystemContext";
+import { TuneInBrowser } from "@/components/TuneInBrowser";
+import { SpotifyBrowser } from "@/components/SpotifyBrowser";
 
 const chip = (on) => ({ background: on ? "var(--c4-primary)" : "var(--c4-surface)", color: on ? "#fff" : "var(--c4-text)", border: "1px solid var(--c4-border)" });
 
@@ -11,6 +13,7 @@ const FavouriteSheet = ({ mod, onClose, onDone }) => {
   const { state, api, act } = useSystem();
   const [presets, setPresets] = useState(null);
   const [pick, setPick] = useState(null);
+  const [tab, setTab] = useState("fav");
   const [zones, setZones] = useState(mod.zones);
   const [busy, setBusy] = useState(false);
 
@@ -22,8 +25,10 @@ const FavouriteSheet = ({ mod, onClose, onDone }) => {
   const play = async () => {
     setBusy(true);
     try {
-      await act(api.streamPlay(mod.id, { preset: pick, zones }));
-      toast.success(pick ? `Playing favourite ${pick}` : "Rooms updated", { description: `${mod.label} → ${zones.length} room(s)` });
+      if (pick?.kind === "station") await act(api.streamPlayStation(mod.id, pick.saved ? { station_id: pick.id, zones } : { guide_id: pick.guide_id, name: pick.name, zones }));
+      else if (pick?.kind === "spotify") await act(api.streamPlaySpotify(mod.id, { uri: pick.uri, name: pick.name, zones }));
+      else await act(api.streamPlay(mod.id, { preset: pick?.number ?? null, zones }));
+      toast.success(pick ? `Playing ${pick.name}` : "Rooms updated", { description: `${mod.label} → ${zones.length} room(s)` });
       onDone();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not start playback");
@@ -37,27 +42,34 @@ const FavouriteSheet = ({ mod, onClose, onDone }) => {
       <div className="flex items-center justify-between px-5 py-4">
         <div>
           <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--c4-amber)" }}>{mod.label} · {mod.source_name} · input {mod.input}</p>
-          <h2 className="text-xl font-semibold">Pick a favourite & rooms</h2>
+          <h2 className="text-xl font-semibold">Pick music & rooms</h2>
         </div>
         <button data-testid="stream-sheet-close-btn" onClick={onClose} className="w-12 h-12 rounded-2xl glass flex items-center justify-center"><X className="w-6 h-6" /></button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--c4-muted)" }}>Favourites (saved in the Soundavo app)</p>
+        <div className="flex gap-1.5" data-testid="stream-tabs">
+          {[["fav", "Favourites · Pandora"], ["tunein", "TuneIn"], ["spotify", "Spotify"]].map(([k, label]) => (
+            <button key={k} data-testid={`stream-tab-${k}`} onClick={() => setTab(k)} className="flex-1 rounded-xl py-2.5 text-xs font-semibold" style={chip(tab === k)}>{label}</button>
+          ))}
+        </div>
+        {tab === "tunein" && <TuneInBrowser pick={pick} onPick={setPick} />}
+        {tab === "spotify" && <SpotifyBrowser pick={pick} onPick={setPick} />}
+        {tab === "fav" && <div>
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--c4-muted)" }}>Favourites saved in the Soundavo app (incl. Pandora stations)</p>
           {!presets ? <Loader2 className="w-5 h-5 animate-spin" /> : presets.length === 0 ? (
             <p className="text-xs" style={{ color: "var(--c4-muted)" }}>No favourites saved on this module yet. Add them in the Soundavo app, or just send rooms below.</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {presets.map((p) => (
-                <button key={p.number} data-testid={`stream-fav-${mod.id}-${p.number}`} onClick={() => setPick(pick === p.number ? null : p.number)}
-                  className="rounded-xl p-3 text-left flex items-center gap-2 active:scale-95 transition" style={chip(pick === p.number)}>
+                <button key={p.number} data-testid={`stream-fav-${mod.id}-${p.number}`} onClick={() => setPick(pick?.number === p.number ? null : { kind: "fav", number: p.number, name: p.name })}
+                  className="rounded-xl p-3 text-left flex items-center gap-2 active:scale-95 transition" style={chip(pick?.number === p.number)}>
                   {p.art ? <img src={p.art} alt="" className="w-8 h-8 rounded-md object-cover" /> : <Star className="w-4 h-4 shrink-0" />}
                   <span className="text-xs font-semibold truncate">{p.number}. {p.name}</span>
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </div>}
         <div>
           <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--c4-muted)" }}>Play in these rooms</p>
           <div className="grid grid-cols-2 gap-2">
@@ -73,7 +85,7 @@ const FavouriteSheet = ({ mod, onClose, onDone }) => {
       <div className="px-5 pb-6">
         <button data-testid={`stream-play-btn-${mod.id}`} disabled={busy || (!pick && zones.length === 0)} onClick={play}
           className="w-full rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition" style={{ background: "var(--c4-amber)", color: "#1a1204" }}>
-          {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />} {pick ? "Play favourite" : "Send to rooms"}
+          {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />} {pick ? `Play ${pick.name}` : "Send to rooms"}
         </button>
       </div>
     </div>,

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AtvPair } from "@/components/AtvPair";
 import { MatrixWiring } from "@/components/MatrixWiring";
 import { FirstNightChecklist } from "@/components/FirstNightChecklist";
+import { SpotifyCard } from "@/components/SpotifyCard";
 
 const Toggle = ({ on, onChange, testid }) => (
   <button
@@ -400,6 +401,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 <Field label="Password" value={c("matrix").password} placeholder="admin" type="password" onChange={(v) => setField("matrix", "password", v)} testid="matrix-password-input" />
               </DeviceCard>
               <MatrixWiring />
+              <SpotifyCard config={config} setField={setField} save={() => api.updateConfig(config)} />
 
               <DeviceCard icon={Radio} title="WS66i Amplifier" subtitle="6-zone audio" device="amp" conn={c("amp")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="Host / IP" value={c("amp").host} placeholder="192.168.0.43" onChange={(v) => setField("amp", "host", v)} testid="amp-host-input" />

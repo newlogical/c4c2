@@ -7,18 +7,19 @@ import { useSystem } from "@/context/SystemContext";
 const STEP_TYPES = [
   ["tv_power", "TV power"], ["tv_route", "TV input (Apple TV)"], ["tv_volume", "TV volume"],
   ["amp_source", "Speaker source"], ["amp_volume", "Speaker volume"], ["amp_power", "Speakers on/off"],
-  ["stream_preset", "Play streaming favourite"],
+  ["stream_preset", "Play streaming favourite"], ["tunein_station", "Play TuneIn station"], ["spotify_play", "Play Spotify playlist"],
 ];
 const sel = "rounded-lg px-2 py-2 text-xs outline-none w-full";
 const selStyle = { background: "var(--c4-surface)", border: "1px solid var(--c4-border)", color: "var(--c4-text)" };
 
 const targetsFor = (type, state) => {
   if (type.startsWith("tv_")) return state.displays.map((d) => [d.id, d.name]);
-  if (type === "stream_preset") return Object.keys(state.config?.amp?.streamers || {}).map((k, i) => [k, `Stream ${i + 1}`]);
+  if (["stream_preset", "tunein_station", "spotify_play"].includes(type)) return Object.keys(state.config?.amp?.streamers || {}).map((k, i) => [k, `Stream ${i + 1}`]);
   return state.audio_zones.map((z) => [z.id, z.name]);
 };
 const defaultValue = (type, state) => ({
   tv_power: true, amp_power: true, tv_volume: 20, amp_volume: 30, stream_preset: 1,
+  tunein_station: state.tunein_saved?.[0]?.id, spotify_play: "",
   tv_route: state.sources[0]?.id, amp_source: state.audio_sources[0]?.id,
 }[type]);
 
@@ -36,6 +37,22 @@ const FavouriteSelect = ({ sid, value, onChange, tid }) => {
   );
 };
 
+const SpotifySelect = ({ value, onChange, tid }) => {
+  const { api } = useSystem();
+  const [items, setItems] = useState(null);
+  useEffect(() => {
+    api.spotifyLibrary().then((l) => setItems([...l.recent, ...l.playlists])).catch(() => setItems([]));
+  }, [api]);
+  if (items && items.length)
+    return (
+      <select data-testid={tid} className={sel} style={selStyle} value={value} onChange={(e) => onChange(e.target.value, items.find((x) => x.uri === e.target.value)?.name)}>
+        <option value="">Choose…</option>
+        {items.map((x) => <option key={x.uri} value={x.uri}>{x.name}</option>)}
+      </select>
+    );
+  return <input data-testid={tid} className={sel} style={selStyle} value={value} placeholder="spotify:playlist:… (connect Spotify to pick)" onChange={(e) => onChange(e.target.value.trim())} />;
+};
+
 const ValueInput = ({ step, state, onChange, idx }) => {
   const t = step.type;
   const tid = `preset-step-value-${idx}`;
@@ -44,6 +61,9 @@ const ValueInput = ({ step, state, onChange, idx }) => {
   if (t === "tv_volume" || t === "amp_volume")
     return <input data-testid={tid} type="number" min={0} max={100} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(Math.max(0, Math.min(100, Number(e.target.value))))} />;
   if (t === "stream_preset") return <FavouriteSelect sid={step.target} value={step.value} onChange={onChange} tid={tid} />;
+  if (t === "spotify_play") return <SpotifySelect value={step.value} onChange={onChange} tid={tid} />;
+  if (t === "tunein_station")
+    return <select data-testid={tid} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(e.target.value)}>{(state.tunein_saved || []).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>;
   const opts = t === "tv_route" ? state.sources : state.audio_sources;
   return <select data-testid={tid} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(e.target.value)}>{opts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>;
 };
@@ -107,7 +127,7 @@ export const PresetBuilder = ({ open, preset, onClose, onSaved }) => {
               <select data-testid={`preset-step-target-${i}`} className={sel} style={selStyle} value={st.target} onChange={(e) => update(i, { target: e.target.value })}>
                 {targetsFor(st.type, state).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
-              <ValueInput step={st} state={state} idx={i} onChange={(v) => update(i, { value: v })} />
+              <ValueInput step={st} state={state} idx={i} onChange={(v, label) => update(i, label ? { value: v, label } : { value: v })} />
             </div>
           </div>
         ))}
