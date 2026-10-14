@@ -39,7 +39,7 @@ const CreateModal = ({ open, onClose, scenes, onCreate }) => {
             className="fixed inset-0 z-40" style={{ background: "rgba(10,13,20,0.85)" }} />
           <motion.div
             initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
-            className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md"
+            className="fixed inset-x-0 top-0 bottom-0 m-auto h-fit max-h-[90vh] overflow-y-auto z-50 w-[92%] max-w-md"
             data-testid="automation-modal"
           >
             <div className="glass-elevated rounded-3xl flex flex-col max-h-[85vh] overflow-hidden">

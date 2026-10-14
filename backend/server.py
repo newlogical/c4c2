@@ -785,8 +785,66 @@ async def matrix_map(req: MatrixMapReq):
     state = await get_state()
     _apply_map(state["displays"], req.outputs, "output")
     _apply_map(state["sources"], req.inputs, "input")
+    state["matrix_wiring_confirmed"] = True
     await save_state(state)
     return redact_secrets(state)
+
+
+# ---------------------------------------------------------------------------
+# First-night checklist: auto-detected steps + manual ticks
+CHECKLIST_MANUAL_IDS = {"install", "ipad_wifi", "tv_setup", "ptz_presets", "remote_access"}
+
+
+class ChecklistTickReq(BaseModel):
+    done: bool
+
+
+@api_router.get("/checklist")
+async def checklist():
+    state = await get_state()
+    c = state["config"]
+    health = await device_health()
+    online = {d["id"]: d["online"] for d in health["devices"]}
+    pin_doc = await db.auth.find_one({"key": "pin"}) or {}
+    pin_changed = bool(pin_doc.get("pin_hash")) and not verify_pin_hash(os.environ.get("DEFAULT_PIN", "1234"), pin_doc["pin_hash"])
+    atvs = (c.get("appletv") or {}).get("devices") or {}
+    paired_atvs = sum(1 for d in atvs.values() if d.get("credentials") and d.get("airplay_credentials"))
+    tv_sets = (c.get("tv") or {}).get("sets") or {}
+    tv_keys = sum(1 for t in tv_sets.values() if t.get("psk"))
+    cam = c.get("camera") or {}
+    manual = state.get("checklist_manual") or {}
+    items = [
+        ("install", "Install", "App running on the mini-PC", "Follow the Windows setup guide; open http://192.168.0.10:3000 on the iPad.", any(online.values()) or None, "setup-guide-link"),
+        ("ipad_wifi", "Install", "iPad on home Wi-Fi, added to Home Screen", "Safari → Share → Add to Home Screen for full-screen mode.", None, None),
+        ("pin", "Install", "Unlock PIN changed from 1234", "Pick a new 4-digit code.", pin_changed, "settings-pin"),
+        ("matrix_live", "Video", "HDMI matrix set to Live", "J-Tech MXT40 @ 192.168.0.254, Telnet 23.", bool((c.get("matrix") or {}).get("live")), "settings-matrix"),
+        ("matrix_wiring", "Video", "Matrix wiring identified", "Run Identify outputs with all TVs on.", bool(state.get("matrix_wiring_confirmed")), "matrix-wiring-card"),
+        ("tv_setup", "Video", f"Sony TVs: pre-shared key + Remote start ({tv_keys}/4 keys entered)", "On each TV: Network → IP control → PSK; Remote start ON.", (tv_keys == 4 and bool((c.get("tv") or {}).get("live"))) or None, "settings-tv"),
+        ("amp_live", "Audio", "WS66i amp set to Live", "192.168.0.43; inputs 1-2 Apple TVs, 3-4 AirPlay.", bool((c.get("amp") or {}).get("live")), "settings-amp"),
+        ("atv_paired", "Sources & climate", f"Apple TVs paired ({paired_atvs}/4)", "Tap Pair on each Apple TV and type the on-screen PINs.", paired_atvs == 4, "settings-appletv"),
+        ("ecobee_paired", "Sources & climate", "Thermostat paired over HomeKit", "Enter the 8-digit HomeKit code from the thermostat (Menu → Settings → HomeKit).", bool((c.get("ecobee") or {}).get("paired")), "settings-ecobee"),
+        ("cam_stream", "Camera", "Camera stream link added", "Protect → G6 PTZ → Settings → Advanced → RTSPS High.", bool(cam.get("rtsp_url")), "settings-camera"),
+        ("cam_apikey", "Camera", "Protect API key added", "Protect → Settings → Control Plane → Integrations.", bool(cam.get("protect_api_key")), "settings-camera"),
+        ("ptz_presets", "Camera", "PTZ presets saved and named", "Save positions in Protect, then list their names in Settings.", None, "settings-camera"),
+        ("all_green", "Finish", f"All devices green in Device health ({health['online']}/{health['total']})", "Fix anything red before relying on scenes.", health["total"] > 0 and health["online"] == health["total"], "health"),
+        ("remote_access", "Finish", "Remote access via UniFi Teleport / WireGuard", "Never port-forward the controller.", None, None),
+    ]
+    out = []
+    for iid, group, title, hint, auto, target in items:
+        done = bool(auto) or bool(manual.get(iid))
+        out.append({"id": iid, "group": group, "title": title, "hint": hint, "auto": bool(auto),
+                    "manual_allowed": iid in CHECKLIST_MANUAL_IDS, "done": done, "target": target})
+    return {"items": out, "done": sum(1 for i in out if i["done"]), "total": len(out)}
+
+
+@api_router.post("/checklist/{item_id}")
+async def checklist_tick(item_id: str, req: ChecklistTickReq):
+    if item_id not in CHECKLIST_MANUAL_IDS:
+        raise HTTPException(400, "This step is detected automatically")
+    state = await get_state()
+    state.setdefault("checklist_manual", {})[item_id] = req.done
+    await save_state(state)
+    return await checklist()
 
 
 @api_router.post("/audio/zone")

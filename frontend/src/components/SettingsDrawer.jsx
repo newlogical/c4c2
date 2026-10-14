@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic, Printer, ExternalLink } from "lucide-react";
+import { ListChecks, Activity, X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Mic, Printer, ExternalLink } from "lucide-react";
 import { BACKEND } from "@/lib/api";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 import { AtvPair } from "@/components/AtvPair";
 import { MatrixWiring } from "@/components/MatrixWiring";
+import { FirstNightChecklist } from "@/components/FirstNightChecklist";
 
 const Toggle = ({ on, onChange, testid }) => (
   <button
@@ -111,6 +112,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
   const { state, act, api } = useSystem();
   const [config, setConfig] = useState({});
   const [testing, setTesting] = useState(null);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pinCur, setPinCur] = useState("");
   const [pinNew, setPinNew] = useState("");
@@ -229,6 +231,28 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
             </details>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-3">
+              <button
+                data-testid="settings-checklist-card"
+                onClick={() => setChecklistOpen(true)}
+                className="w-full glass rounded-2xl p-4 flex items-center gap-3 active:scale-[0.99] transition text-left"
+              >
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(34,211,238,0.15)" }}>
+                  <ListChecks className="w-4.5 h-4.5" style={{ color: "var(--c4-cyan)" }} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">First-night checklist</p>
+                  <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Tick off every mini-PC setup step</p>
+                </div>
+              </button>
+              <FirstNightChecklist
+                open={checklistOpen}
+                onClose={() => setChecklistOpen(false)}
+                onGo={(t) => {
+                  if (t === "health") return onOpenHealth();
+                  if (t === "setup-guide-link") return window.open("/setup-guide.html", "_blank");
+                  setTimeout(() => document.querySelector(`[data-testid="${t}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                }}
+              />
               <button
                 data-testid="settings-health-card"
                 onClick={onOpenHealth}

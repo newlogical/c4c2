@@ -122,3 +122,7 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 
 ## 2026-06 Matrix wiring helper
 - POST /api/matrix/identify {input,output} raw route; PUT /api/matrix/map {outputs:{tv:n},inputs:{atv:n}} unique 1-4 validation. MatrixWiring.jsx (dropdowns w/ auto-swap) + MatrixIdentify.jsx wizard (step1: flip output n between inputs 1/2, user taps TV that blinks; step2: show input k on Living TV, user picks Apple TV, Test sends Home). Wiring still unconfirmed by user (defaults 1-4).
+
+## 2026-06 First-night checklist + fullscreen remote
+- GET /api/checklist (14 items, auto-detect from config/pin hash/device health; manual ids install, ipad_wifi, tv_setup, ptz_presets, remote_access), POST /api/checklist/{id} {done}. FirstNightChecklist.jsx (portal) from Settings card with Go buttons (scroll to settings-* testids / health / guide).
+- AppleTVRemote now full-screen via createPortal (framer transform on tab wrapper broke position:fixed -> cut off bottom-right). Scene/Automation modals centered with m-auto instead of translate. Modals inside SettingsDrawer (checklist, MatrixIdentify) portaled to body.

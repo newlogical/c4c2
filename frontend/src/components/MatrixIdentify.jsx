@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useEffect, useState } from "react";
 import { X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -52,7 +53,7 @@ export const MatrixIdentify = ({ open, onClose, onSave }) => {
   const usedTv = new Set(Object.keys(outs));
   const usedAtv = new Set(Object.keys(ins));
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: "rgba(5,7,12,0.8)", backdropFilter: "blur(16px)" }} data-testid="matrix-identify-modal">
       <div className="glass rounded-2xl p-5 w-full max-w-md">
         <div className="flex items-center justify-between mb-1">
@@ -96,7 +97,8 @@ export const MatrixIdentify = ({ open, onClose, onSave }) => {
           {NUMS.map((i) => <span key={i} className="w-6 h-1 rounded-full" style={{ background: (phase === "in" || i <= n) ? "var(--c4-cyan)" : "var(--c4-border)" }} />)}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
