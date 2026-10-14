@@ -10,6 +10,7 @@ import { DriverDrawer } from "@/components/DriverDrawer";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DeviceHealthPanel } from "@/components/DeviceHealthPanel";
+import { PersonAlert } from "@/components/PersonAlert";
 import { ScreenSaver } from "@/components/ScreenSaver";
 import { HomeTab } from "@/components/tabs/HomeTab";
 import { WatchTab } from "@/components/tabs/WatchTab";
@@ -69,7 +70,7 @@ const Controller = () => {
   }
 
   const tabs = {
-    home: <HomeTab onNavigate={setTab} />,
+    home: <HomeTab onNavigate={setTab} onOpenHealth={() => setHealthOpen(true)} />,
     watch: <WatchTab />,
     listen: <ListenTab />,
     climate: <ClimateTab />,
@@ -106,6 +107,7 @@ const Controller = () => {
         onChangeSaverMode={changeSaverMode}
       />
       <DeviceHealthPanel open={healthOpen} onClose={() => setHealthOpen(false)} />
+      <PersonAlert />
       <SetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <ScreenSaver enabled={saverOn} mode={saverMode} />
     </div>

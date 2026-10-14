@@ -109,6 +109,25 @@ const HomeKitPair = ({ conn, onBeforePair }) => {
   );
 };
 
+const PersonWebhook = ({ token }) => {
+  const { api, refresh } = useSystem();
+  const url = `${process.env.REACT_APP_BACKEND_URL}/api/protect/webhook/${token || ""}`;
+  return (
+    <div className="mt-3 rounded-xl p-3 space-y-2" style={{ background: "var(--c4-bg)" }} data-testid="person-webhook">
+      <p className="text-xs font-semibold">Person alerts (shown when Security is armed)</p>
+      <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
+        Protect → Alarm Manager → Create alarm → Trigger: <b>Person</b> on G6 PTZ → Action: <b>Webhook</b> (POST) → paste this URL:
+      </p>
+      <code className="block text-[10px] break-all p-2 rounded-lg" style={{ background: "var(--c4-surface)" }} data-testid="person-webhook-url">{url}</code>
+      <div className="flex gap-2">
+        <button data-testid="person-webhook-copy-btn" onClick={() => { navigator.clipboard?.writeText(url); toast.success("Webhook URL copied"); }} className="flex-1 rounded-lg py-2 text-xs font-semibold glass">Copy URL</button>
+        <button data-testid="person-test-btn" onClick={async () => { const r = await api.testPerson(); toast(r.alerted ? "Test alert sent" : "Arm Security first to see the alert"); }} className="flex-1 rounded-lg py-2 text-xs font-semibold glass">Send test alert</button>
+        <button data-testid="person-webhook-rotate-btn" onClick={async () => { await api.newWebhookToken(); await refresh(); toast("New webhook URL created — update Protect"); }} className="rounded-lg px-3 py-2 text-xs glass">New URL</button>
+      </div>
+    </div>
+  );
+};
+
 export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saverOn, onToggleSaver, saverMode, onChangeSaverMode }) => {
   const { state, act, api } = useSystem();
   const [config, setConfig] = useState({});
@@ -445,6 +464,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 <Field label="Preset names (slot order, comma-separated)" value={c("camera").ptz_presets} placeholder="Door, Hallway, Wide" onChange={(v) => setField("camera", "ptz_presets", v)} testid="camera-presets-input" />
                 <Field label="Local Protect user (experimental arrows/zoom)" value={c("camera").protect_user} placeholder="local-only user" onChange={(v) => setField("camera", "protect_user", v)} testid="camera-protect-user-input" />
                 <Field label="Local Protect password" type="password" value={c("camera").protect_password} placeholder="••••" onChange={(v) => setField("camera", "protect_password", v)} testid="camera-protect-pass-input" />
+                <PersonWebhook token={c("camera").webhook_token} />
               </DeviceCard>
 
               <DeviceCard icon={Tv} title="Apple TVs" subtitle="pyatv remote control" device="appletv" conn={c("appletv")} onToggle={toggle}>

@@ -196,6 +196,8 @@ async def get_state() -> dict:
                 _cfgm["camera"][_k] = _v
         for _k, _v in PTZ_DEFAULTS.items():
             _cfgm["camera"].setdefault(_k, _v)
+        if not _cfgm["camera"].get("webhook_token"):
+            _cfgm["camera"]["webhook_token"] = _secrets.token_urlsafe(18)
     _cfgm.setdefault("nvr", dict(UNIFI_NVR))
     if isinstance(_cfgm.get("appletv"), dict):
         _devs = _cfgm["appletv"].setdefault("devices", {})
@@ -503,6 +505,26 @@ LIVING_TV_PRESET = {
 }
 
 
+ALL_ZONES = ["audio_living", "audio_office", "audio_master", "audio_bathroom"]
+GAME_DAY_PRESET = {
+    "id": "preset_yankees_wfan", "name": "Yankees on WFAN", "icon": "Radio", "type": "vibrant", "custom": True,
+    "desc": "WFAN on Stream 1 · every room at 40%",
+    "actions": [{"type": "tunein_station", "target": "stream_a", "value": "wfan"}]
+    + [{"type": "amp_source", "target": z, "value": "airplay"} for z in ALL_ZONES]
+    + [{"type": "amp_volume", "target": z, "value": 40} for z in ALL_ZONES],
+}
+MORNING_PRESET = {
+    "id": "preset_morning_brief", "name": "Morning Market Brief", "icon": "Coffee", "type": "vibrant", "custom": True,
+    "desc": "Bloomberg Radio on Stream 2 · Office at 20%",
+    "actions": [{"type": "tunein_station", "target": "stream_b", "value": "s165740"},
+                {"type": "amp_source", "target": "audio_office", "value": "airplay2"},
+                {"type": "amp_volume", "target": "audio_office", "value": 20}],
+}
+MORNING_AUTOMATION = {"id": "auto_morning_brief", "name": "Morning Market Brief · weekdays 8:00", "enabled": True,
+                      "trigger": {"type": "schedule", "time": "08:00", "days": [1, 2, 3, 4, 5]},
+                      "action": {"scene_id": "preset_morning_brief"}}
+
+
 def validate_actions(state: dict, actions: list) -> list:
     if not actions:
         raise HTTPException(400, "Add at least one step")
@@ -629,7 +651,8 @@ def _register_job(auto: dict):
 
 async def reload_jobs():
     for j in scheduler.get_jobs():
-        j.remove()
+        if j.id != "offline_watch":
+            j.remove()
     autos = await db.automations.find({}, {"_id": 0}).to_list(200)
     for a in autos:
         _register_job(a)
@@ -1490,6 +1513,83 @@ async def stream_spotify(sid: str, req: PlaySpotifyReq):
     return redact_secrets(state)
 
 
+# ---------------------------------------------------------------------------
+# Person alerts (UniFi Protect Alarm Manager webhook) + offline alerts
+OFFLINE_ALERT_AFTER_S = 180
+
+
+async def _record_person(state, camera_name, source):
+    if not state["camera"].get("armed"):
+        return False
+    state["person_alert"] = {"id": uuid.uuid4().hex[:10], "at": datetime.now(timezone.utc).isoformat(),
+                             "camera": camera_name, "source": source}
+    log_cmd(state, {"driver": "UniFiProtect", "transport": source, "command": "person detected",
+                    "note": f"Person at {camera_name}", "timestamp": drivers._ts(), "status": "sent"})
+    await save_state(state)
+    return True
+
+
+@api_router.post("/protect/webhook/{token}")
+async def protect_webhook(token: str, request: Request):
+    state = await get_state()
+    expected = cfg(state, "camera").get("webhook_token") or ""
+    if not expected or not _secrets.compare_digest(expected, token):
+        raise HTTPException(404, "Not found")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    triggers = ((body.get("alarm") or {}).get("triggers") or [])
+    keys = {str(t.get("key", "")).lower() for t in triggers}
+    if triggers and not keys & {"person", "smartdetectzone", "smart_detect", "motion"}:
+        return {"ok": True, "ignored": True}
+    shown = await _record_person(state, state["camera"].get("name", "Front Entry"), "Protect webhook")
+    return {"ok": True, "alerted": shown}
+
+
+@api_router.get("/alerts")
+async def alerts():
+    doc = await db.system.find_one({"key": STATE_KEY}, {"_id": 0, "person_alert": 1, "offline_alerts": 1, "camera.armed": 1})
+    doc = doc or {}
+    return {"person_alert": doc.get("person_alert"), "offline_alerts": doc.get("offline_alerts", []),
+            "armed": bool((doc.get("camera") or {}).get("armed"))}
+
+
+@api_router.post("/protect/test-person")
+async def protect_test_person():
+    state = await get_state()
+    shown = await _record_person(state, state["camera"].get("name", "Front Entry"), "test")
+    return {"ok": True, "alerted": shown, "armed": bool(state["camera"].get("armed"))}
+
+
+@api_router.post("/protect/webhook-token")
+async def protect_new_token():
+    state = await get_state()
+    state["config"]["camera"]["webhook_token"] = _secrets.token_urlsafe(18)
+    await save_state(state)
+    return {"token": state["config"]["camera"]["webhook_token"]}
+
+
+_offline_since: dict = {}
+
+
+async def offline_watch():
+    try:
+        health = await device_health()
+    except Exception:
+        return
+    now = datetime.now(timezone.utc)
+    alerts = []
+    for d in health["devices"]:
+        if d["online"] or not d["live"]:
+            _offline_since.pop(d["id"], None)
+            continue
+        since = _offline_since.setdefault(d["id"], now)
+        if (now - since).total_seconds() >= OFFLINE_ALERT_AFTER_S:
+            alerts.append({"id": d["id"], "name": d["name"], "ip": d["ip"], "since": since.isoformat()})
+    await db.system.update_one({"key": STATE_KEY}, {"$set": {"offline_alerts": alerts}})
+
+
 class PresetReq(BaseModel):
     name: str
     icon: Optional[str] = "Sparkles"
@@ -2121,7 +2221,7 @@ def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
 app.include_router(api_router)
 
 PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap", "/api/spotify/callback"}
-PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls")
+PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls", "/api/protect/webhook/")
 
 
 @app.middleware("http")
@@ -2157,8 +2257,20 @@ async def on_startup():
         if not await db.scenes.find_one({"id": LIVING_TV_PRESET["id"]}):
             await db.scenes.insert_one(copy.deepcopy(LIVING_TV_PRESET))
         await db.meta.insert_one({"key": "seed_living_tv_preset"})
+    if not await db.meta.find_one({"key": "seed_music_presets"}):
+        for pr in (GAME_DAY_PRESET, MORNING_PRESET):
+            if not await db.scenes.find_one({"id": pr["id"]}):
+                await db.scenes.insert_one(copy.deepcopy(pr))
+        if not await db.automations.find_one({"id": MORNING_AUTOMATION["id"]}):
+            await db.automations.insert_one(copy.deepcopy(MORNING_AUTOMATION))
+        st = await get_state()
+        if GAME_DAY_PRESET["id"] not in st.get("pinned_scenes", []):
+            st.setdefault("pinned_scenes", []).append(GAME_DAY_PRESET["id"])
+            await save_state(st)
+        await db.meta.insert_one({"key": "seed_music_presets"})
     if not scheduler.running:
         scheduler.start()
+    scheduler.add_job(offline_watch, "interval", seconds=60, id="offline_watch", replace_existing=True)
     await reload_jobs()
     hk = await db.homekit.find_one({"key": "ecobee"}, {"_id": 0})
     if hk and hk.get("pairing"):

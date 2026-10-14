@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Tv, Volume2, Thermometer, Camera, Power, Moon, Clapperboard, Radio, ChevronRight, Shield, Home, Star, Tv2 } from "lucide-react";
 import { SonyRemote } from "@/components/SonyRemote";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -12,7 +13,7 @@ const sceneIcons = { all_off: Power, good_night: Moon, movie_night: Clapperboard
 const container = { animate: { transition: { staggerChildren: 0.05 } } };
 const item = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
-export const HomeTab = ({ onNavigate }) => {
+export const HomeTab = ({ onNavigate, onOpenHealth }) => {
   const { state, act, api } = useSystem();
   const [allScenes, setAllScenes] = useState([]);
   const [sonyDisplay, setSonyDisplay] = useState(null);
@@ -55,6 +56,8 @@ export const HomeTab = ({ onNavigate }) => {
           <p className="text-sm" style={{ color: "var(--c4-muted)" }}>{state.outdoor_condition || t.outdoor_condition} · {t.outdoor_temp}° outside</p>
         </div>
       </motion.div>
+
+      <OfflineBanner onOpenHealth={onOpenHealth} />
 
       {/* Pinned presets */}
       {pinnedScenes.length > 0 && (
