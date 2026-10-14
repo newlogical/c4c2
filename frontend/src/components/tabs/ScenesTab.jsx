@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Power, Moon, Clapperboard, Radio, RotateCcw, Sparkles, Plus, Trash2, X, Film, Coffee, Sun, Pencil, ListPlus, Tv } from "lucide-react";
+import { Power, Moon, Clapperboard, Radio, RotateCcw, Sparkles, Plus, Trash2, X, Film, Coffee, Sun, Pencil, ListPlus, Tv, Star } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { Automations } from "@/components/Automations";
 import { PresetBuilder } from "@/components/PresetBuilder";
@@ -99,6 +99,12 @@ export const ScenesTab = () => {
     await load();
     toast(`Removed "${sc.name}"`);
   };
+  const pinned = state?.pinned_scenes || [];
+  const togglePin = async (sc) => {
+    const on = !pinned.includes(sc.id);
+    await act(api.pinScene(sc.id, on));
+    toast(on ? `Pinned "${sc.name}" to Home` : `Unpinned "${sc.name}"`);
+  };
   const reset = async () => {
     await act(api.reset());
     await load();
@@ -160,6 +166,9 @@ export const ScenesTab = () => {
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--c4-muted)" }}>{sc.desc}</p>
                 </div>
+              </button>
+              <button data-testid={`scene-pin-${sc.id}`} onClick={() => togglePin(sc)} aria-label="Pin to Home" className="w-9 h-9 rounded-lg glass-elevated flex items-center justify-center active:scale-90 transition">
+                <Star className="w-4 h-4" style={pinned.includes(sc.id) ? { color: "var(--c4-amber)", fill: "var(--c4-amber)" } : { color: "var(--c4-muted)" }} />
               </button>
               {sc.actions && (
                 <button data-testid={`scene-edit-${sc.id}`} onClick={() => setBuilder({ preset: sc })} className="w-9 h-9 rounded-lg glass-elevated flex items-center justify-center active:scale-90 transition">

@@ -206,6 +206,7 @@ async def get_state() -> dict:
             _cfgm["matrix"]["host"] = JTECH_HOST
         _cfgm["matrix"].setdefault("username", "admin")
         _cfgm["matrix"].setdefault("password", "admin")
+    doc.setdefault("pinned_scenes", [LIVING_TV_PRESET["id"]])
     if not doc.get("ws66i_wiring_v1"):  # one-time: apply the confirmed amp wiring
         doc["audio_sources"] = copy.deepcopy(WS66I_AUDIO_SOURCES)
         if isinstance(_cfgm.get("amp"), dict):
@@ -1271,9 +1272,30 @@ async def update_preset(preset_id: str, req: PresetReq):
     return doc
 
 
+class PinReq(BaseModel):
+    pinned: bool
+
+
+@api_router.post("/scenes/{scene_id}/pin")
+async def pin_scene(scene_id: str, req: PinReq):
+    state = await get_state()
+    if not (find(state["scenes"], scene_id) or await db.scenes.find_one({"id": scene_id})):
+        raise HTTPException(404, "Scene not found")
+    pins = [p for p in state.get("pinned_scenes", []) if p != scene_id]
+    if req.pinned:
+        pins.append(scene_id)
+    state["pinned_scenes"] = pins
+    await save_state(state)
+    return redact_secrets(state)
+
+
 @api_router.delete("/scenes/{scene_id}")
 async def delete_scene(scene_id: str):
     await db.scenes.delete_one({"id": scene_id})
+    state = await get_state()
+    if scene_id in state.get("pinned_scenes", []):
+        state["pinned_scenes"].remove(scene_id)
+        await save_state(state)
     return {"ok": True}
 
 

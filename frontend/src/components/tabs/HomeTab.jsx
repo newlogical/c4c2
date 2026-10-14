@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Tv, Volume2, Thermometer, Camera, Power, Moon, Clapperboard, Radio, ChevronRight, Shield, Home } from "lucide-react";
+import { Tv, Volume2, Thermometer, Camera, Power, Moon, Clapperboard, Radio, ChevronRight, Shield, Home, Star, Tv2 } from "lucide-react";
+import { SonyRemote } from "@/components/SonyRemote";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
@@ -13,7 +14,12 @@ const item = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
 export const HomeTab = ({ onNavigate }) => {
   const { state, act, api } = useSystem();
+  const [allScenes, setAllScenes] = useState([]);
+  const [sonyDisplay, setSonyDisplay] = useState(null);
+  const pinKey = (state?.pinned_scenes || []).join(",");
+  useEffect(() => { api.getScenes().then(setAllScenes).catch(() => {}); }, [api, pinKey]);
   if (!state) return null;
+  const pinnedScenes = (state.pinned_scenes || []).map((id) => allScenes.find((s) => s.id === id)).filter(Boolean);
 
   const activeTVs = state.displays.filter((d) => d.power).length;
   const activeZones = state.audio_zones.filter((z) => z.power && !z.mute).length;
@@ -49,6 +55,29 @@ export const HomeTab = ({ onNavigate }) => {
           <p className="text-sm" style={{ color: "var(--c4-muted)" }}>{state.outdoor_condition || t.outdoor_condition} · {t.outdoor_temp}° outside</p>
         </div>
       </motion.div>
+
+      {/* Pinned presets */}
+      {pinnedScenes.length > 0 && (
+        <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="pinned-presets">
+          {pinnedScenes.map((sc) => (
+            <button
+              key={sc.id}
+              data-testid={`pinned-${sc.id}`}
+              onClick={() => runScene(sc.id, sc.name)}
+              className="rounded-3xl p-5 min-h-[96px] text-left flex items-center gap-4 active:scale-[0.98] transition"
+              style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.28), rgba(59,130,246,0.14))", border: "1px solid rgba(99,102,241,0.4)" }}
+            >
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <Star className="w-7 h-7" style={{ color: "var(--c4-amber)", fill: "var(--c4-amber)" }} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-head font-bold text-lg leading-tight">{sc.name}</p>
+                <p className="text-[11px] mt-1 truncate" style={{ color: "var(--c4-muted)" }}>{sc.desc}</p>
+              </div>
+            </button>
+          ))}
+        </motion.div>
+      )}
 
       {/* Stat grid */}
       <div className="grid grid-cols-2 gap-3">
@@ -146,15 +175,19 @@ export const HomeTab = ({ onNavigate }) => {
                     </p>
                   </div>
                 </div>
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: d.power ? "var(--c4-emerald)" : "rgba(255,255,255,0.15)" }}
-                />
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full" style={{ background: d.power ? "var(--c4-emerald)" : "rgba(255,255,255,0.15)" }} />
+                  <button data-testid={`room-remote-${d.id}`} onClick={() => setSonyDisplay(d)} aria-label={`${d.name} remote`}
+                    className="w-11 h-11 rounded-xl glass-elevated flex items-center justify-center active:scale-90 transition">
+                    <Tv2 className="w-5 h-5" style={{ color: "var(--c4-primary)" }} />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       </motion.div>
+      <SonyRemote display={sonyDisplay} onClose={() => setSonyDisplay(null)} />
     </motion.div>
   );
 };

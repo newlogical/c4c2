@@ -69,6 +69,7 @@ export const api = {
   streamPresets: (sid) => http.get(`/stream/${sid}/presets`).then((r) => r.data),
   streamPlay: (sid, body) => http.post(`/stream/${sid}/play`, body).then((r) => r.data),
   streamCmd: (sid, cmd, value) => http.post(`/stream/${sid}/cmd`, { cmd, value }).then((r) => r.data),
+  pinScene: (id, pinned) => http.post(`/scenes/${id}/pin`, { pinned }).then((r) => r.data),
   deleteScene: (id) => http.delete(`/scenes/${id}`).then((r) => r.data),
   setAudioFollow: (enabled) => http.post("/settings/audio-follow", { enabled }).then((r) => r.data),
   setArm: (enabled) => http.post("/security/arm", { enabled }).then((r) => r.data),

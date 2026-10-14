@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Tv, Power, Gamepad2, Cast, Check, Volume2, VolumeX, Volume1 } from "lucide-react";
+import { Tv, Power, Gamepad2, Tv2, Cast, Check, Volume2, VolumeX, Volume1 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { AppleTVRemote } from "@/components/AppleTVRemote";
+import { SonyRemote } from "@/components/SonyRemote";
 import { toast } from "sonner";
 
 const MEDIA = "https://images.unsplash.com/photo-1662454420647-3d20ddcdb8f8?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200";
@@ -10,6 +11,7 @@ const MEDIA = "https://images.unsplash.com/photo-1662454420647-3d20ddcdb8f8?crop
 export const WatchTab = () => {
   const { state, act, api } = useSystem();
   const [remoteSource, setRemoteSource] = useState(null);
+  const [sonyDisplay, setSonyDisplay] = useState(null);
   if (!state) return null;
 
   const route = async (displayId, sourceId) => {
@@ -154,13 +156,22 @@ export const WatchTab = () => {
                   ))}
                 </div>
 
-                <button
-                  data-testid={`open-remote-${d.id}`}
-                  onClick={() => setRemoteSource(src)}
-                  className="w-full rounded-xl py-2.5 flex items-center justify-center gap-2 text-sm font-semibold active:scale-95 transition glass-elevated"
-                >
-                  <Gamepad2 className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} /> Remote for {src?.name}
-                </button>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    data-testid={`open-remote-${d.id}`}
+                    onClick={() => setRemoteSource(src)}
+                    className="rounded-xl py-2.5 flex items-center justify-center gap-2 text-xs font-semibold active:scale-95 transition glass-elevated"
+                  >
+                    <Gamepad2 className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} /> {src?.name}
+                  </button>
+                  <button
+                    data-testid={`open-sony-remote-${d.id}`}
+                    onClick={() => setSonyDisplay(d)}
+                    className="rounded-xl py-2.5 flex items-center justify-center gap-2 text-xs font-semibold active:scale-95 transition glass-elevated"
+                  >
+                    <Tv2 className="w-4 h-4" style={{ color: "var(--c4-primary)" }} /> TV Remote
+                  </button>
+                </div>
 
                 <div className="grid grid-cols-3 gap-1.5 mt-2">
                   <button data-testid={`tv-voldown-${d.id}`} onClick={() => tvVol(d, "KEY_VOLDOWN")} className="glass-elevated rounded-xl py-2 flex items-center justify-center gap-1 text-[11px] font-semibold active:scale-95 transition">
@@ -193,6 +204,7 @@ export const WatchTab = () => {
       </div>
 
       <AppleTVRemote open={!!remoteSource} source={remoteSource} onClose={() => setRemoteSource(null)} />
+      <SonyRemote display={sonyDisplay} onClose={() => setSonyDisplay(null)} />
     </div>
   );
 };
