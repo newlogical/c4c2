@@ -505,6 +505,22 @@ LIVING_TV_PRESET = {
 }
 
 
+def _tv_sound_preset(pid, room, tv, zone, atv, atv_name):
+    return {"id": pid, "name": f"Watch TV in {room} with Sound", "icon": "Tv", "type": "vibrant", "custom": True,
+            "desc": f"{room} TV on · {atv_name} · TV muted to 0 · speakers on {atv_name}",
+            "actions": [{"type": "tv_power", "target": tv, "value": True},
+                        {"type": "tv_route", "target": tv, "value": atv},
+                        {"type": "tv_volume", "target": tv, "value": 0},
+                        {"type": "amp_source", "target": zone, "value": atv}]}
+
+
+ROOM_PRESETS = [
+    _tv_sound_preset("preset_office_tv_sound", "Office", "tv_office", "audio_office", "atv2", "Apple TV 2"),
+    _tv_sound_preset("preset_master_tv_sound", "Master Bedroom", "tv_master", "audio_master", "atv2", "Apple TV 2"),
+    {"id": "preset_bathroom_audio", "name": "Bathroom Audio", "icon": "Radio", "type": "vibrant", "custom": True,
+     "desc": "Bathroom speakers play Apple TV 2 (same as the Master Bedroom TV)",
+     "actions": [{"type": "amp_source", "target": "audio_bathroom", "value": "atv2"}]},
+]
 ALL_ZONES = ["audio_living", "audio_office", "audio_master", "audio_bathroom"]
 GAME_DAY_PRESET = {
     "id": "preset_yankees_wfan", "name": "Yankees on WFAN", "icon": "Radio", "type": "vibrant", "custom": True,
@@ -2274,6 +2290,15 @@ async def on_startup():
             st.setdefault("pinned_scenes", []).append(GAME_DAY_PRESET["id"])
             await save_state(st)
         await db.meta.insert_one({"key": "seed_music_presets"})
+    if not await db.meta.find_one({"key": "seed_room_presets"}):
+        st = await get_state()
+        for pr in ROOM_PRESETS:
+            if not await db.scenes.find_one({"id": pr["id"]}):
+                await db.scenes.insert_one(copy.deepcopy(pr))
+            if pr["id"] not in st.setdefault("pinned_scenes", []):
+                st["pinned_scenes"].append(pr["id"])
+        await save_state(st)
+        await db.meta.insert_one({"key": "seed_room_presets"})
     if not scheduler.running:
         scheduler.start()
     scheduler.add_job(offline_watch, "interval", seconds=60, id="offline_watch", replace_existing=True)
