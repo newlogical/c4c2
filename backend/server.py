@@ -61,6 +61,9 @@ SONY_TV_IPS = {
     "tv_guest": "192.168.0.253",
 }
 JTECH_HOST = "192.168.0.254"
+G6_PTZ = {"ip": "192.168.0.73", "mac": "8C:ED:E1:DA:15:4F", "model": "UniFi G6 PTZ"}
+UNIFI_NVR = {"ip": "192.168.0.166", "mac": "74:FA:29:4B:01:30", "model": "UniFi Protect NVR"}
+DEMO_CAM_IDS = ("cam_living", "cam_back", "cam_garage")
 APPLE_TVS = {
     "atv1": {"ip": "192.168.0.145", "mac": "F0:B3:EC:35:5C:41"},
     "atv2": {"ip": "192.168.0.181", "mac": "F0:B3:EC:3D:63:5E"},
@@ -93,11 +96,9 @@ def default_config() -> dict:
         }},
         "ecobee": {"live": False, "paired": False, **ECOBEE_LAN},
         "appletv": {"live": False, "devices": {k: {**v, "id": "", "credentials": "", "airplay_credentials": ""} for k, v in APPLE_TVS.items()}},
-        "camera": {"live": False, "rtsp_url": ""},
+        "camera": {"live": False, "rtsp_url": "", **G6_PTZ},
+        "nvr": dict(UNIFI_NVR),
         "cameras": {
-            "cam_living": {"live": False, "rtsp_url": ""},
-            "cam_back": {"live": False, "rtsp_url": ""},
-            "cam_garage": {"live": False, "rtsp_url": ""},
         },
         "tv": {"live": False, "sets": {
             tid: {"ip": ip, "mac": SONY_TV_MACS[tid], "hdmi_input": 1, "psk": ""} for tid, ip in SONY_TV_IPS.items()
@@ -144,9 +145,6 @@ def default_state() -> dict:
         "camera": {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False, "resolution": "4K", "armed": False},
         "cameras": [
             {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False},
-            {"id": "cam_living", "name": "Living Room", "online": True, "motion": False},
-            {"id": "cam_back", "name": "Backyard", "online": True, "motion": False},
-            {"id": "cam_garage", "name": "Garage", "online": True, "motion": False},
         ],
         "network": {"unifi_online": True, "matrix_linked": True, "amp_linked": True},
         "audio_follow_tv": True,
@@ -178,6 +176,14 @@ async def get_state() -> dict:
             _sets[_tid]["ip"] = _ip
         if isinstance(_sets.get(_tid), dict) and not _sets[_tid].get("mac"):
             _sets[_tid]["mac"] = SONY_TV_MACS[_tid]
+    doc["cameras"] = [x for x in doc.get("cameras", []) if x.get("id") not in DEMO_CAM_IDS]  # only the G6 PTZ
+    for _cid in DEMO_CAM_IDS:
+        (_cfgm.get("cameras") or {}).pop(_cid, None)
+    if isinstance(_cfgm.get("camera"), dict):
+        for _k, _v in G6_PTZ.items():
+            if not _cfgm["camera"].get(_k):
+                _cfgm["camera"][_k] = _v
+    _cfgm.setdefault("nvr", dict(UNIFI_NVR))
     if isinstance(_cfgm.get("appletv"), dict):
         _devs = _cfgm["appletv"].setdefault("devices", {})
         for _aid, _a in APPLE_TVS.items():
@@ -209,9 +215,6 @@ async def get_state() -> dict:
     if "cameras" not in doc:
         doc["cameras"] = [
             {"id": "cam_front", "name": "Front Entry", "online": True, "motion": False},
-            {"id": "cam_living", "name": "Living Room", "online": True, "motion": False},
-            {"id": "cam_back", "name": "Backyard", "online": True, "motion": False},
-            {"id": "cam_garage", "name": "Garage", "online": True, "motion": False},
         ]
     _now = datetime.now(timezone.utc)
     for _c in doc.get("cameras", []):
@@ -295,6 +298,9 @@ def redact_secrets(state: dict) -> dict:
     for tvset in ((c.get("tv") or {}).get("sets") or {}).values():
         _mask(tvset, "psk")
     _mask(c.get("matrix"), "password")
+    _mask(c.get("camera"), "rtsp_url")
+    for _cam in (c.get("cameras") or {}).values():
+        _mask(_cam, "rtsp_url")
     for _atv in ((c.get("appletv") or {}).get("devices") or {}).values():
         _mask(_atv, "credentials")
         _mask(_atv, "airplay_credentials")
@@ -954,8 +960,12 @@ async def test_connection(device: str):
             r = await asyncio.to_thread(homekit.thermostat.read)
             return {"device": device, "ok": True, "detail": f"HomeKit OK — {homekit.c_to_f(r.get('current_temp') or 0)}°F, {r.get('humidity')}% RH"}
         elif device == "camera":
-            if not conn.get("rtsp_url"):
-                raise RuntimeError("No RTSP URL configured")
+            mt = re.match(r"^rtsps?://(?:[^@/]*@)?([^:/]+)(?::(\d+))?", conn.get("rtsp_url") or "")
+            if not mt:
+                raise RuntimeError("No RTSP/RTSPS link configured")
+            with socket.create_connection((mt.group(1), int(mt.group(2) or 554)), timeout=4):
+                pass
+            return {"device": device, "ok": True, "detail": f"Recorder stream port reachable @ {mt.group(1)}"}
         elif device == "tv":
             sets = [s for s in (conn.get("sets") or {}).values() if s.get("ip")]
             if not sets:
@@ -1132,7 +1142,7 @@ async def discover(live: bool = False):
     demo_devices = {
         "matrix": {"host": JTECH_HOST, "port": 23, "label": f"JTECH-MXT40 (Telnet) @ {JTECH_HOST}"},
         "amp": {"host": WS66I_HOST, "label": f"WS66i 6-zone @ {WS66I_HOST}"},
-        "camera": {"rtsp_url": "rtsp://192.168.1.2:7447/2b9f1c-front", "label": "UniFi Front Entry"},
+        "camera": {"rtsp_url": f"rtsps://{UNIFI_NVR['ip']}:7441/demo-front?enableSrtp", "label": "UniFi G6 PTZ (Front Entry)"},
         "tv": {tid: {"ip": ip, "mac": SONY_TV_MACS[tid]} for tid, ip in SONY_TV_IPS.items()},
     }
     if not live:
@@ -1223,8 +1233,16 @@ def _health_targets(state):
         if st.get("ip"):
             out.append({"id": sid, "name": st.get("name", sid), "kind": "WS66i streaming module (Arylic/Linkplay)", "ip": st["ip"],
                         "port": 80, "mac": st.get("mac", ""), "live": bool(a.get("live"))})
+    nvr = c.get("nvr") or {}
+    if nvr.get("ip"):
+        out.append({"id": "nvr", "name": "Protect NVR", "kind": "UniFi Network Video Recorder", "ip": nvr["ip"], "port": 7441,
+                    "mac": nvr.get("mac", ""), "live": bool((c.get("camera") or {}).get("live"))})
     cam_names = {x["id"]: x["name"] for x in state.get("cameras", [])}
-    cams = [("cam_front", c.get("camera") or {})] + list((c.get("cameras") or {}).items())
+    front = c.get("camera") or {}
+    if front.get("ip"):
+        out.append({"id": "cam_front", "name": cam_names.get("cam_front", "Front Entry"), "kind": front.get("model", "UniFi Camera"),
+                    "ip": front["ip"], "port": None, "mac": front.get("mac", ""), "live": bool(front.get("live"))})
+    cams = ([] if front.get("ip") else [("cam_front", front)]) + list((c.get("cameras") or {}).items())
     for cid, cam in cams:
         url = cam.get("rtsp_url") or ""
         mt = re.match(r"^rtsps?://(?:[^@/]*@)?([^:/]+)(?::(\d+))?", url)
@@ -1276,8 +1294,9 @@ async def camera_hls(filename: str):
 
 
 def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
-    if not isinstance(rtsp_url, str) or not rtsp_url.startswith("rtsp://"):
+    if not isinstance(rtsp_url, str) or not rtsp_url.startswith(("rtsp://", "rtsps://")):
         return
+    rtsp_url = re.sub(r"[?&]enableSrtp$", "", rtsp_url)  # Protect adds this for SRTP clients; ffmpeg wants plain RTSPS
     proc = _ffmpeg_procs.get(cam_id)
     if proc and proc.poll() is None:
         return

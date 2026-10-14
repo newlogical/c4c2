@@ -9,7 +9,7 @@ const STEPS = [
   { key: "matrix", title: "HDMI Matrix", sub: "JTECH-MXT40 video routing", icon: Cable, device: "matrix", fields: [["host", "IP address", "192.168.0.254"], ["port", "Telnet port", "23"]] },
   { key: "amp", title: "WS66i Amplifier", sub: "6-zone audio", icon: Radio, device: "amp", fields: [["host", "IP address", "192.168.0.43"]] },
   { key: "ecobee", title: "Ecobee Thermostat", sub: "Local HomeKit control — pair in Settings", icon: Thermometer, device: "ecobee", fields: [["ip", "Thermostat LAN IP", "192.168.0.222"]] },
-  { key: "camera", title: "UniFi Camera", sub: "Live video feed", icon: Camera, device: "camera", fields: [["rtsp_url", "RTSP URL", "rtsp://NVR:7447/..."]] },
+  { key: "camera", title: "UniFi Camera", sub: "Live video feed", icon: Camera, device: "camera", fields: [["rtsp_url", "RTSPS link (Protect → G6 PTZ → Settings → Advanced)", "rtsps://192.168.0.166:7441/..."]] },
   { key: "tv", title: "Sony Bravia TVs", sub: "Power, volume & HDMI", icon: MonitorSpeaker, device: "tv", tv: true },
   { key: "done" },
 ];

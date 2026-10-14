@@ -408,7 +408,10 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
               </DeviceCard>
 
               <DeviceCard icon={Camera} title="UniFi Protect Camera" subtitle="Live RTSP → HLS stream" device="camera" conn={c("camera")} onToggle={toggle} onTest={test} testing={testing}>
-                <Field label="RTSP URL" value={c("camera").rtsp_url} placeholder="rtsp://NVR_IP:7447/GUID_0" onChange={(v) => setField("camera", "rtsp_url", v)} testid="camera-rtsp-input" />
+                <p className="text-[11px] font-mono" style={{ color: "var(--c4-muted)" }} data-testid="camera-device-info">
+                  G6 PTZ · {c("camera").ip} · NVR {c("nvr").ip}
+                </p>
+                <Field label="RTSPS stream link (from UniFi Protect)" type="password" value={c("camera").rtsp_url} placeholder="rtsps://192.168.0.166:7441/xxxx?enableSrtp" onChange={(v) => setField("camera", "rtsp_url", v)} testid="camera-rtsp-input" />
               </DeviceCard>
 
               <DeviceCard icon={Tv} title="Apple TVs" subtitle="pyatv remote control" device="appletv" conn={c("appletv")} onToggle={toggle}>
