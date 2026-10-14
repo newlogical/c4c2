@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 14 — Single-camera (UniFi G6 PTZ 'Front Entry') + Protect NVR coverage. 4/4 backend pytests pass (state shape, RTSPS masking/unmasking roundtrip, /health/devices includes nvr(TCP 7441) + cam_front(ping) with total=15, /config/test/camera returns ok:false with error detail from cloud). Frontend playwright on mobile 390px: Security tab shows exactly one camera tile (cam_front 'Front Entry'), no horizontal overflow, snapshot/motion/arm/fullscreen all work; Settings camera card camera-device-info text contains 'G6 PTZ · 192.168.0.73 · NVR 192.168.0.166' and camera-rtsp-input is type=password; Device-health panel lists 'Protect NVR' and 'Front Entry'. DEMO preserved (camera.live=false, rtsp_url empty) at end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter14_single_camera.py",
+    "/app/test_reports/pytest/iter14.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py now ~1365 lines — still above 700-line split threshold; consider splitting routes/auth/health into modules.",
+    "get_state() migration block (lines 163–228) is dense/imperative — extracting a _migrate(doc) helper would improve readability.",
+    "SetupWizard camera step correctly filters cam_front from extra inputs (SetupWizard.jsx:142) — with cameras=[cam_front] only, no extra rtsp fields render, matching the single-camera design.",
+    "camera-device-info is only rendered when camera.live=true (SettingsDrawer gates children behind conn.live). This is consistent with how the whole card hides fields in DEMO; acceptable."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 / demo bypass (DEMO mode preserved)",
+  "seed_data_creation": "None persisted. camera.rtsp_url set+cleared and camera.live toggled true→false by tests teardown. Final state: live=false, rtsp_url='' (DEMO).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Single-camera design confirmed: state.cameras=[cam_front], state.config.camera has G6 PTZ constants (ip/mac/model), state.config.nvr has UniFi NVR constants, state.config.cameras is empty (demo cam ids stripped by migration). /api/health/devices now returns 15 targets by default (4 TVs + 4 ATVs + ecobee + matrix + amp + 2 streamers + nvr + cam_front). RTSP is masked as '__stored__' when retrieved; _unmask drops the mask on PUT so stored value is preserved. test_connection('camera') with live+rtsps returns ok:false with socket error (cloud can't reach LAN) rather than 500.",
+  "rca of the issue": "N/A — all features working as specified."
+}
