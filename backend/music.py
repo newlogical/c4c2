@@ -14,18 +14,22 @@ SPOTIFY_SCOPES = "user-read-playback-state user-modify-playback-state user-read-
 DEFAULT_STATIONS = [
     {"id": "wfan", "name": "WFAN Sports Radio 66 / 101.9", "kind": "url", "url": "https://live.amperwave.net/direct/audacy-wfanamaac-imc",
      "image": "", "category": "Sports"},
-    {"id": "s25876", "name": "ESPN Radio", "kind": "tunein", "guide_id": "s25876", "image": "http://cdn-profiles.tunein.com/s25876/images/logoq.jpg", "category": "Sports"},
-    {"id": "s28060", "name": "FOX Sports Radio", "kind": "tunein", "guide_id": "s28060", "image": "http://cdn-profiles.tunein.com/s28060/images/logoq.jpg", "category": "Sports"},
-    {"id": "s353779", "name": "NBC Sports Radio", "kind": "tunein", "guide_id": "s353779", "image": "http://cdn-profiles.tunein.com/s353779/images/logoq.jpg", "category": "Sports"},
-    {"id": "s165740", "name": "Bloomberg Radio", "kind": "tunein", "guide_id": "s165740", "image": "http://cdn-profiles.tunein.com/s165740/images/logoq.png", "category": "Finance"},
-    {"id": "s110052", "name": "CNBC", "kind": "tunein", "guide_id": "s110052", "image": "http://cdn-profiles.tunein.com/s110052/images/logoq.jpg", "category": "Finance"},
-    {"id": "s47135", "name": "Bloomberg TV (audio)", "kind": "tunein", "guide_id": "s47135", "image": "http://cdn-profiles.tunein.com/s47135/images/logoq.png", "category": "Finance"},
+    {"id": "s25876", "name": "ESPN Radio", "kind": "tunein", "guide_id": "s25876", "image": "https://cdn-profiles.tunein.com/s25876/images/logoq.jpg", "category": "Sports"},
+    {"id": "s28060", "name": "FOX Sports Radio", "kind": "tunein", "guide_id": "s28060", "image": "https://cdn-profiles.tunein.com/s28060/images/logoq.jpg", "category": "Sports"},
+    {"id": "s353779", "name": "NBC Sports Radio", "kind": "tunein", "guide_id": "s353779", "image": "https://cdn-profiles.tunein.com/s353779/images/logoq.jpg", "category": "Sports"},
+    {"id": "s165740", "name": "Bloomberg Radio", "kind": "tunein", "guide_id": "s165740", "image": "https://cdn-profiles.tunein.com/s165740/images/logoq.png", "category": "Finance"},
+    {"id": "s110052", "name": "CNBC", "kind": "tunein", "guide_id": "s110052", "image": "https://cdn-profiles.tunein.com/s110052/images/logoq.jpg", "category": "Finance"},
+    {"id": "s47135", "name": "Bloomberg TV (audio)", "kind": "tunein", "guide_id": "s47135", "image": "https://cdn-profiles.tunein.com/s47135/images/logoq.png", "category": "Finance"},
 ]
 BROWSE = {"local": "c=local", "music": "c=music", "sports": "c=sports", "news": "c=news", "talk": "c=talk"}
 
 
+def _https(url):
+    return (url or "").replace("http://cdn-", "https://cdn-")
+
+
 def _station(x):
-    return {"guide_id": x.get("guide_id"), "name": x.get("text"), "subtext": x.get("subtext") or "", "image": x.get("image") or ""}
+    return {"guide_id": x.get("guide_id"), "name": x.get("text"), "subtext": x.get("subtext") or "", "image": _https(x.get("image"))}
 
 
 def _flatten(body):
@@ -72,10 +76,12 @@ async def resolve(station: dict) -> str:
     if station.get("kind") == "url":
         return station["url"]
     body = await _opml("Tune.ashx", {"id": station["guide_id"]})
-    urls = [x["url"] for x in body if x.get("element") == "audio" and x.get("url")]
-    if not urls:
+    streams = [x for x in body if x.get("element") == "audio" and x.get("url")]
+    if not streams:
         raise RuntimeError("TuneIn has no playable stream for this station")
-    return urls[0]
+    # Linkplay firmware is most reliable with plain MP3/AAC, not HLS playlists
+    plain = [x for x in streams if x.get("media_type") in ("mp3", "aac") and ".m3u8" not in x["url"]]
+    return (plain or streams)[0]["url"]
 
 
 def stream_command(url: str) -> str:

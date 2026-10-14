@@ -135,3 +135,9 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 ## 2026-06 Pinned presets + Sony remote
 - state.pinned_scenes (default [preset_living_tv_sound]); POST /api/scenes/{id}/pin {pinned}; delete unpins. Star on Scenes cards; big pinned buttons at top of Home (pinned-<id>).
 - SonyRemote.jsx full-screen (portal): power (WoL via displayPower), input, guide, Netflix, YouTube, D-pad+OK, back/home/options, vol/mute, play/pause, CH+/-, 0-9. IRCC codes added in drivers.SonyBraviaDriver._IRCC. Opens from Watch (open-sony-remote-<id>) and Home room rows (room-remote-<id>).
+
+## 2026-06 TuneIn / Spotify / Pandora
+- music.py: TuneIn OPML (Search/Browse/Tune.ashx, follow_redirects) + spotipy auth-code flow (client id/secret in config.spotify, secret masked; token in db.spotify; redirect http://127.0.0.1:8001/api/spotify/callback = public path, state-checked).
+- Endpoints: /api/tunein/search|browse/{cat|cNNN|gNN}|saved (CRUD), /api/stream/{sid}/play_station, /api/spotify/status|login|callback|library|link, /api/stream/{sid}/play_spotify. Preset steps tunein_station, spotify_play (+label).
+- state.tunein_saved seeded: WFAN direct Audacy url (live.amperwave.net/direct/audacy-wfanamaac-imc; WFAN not on TuneIn), ESPN Radio s25876, FOX Sports Radio s28060, NBC Sports Radio s353779, Bloomberg s165740, CNBC s110052, Bloomberg TV s47135.
+- Pandora = Linkplay favourites (no API). UI: StreamPanel sheet tabs Favourites·Pandora / TuneIn (TuneInBrowser.jsx) / Spotify (SpotifyBrowser.jsx); SpotifyCard.jsx in Settings. Client Premium status unknown.

@@ -41,6 +41,11 @@ export const SpotifyCard = ({ config, setField, save }) => {
       </p>
       <input data-testid="spotify-client-id-input" className={inp} style={inpStyle} placeholder="Client ID" value={sp.client_id || ""} onChange={(e) => setField("spotify", "client_id", e.target.value.trim())} />
       <input data-testid="spotify-client-secret-input" type="password" className={inp} style={inpStyle} placeholder="Client Secret" value={sp.client_secret || ""} onChange={(e) => setField("spotify", "client_secret", e.target.value.trim())} />
+      {Object.entries(config.amp?.streamers || {}).map(([sid, st], i) => (
+        <input key={sid} data-testid={`spotify-device-${sid}`} className={inp} style={inpStyle}
+          placeholder={`Stream ${i + 1} speaker name in Spotify (default: ${st.name})`} value={st.spotify_name || ""}
+          onChange={(e) => setField("amp", "streamers", { ...config.amp.streamers, [sid]: { ...st, spotify_name: e.target.value } })} />
+      ))}
       <div className="flex gap-2">
         <button data-testid="spotify-connect-btn" onClick={connect} className="flex-1 rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "#1DB954", color: "#04130a" }}>
           <LogIn className="w-4 h-4" /> {status?.connected ? "Reconnect" : "Connect"} (on the mini-PC)

@@ -211,6 +211,8 @@ async def get_state() -> dict:
         _cfgm["matrix"].setdefault("password", "admin")
     doc.setdefault("pinned_scenes", [LIVING_TV_PRESET["id"]])
     doc.setdefault("tunein_saved", copy.deepcopy(music.DEFAULT_STATIONS))
+    for _st in doc["tunein_saved"]:
+        _st["image"] = music._https(_st.get("image"))
     _cfgm.setdefault("spotify", {"client_id": "", "client_secret": "", "redirect_uri": "http://127.0.0.1:8001/api/spotify/callback"})
     if not doc.get("ws66i_wiring_v1"):  # one-time: apply the confirmed amp wiring
         doc["audio_sources"] = copy.deepcopy(WS66I_AUDIO_SOURCES)

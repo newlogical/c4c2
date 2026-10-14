@@ -326,6 +326,12 @@ atvremote scan</pre>
   <li>Windows: allow Python on <strong>Private</strong> networks so mDNS discovery (UDP 5353) works.</li>
 </ul>
 
+<h3>8.5b Music services on the streaming modules</h3>
+<ul>
+  <li><strong>TuneIn</strong> — built in, no account. Listen → <em>Stream 1/2 → Pick music</em> → TuneIn: search or browse; bookmark to save. Pre-saved: WFAN (direct Audacy stream), ESPN Radio, FOX Sports Radio, NBC Sports Radio, Bloomberg Radio, CNBC, Bloomberg TV audio. Live MLB/NFL/NBA/NHL play-by-play can be blacked out on internet streams by league rights.</li>
+  <li><strong>Pandora</strong> — no public API. In the Soundavo app, play each Pandora station on a module and save it as a <strong>favourite/preset</strong>; it then appears under <em>Favourites · Pandora</em>.</li>
+  <li><strong>Spotify</strong> — needs <strong>Spotify Premium</strong> to start music on a speaker. On the mini-PC: developer.spotify.com → Dashboard → Create app (Web API) → Redirect URI <code>http://127.0.0.1:8001/api/spotify/callback</code> → copy Client ID + Secret into Settings → <em>Spotify</em> → <strong>Connect</strong> (in a browser on the mini-PC). Add the listener's Spotify email under the app's <em>User Management</em> (max 5 users). Open Spotify once on a phone and pick each module as the speaker so Spotify can see it.</li>
+</ul>
 <h3>8.6 UniFi G6 PTZ camera (Front Entry) + Protect NVR</h3>
 <p>Camera <code>192.168.0.73</code> (8C:ED:E1:DA:15:4F) · NVR <code>192.168.0.166</code> (74:FA:29:4B:01:30).</p>
 <p><strong>A. Live video link</strong> (easiest on a computer, in the Protect web app):</p>
