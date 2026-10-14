@@ -5,6 +5,7 @@ import { BACKEND } from "@/lib/api";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 import { AtvPair } from "@/components/AtvPair";
+import { MatrixWiring } from "@/components/MatrixWiring";
 
 const Toggle = ({ on, onChange, testid }) => (
   <button
@@ -374,6 +375,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 <Field label="Username" value={c("matrix").username} placeholder="admin" onChange={(v) => setField("matrix", "username", v)} testid="matrix-username-input" />
                 <Field label="Password" value={c("matrix").password} placeholder="admin" type="password" onChange={(v) => setField("matrix", "password", v)} testid="matrix-password-input" />
               </DeviceCard>
+              <MatrixWiring />
 
               <DeviceCard icon={Radio} title="WS66i Amplifier" subtitle="6-zone audio" device="amp" conn={c("amp")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="Host / IP" value={c("amp").host} placeholder="192.168.0.43" onChange={(v) => setField("amp", "host", v)} testid="amp-host-input" />

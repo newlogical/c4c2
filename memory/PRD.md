@@ -119,3 +119,6 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 
 ## 2026-06 WS66i input map (user confirmed)
 - Inputs: 1 Apple TV 1, 2 Apple TV 2, 3 AirPlay 1 (streaming module), 4 AirPlay 2, 5-6 unused. Spotify -> input 3 (assumed; user unsure which module is 3 vs 4). audio_sources = atv1, atv2, airplay, airplay2, spotify (ATV3/4 + TV Audio removed from Listen). One-time migration flag ws66i_wiring_v1.
+
+## 2026-06 Matrix wiring helper
+- POST /api/matrix/identify {input,output} raw route; PUT /api/matrix/map {outputs:{tv:n},inputs:{atv:n}} unique 1-4 validation. MatrixWiring.jsx (dropdowns w/ auto-swap) + MatrixIdentify.jsx wizard (step1: flip output n between inputs 1/2, user taps TV that blinks; step2: show input k on Living TV, user picks Apple TV, Test sends Home). Wiring still unconfirmed by user (defaults 1-4).

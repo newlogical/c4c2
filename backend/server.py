@@ -744,6 +744,51 @@ async def display_remote(req: RemoteReq):
     return {"ok": True, "command_log": state["command_log"]}
 
 
+class MatrixIdentifyReq(BaseModel):
+    input: int
+    output: int
+
+
+class MatrixMapReq(BaseModel):
+    outputs: dict = {}
+    inputs: dict = {}
+
+
+@api_router.post("/matrix/identify")
+async def matrix_identify(req: MatrixIdentifyReq):
+    if not (1 <= req.input <= 4 and 1 <= req.output <= 4):
+        raise HTTPException(400, "input/output must be 1-4")
+    state = await get_state()
+    entry = drivers.matrix.route(req.output, req.input, f"Output {req.output}", f"Input {req.input}", cfg(state, "matrix"))
+    log_cmd(state, entry)
+    await save_state(state)
+    return {"ok": entry.get("status") != "error", "status": entry.get("status"), "error": entry.get("error")}
+
+
+def _apply_map(items: list, mapping: dict, field: str):
+    known = {x["id"] for x in items}
+    if not set(mapping) <= known:
+        raise HTTPException(400, f"Unknown id(s): {sorted(set(mapping) - known)}")
+    merged = {x["id"]: x[field] for x in items}
+    for k, v in mapping.items():
+        if not isinstance(v, int) or not 1 <= v <= 4:
+            raise HTTPException(400, f"{field} for {k} must be 1-4")
+        merged[k] = v
+    if len(set(merged.values())) != len(merged):
+        raise HTTPException(400, f"Each {field} number can only be used once")
+    for x in items:
+        x[field] = merged[x["id"]]
+
+
+@api_router.put("/matrix/map")
+async def matrix_map(req: MatrixMapReq):
+    state = await get_state()
+    _apply_map(state["displays"], req.outputs, "output")
+    _apply_map(state["sources"], req.inputs, "input")
+    await save_state(state)
+    return redact_secrets(state)
+
+
 @api_router.post("/audio/zone")
 async def audio_zone(req: ZoneReq):
     state = await get_state()

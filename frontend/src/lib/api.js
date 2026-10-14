@@ -81,6 +81,8 @@ export const api = {
   ptzMove: (body) => http.post("/ptz/move", body).then((r) => r.data),
   atvPairStart: (aid, protocol) => http.post(`/appletv/${aid}/pair/start`, { protocol }).then((r) => r.data),
   atvPairFinish: (aid, protocol, pin) => http.post(`/appletv/${aid}/pair/finish`, { protocol, pin }).then((r) => r.data),
+  matrixIdentify: (input, output) => http.post("/matrix/identify", { input, output }).then((r) => r.data),
+  matrixMap: (body) => http.put("/matrix/map", body).then((r) => r.data),
   deviceHealth: () => http.get("/health/devices").then((r) => r.data),
   discover: (live = false) => http.get(`/discover?live=${live}`).then((r) => r.data),
   // Device config
