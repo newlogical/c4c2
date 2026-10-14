@@ -131,3 +131,7 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 ## 2026-06 Presets + Linkplay streaming
 - Presets = db.scenes docs with "actions" [{type,target,value}] types tv_power, tv_route, tv_volume, amp_source, amp_volume, amp_power, stream_preset. POST /api/presets, PUT /api/presets/{id}, run via POST /api/scene/{id} (apply_actions; 6s wait after TV WoL before TV volume when live). Seeded once (db.meta flag) "Watch TV in Living Room with Sound" (id preset_living_tv_sound). PresetBuilder.jsx (Scenes: New preset / edit pencil).
 - linkplay.py: httpapi.asp (https then http, verify off): getPlayerStatus, getMetaInfo, getPresetInfo, MCUKeyShortClick:N, setPlayerCmd. Endpoints GET /api/stream/status, GET /api/stream/{sid}/presets, POST /api/stream/{sid}/play {preset,zones}, POST /api/stream/{sid}/cmd. streamers stream_a->airplay (input 3), stream_b->airplay2 (input 4) via audio_source (assumed). Demo sim in state.stream_sim. StreamPanel.jsx on Listen (user picks module + rooms each time).
+
+## 2026-06 Pinned presets + Sony remote
+- state.pinned_scenes (default [preset_living_tv_sound]); POST /api/scenes/{id}/pin {pinned}; delete unpins. Star on Scenes cards; big pinned buttons at top of Home (pinned-<id>).
+- SonyRemote.jsx full-screen (portal): power (WoL via displayPower), input, guide, Netflix, YouTube, D-pad+OK, back/home/options, vol/mute, play/pause, CH+/-, 0-9. IRCC codes added in drivers.SonyBraviaDriver._IRCC. Opens from Watch (open-sony-remote-<id>) and Home room rows (room-remote-<id>).

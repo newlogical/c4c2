@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 19 - Wall-panel pins + Sony Bravia full-screen remote. Backend pytest 37/37 PASS. /api/scenes/{id}/pin: requires auth (401); unknown id -> 404; default state.pinned_scenes contains 'preset_living_tv_sound'; pinning good_night adds it, double-pinning is idempotent (no dupes), unpin removes; creating a custom preset, pinning, then DELETE /api/scenes/{id} also removes it from pinned_scenes. /api/display/tvkey: requires auth; unknown display -> 404; all 29 required keys (KEY_0..KEY_9, KEY_BACK, KEY_INPUT, KEY_GUIDE, KEY_PLAY, KEY_PAUSE, KEY_NETFLIX, KEY_YOUTUBE, KEY_CHUP, KEY_CHDOWN, KEY_OPTIONS, KEY_HOME, KEY_ENTER, arrows, VOLUP/VOLDOWN/MUTE) log 'IRCC K' via SonyBravia driver with status=simulated when amp.tv.live=false. Frontend (390x844): Home pinned-presets section shows pinned-preset_living_tv_sound as big button; tap -> toast 'Scene: Watch TV in Living Room with Sound'. Room rows have room-remote-<tvId> for all 4 TVs; opening sony-remote from Home works and KEY_HOME press shows toast 'Living Room TV / Home'. Scenes: scene-pin-good_night toggles pinned state; good_night appears on Home when pinned, disappears when unpinned; end state only preset_living_tv_sound pinned. Watch: each TV card has open-remote-<id> (Apple TV) and open-sony-remote-<id>; all 29 sony-key-* buttons present; sony-power-btn successfully toggles tv_office power True->False (verified via /api/state); close-sony-remote-btn closes. Apple TV remote still opens full-screen (regression OK). No horizontal overflow at 390 or 1920 on Home/Watch/Scenes. End state verified: pinned_scenes == ['preset_living_tv_sound'].",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "SonyRemote at 1920x800", "issues": ["Portrait layout centered at max-w-md (448px) leaves large empty gutters on wide landscape viewports; bottom numpad rows (KEY_7/8/9/CHDOWN/KEY_0) fall below the 800px fold and require scrolling within the modal (overflow-y-auto handles it so functionally OK). Consider a wider two-column layout when vw >= 1024."]},
+      {"screen": "SonyRemote modal top offset", "issues": ["Headless Chromium reports env(safe-area-inset-top) ~14-27px, so the fixed-inset-0 modal visually starts a few px below y=0 (bounding box y=14 at mobile, y=27 at desktop). Review request wanted x=0,y=0 exactly — padding is cosmetic only, modal background still covers underlying tab. Minor."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter19_pins_sony_keys.py",
+    "/app/test_reports/pytest/iter19.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py has two Pydantic models named 'PinReq' (one for auth PIN, one for scene pin) — currently the second definition shadows the first inside the module. Only works because the auth route is parsed at import before shadowing takes effect at module eval time, which is fragile. Rename the scene-pin model to e.g. ScenePinReq.",
+    "SonyRemote.jsx: at wide viewports (>=1024px) the controls remain max-w-md (448px) in a centered column, leaving ~1500px of empty space on either side. A side-by-side layout (D-pad + numpad in two columns) would make better use of landscape iPads / wall tablets.",
+    "SonyRemote.jsx uses createPortal and manages its own AnimatePresence — but when `display` is null the component still mounts with no children (AnimatePresence hides). Harmless but mildly wasteful.",
+    "SONY_KEYS KEY_POWER is defined in drivers._IRCC but SonyRemote.jsx uses /api/display/power (not tvkey) to toggle. That's correct, but worth a comment so future contributors don't send KEY_POWER via tvkey (it maps to 'power off' only in IRCC)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter19_pins_sony_keys.py",
+    "/app/test_reports/iteration_19.json"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 or demo bypass (used demo for frontend).",
+  "seed_data_creation": "Test preset TEST_pin_del created+deleted in-test (no residual). tv_office power toggled during Sony remote test (ended as False after power button test). pinned_scenes end state verified ['preset_living_tv_sound'].",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests: REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/test_iter19_pins_sony_keys.py -v -o addopts= . Covers /api/scenes/{id}/pin (auth, idempotence, delete cascade, built-in + custom) and /api/display/tvkey (29 Sony IRCC keys). Previous suite /app/backend/tests/test_iter18_presets_streams.py still relevant (presets CRUD + Linkplay streaming). Note: server.py has duplicate 'PinReq' class name (auth vs scene) — functionally works today, cosmetic. Sony remote full-screen portal: data-testid='sony-remote', toggled from HomeTab (room-remote-<tvId>) and WatchTab (open-sony-remote-<tvId>). Keys dispatch to /api/display/tvkey -> drivers.tv.key -> IRCC payload (simulated in demo).",
+  "rca of the issue": "N/A — no bugs. Minor cosmetic observations only (sony remote narrow at wide viewports, small top offset from safe-area-inset). Both are design-level enhancements, not functional defects."
+}

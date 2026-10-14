@@ -1272,12 +1272,12 @@ async def update_preset(preset_id: str, req: PresetReq):
     return doc
 
 
-class PinReq(BaseModel):
+class ScenePinReq(BaseModel):
     pinned: bool
 
 
 @api_router.post("/scenes/{scene_id}/pin")
-async def pin_scene(scene_id: str, req: PinReq):
+async def pin_scene(scene_id: str, req: ScenePinReq):
     state = await get_state()
     if not (find(state["scenes"], scene_id) or await db.scenes.find_one({"id": scene_id})):
         raise HTTPException(404, "Scene not found")

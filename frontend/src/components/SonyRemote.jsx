@@ -63,7 +63,8 @@ export const SonyRemote = ({ display, onClose }) => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-5 pb-6">
-            <div className="w-full max-w-md mx-auto space-y-5">
+            <div className="w-full max-w-md lg:max-w-5xl mx-auto grid lg:grid-cols-2 gap-5 lg:gap-10 items-start">
+              <div className="space-y-5">
               <div className="grid grid-cols-4 gap-2">
                 <Key k="KEY_INPUT" label="Input" icon={LogIn} onKey={onKey} />
                 <Key k="KEY_GUIDE" label="Guide" icon={LayoutList} onKey={onKey} />
@@ -82,7 +83,9 @@ export const SonyRemote = ({ display, onClose }) => {
                   OK
                 </button>
               </div>
+              </div>
 
+              <div className="space-y-5">
               <div className="grid grid-cols-3 gap-2">
                 <Key k="KEY_BACK" label="Back" icon={Undo2} onKey={onKey} />
                 <Key k="KEY_HOME" label="Home" icon={Home} onKey={onKey} />
@@ -100,6 +103,7 @@ export const SonyRemote = ({ display, onClose }) => {
                 <Key k="KEY_CHDOWN" label="CH −" onKey={onKey} />
                 <Key k="KEY_0" label="0" onKey={onKey} />
                 <div />
+              </div>
               </div>
             </div>
           </div>
