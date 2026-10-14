@@ -22,6 +22,7 @@ from typing import Optional, List
 
 import drivers
 import homekit
+import protect
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -62,6 +63,7 @@ SONY_TV_IPS = {
 }
 JTECH_HOST = "192.168.0.254"
 G6_PTZ = {"ip": "192.168.0.73", "mac": "8C:ED:E1:DA:15:4F", "model": "UniFi G6 PTZ"}
+PTZ_DEFAULTS = {"protect_api_key": "", "protect_user": "", "protect_password": "", "ptz_presets": "Preset 1, Preset 2, Preset 3"}
 UNIFI_NVR = {"ip": "192.168.0.166", "mac": "74:FA:29:4B:01:30", "model": "UniFi Protect NVR"}
 DEMO_CAM_IDS = ("cam_living", "cam_back", "cam_garage")
 APPLE_TVS = {
@@ -96,7 +98,7 @@ def default_config() -> dict:
         }},
         "ecobee": {"live": False, "paired": False, **ECOBEE_LAN},
         "appletv": {"live": False, "devices": {k: {**v, "id": "", "credentials": "", "airplay_credentials": ""} for k, v in APPLE_TVS.items()}},
-        "camera": {"live": False, "rtsp_url": "", **G6_PTZ},
+        "camera": {"live": False, "rtsp_url": "", **G6_PTZ, **PTZ_DEFAULTS},
         "nvr": dict(UNIFI_NVR),
         "cameras": {
         },
@@ -183,6 +185,8 @@ async def get_state() -> dict:
         for _k, _v in G6_PTZ.items():
             if not _cfgm["camera"].get(_k):
                 _cfgm["camera"][_k] = _v
+        for _k, _v in PTZ_DEFAULTS.items():
+            _cfgm["camera"].setdefault(_k, _v)
     _cfgm.setdefault("nvr", dict(UNIFI_NVR))
     if isinstance(_cfgm.get("appletv"), dict):
         _devs = _cfgm["appletv"].setdefault("devices", {})
@@ -299,6 +303,8 @@ def redact_secrets(state: dict) -> dict:
         _mask(tvset, "psk")
     _mask(c.get("matrix"), "password")
     _mask(c.get("camera"), "rtsp_url")
+    _mask(c.get("camera"), "protect_api_key")
+    _mask(c.get("camera"), "protect_password")
     for _cam in (c.get("cameras") or {}).values():
         _mask(_cam, "rtsp_url")
     for _atv in ((c.get("appletv") or {}).get("devices") or {}).values():
@@ -1261,6 +1267,151 @@ async def device_health():
         t.update({"online": ok, "latency_ms": ms, "check": f"TCP {t['port']}" if t["port"] else "ping"})
     return {"checked_at": datetime.now(timezone.utc).isoformat(), "devices": targets,
             "online": sum(1 for t in targets if t["online"]), "total": len(targets)}
+
+
+# ---------------------------------------------------------------------------
+# G6 PTZ — presets/patrol (official API) + experimental continuous move
+class PtzGotoReq(BaseModel):
+    slot: int
+
+
+class PtzPatrolReq(BaseModel):
+    start: bool
+    slot: int = 0
+
+
+class PtzMoveReq(BaseModel):
+    pan: int = 0
+    tilt: int = 0
+    zoom: int = 0
+
+
+def _ptz_conn(state):
+    return {**cfg(state, "camera"), "nvr_ip": (state["config"].get("nvr") or {}).get("ip", "")}
+
+
+async def _ptz_run(state, label, payload, coro_fn, quiet=False):
+    conn = _ptz_conn(state)
+    entry = {"driver": "UniFiPTZ", "transport": "UniFi Protect API", "command": payload, "note": label,
+             "timestamp": drivers._ts(), "status": "simulated"}
+    if conn.get("live"):
+        try:
+            await coro_fn(conn)
+            entry["status"] = "sent"
+        except Exception as e:
+            import httpx
+            if isinstance(e, (httpx.ConnectError, httpx.TimeoutException)):
+                msg = f"Can't reach the Protect recorder at {conn.get('nvr_ip')}"
+            elif isinstance(e, httpx.HTTPStatusError):
+                msg = f"Protect rejected the request (HTTP {e.response.status_code}) — check the API key / local user"
+            else:
+                msg = str(e) or type(e).__name__
+            entry.update({"status": "error", "error": msg[:200]})
+    if not quiet:
+        log_cmd(state, entry)
+        await save_state(state)
+    if entry["status"] == "error":
+        raise HTTPException(424, entry["error"])
+    return {"ok": True, "status": entry["status"]}
+
+
+@api_router.get("/ptz/presets")
+async def ptz_presets():
+    state = await get_state()
+    names = [n.strip() for n in (cfg(state, "camera").get("ptz_presets") or "").split(",") if n.strip()]
+    return {"presets": [{"slot": -1, "name": "Home"}] + [{"slot": i, "name": n} for i, n in enumerate(names)]}
+
+
+@api_router.post("/ptz/goto")
+async def ptz_goto(req: PtzGotoReq):
+    if not -1 <= req.slot <= 9:
+        raise HTTPException(400, "slot must be -1..9")
+    state = await get_state()
+    return await _ptz_run(state, f"PTZ go to preset {req.slot}", f"POST ptz/goto/{req.slot}",
+                          lambda c: protect.ptz.goto(c, req.slot))
+
+
+@api_router.post("/ptz/patrol")
+async def ptz_patrol(req: PtzPatrolReq):
+    if not 0 <= req.slot <= 4:
+        raise HTTPException(400, "slot must be 0..4")
+    state = await get_state()
+    label = f"PTZ patrol {'start ' + str(req.slot) if req.start else 'stop'}"
+    return await _ptz_run(state, label, f"POST ptz/patrol/{'start/' + str(req.slot) if req.start else 'stop'}",
+                          lambda c: protect.ptz.patrol(c, req.start, req.slot))
+
+
+@api_router.post("/ptz/move")
+async def ptz_move(req: PtzMoveReq):
+    state = await get_state()
+    stop = not any((req.pan, req.tilt, req.zoom))
+    return await _ptz_run(state, "PTZ stop" if stop else f"PTZ move pan={req.pan} tilt={req.tilt} zoom={req.zoom}",
+                          f"POST cameras/<id>/move continuous x={req.pan} y={req.tilt} z={req.zoom}",
+                          lambda c: protect.ptz.move(c, req.pan, req.tilt, req.zoom), quiet=not stop)
+
+
+# ---------------------------------------------------------------------------
+# Apple TV in-app pairing (pyatv): companion then airplay
+_atv_pairings: dict = {}
+_ATV_PROTOS = {"companion": ("credentials", "Companion"), "airplay": ("airplay_credentials", "AirPlay")}
+
+
+class AtvPairStartReq(BaseModel):
+    protocol: str
+
+
+class AtvPairPinReq(BaseModel):
+    protocol: str
+    pin: str
+
+
+@api_router.post("/appletv/{aid}/pair/start")
+async def atv_pair_start(aid: str, req: AtvPairStartReq):
+    import pyatv
+    from pyatv.const import Protocol
+    if req.protocol not in _ATV_PROTOS:
+        raise HTTPException(400, "protocol must be companion or airplay")
+    state = await get_state()
+    dev = ((cfg(state, "appletv").get("devices") or {}).get(aid)) or {}
+    if not dev.get("ip"):
+        raise HTTPException(400, "Set this Apple TV's IP first")
+    old = _atv_pairings.pop(aid, None)
+    if old:
+        await old.close()
+    loop = asyncio.get_running_loop()
+    found = await pyatv.scan(loop, hosts=[dev["ip"]], timeout=5)
+    if not found:
+        raise HTTPException(404, f"No Apple TV answered at {dev['ip']} (same network? powered on?)")
+    proto = getattr(Protocol, _ATV_PROTOS[req.protocol][1])
+    handler = await pyatv.pair(found[0], proto, loop)
+    await handler.begin()
+    _atv_pairings[aid] = handler
+    await db.system.update_one({"key": STATE_KEY}, {"$set": {f"config.appletv.devices.{aid}.id": found[0].identifier or ""}})
+    return {"ok": True, "device_provides_pin": handler.device_provides_pin, "name": found[0].name}
+
+
+@api_router.post("/appletv/{aid}/pair/finish")
+async def atv_pair_finish(aid: str, req: AtvPairPinReq):
+    handler = _atv_pairings.pop(aid, None)
+    if req.protocol not in _ATV_PROTOS:
+        raise HTTPException(400, "protocol must be companion or airplay")
+    if not handler:
+        raise HTTPException(400, "Start pairing first")
+    try:
+        handler.pin(int(re.sub(r"\D", "", req.pin) or 0))
+        await handler.finish()
+        if not handler.has_paired:
+            raise HTTPException(400, "Pairing failed — check the PIN and try again")
+        creds = handler.service.credentials
+    finally:
+        await handler.close()
+    field = _ATV_PROTOS[req.protocol][0]
+    state = await get_state()
+    state["config"]["appletv"]["devices"].setdefault(aid, {})[field] = creds
+    log_cmd(state, {"driver": "AppleTV", "transport": "pyatv pairing", "command": f"pair {req.protocol}",
+                    "note": f"Paired {aid} ({req.protocol})", "timestamp": drivers._ts(), "status": "sent"})
+    await save_state(state)
+    return redact_secrets(state)
 
 
 @api_router.post("/camera/snapshot")

@@ -75,6 +75,12 @@ export const api = {
   clearClips: () => http.delete("/clips").then((r) => r.data),
   getVoicePhrases: () => http.get("/voice/phrases").then((r) => r.data),
   setVoicePhrases: (phrases) => http.put("/voice/phrases", { phrases }).then((r) => r.data),
+  ptzPresets: () => http.get("/ptz/presets").then((r) => r.data),
+  ptzGoto: (slot) => http.post("/ptz/goto", { slot }).then((r) => r.data),
+  ptzPatrol: (body) => http.post("/ptz/patrol", body).then((r) => r.data),
+  ptzMove: (body) => http.post("/ptz/move", body).then((r) => r.data),
+  atvPairStart: (aid, protocol) => http.post(`/appletv/${aid}/pair/start`, { protocol }).then((r) => r.data),
+  atvPairFinish: (aid, protocol, pin) => http.post(`/appletv/${aid}/pair/finish`, { protocol, pin }).then((r) => r.data),
   deviceHealth: () => http.get("/health/devices").then((r) => r.data),
   discover: (live = false) => http.get(`/discover?live=${live}`).then((r) => r.data),
   // Device config

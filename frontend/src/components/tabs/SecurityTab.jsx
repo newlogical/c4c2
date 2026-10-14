@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity, Shield, ShieldOff, Film, Trash2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
+import { PtzControls } from "@/components/PtzControls";
 import { CameraPlayer } from "@/components/CameraPlayer";
 import { toast } from "sonner";
 
@@ -106,6 +107,8 @@ export const SecurityTab = () => {
           </button>
         </div>
       </div>
+
+      {selected === "cam_front" && <PtzControls />}
 
       <div className="glass rounded-2xl p-4" data-testid="clips-timeline">
         <div className="flex items-center justify-between mb-3">

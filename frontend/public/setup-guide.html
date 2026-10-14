@@ -296,11 +296,9 @@ atvremote scan</pre>
   <tr><td>Apple TV 3</td><td>192.168.0.249</td><td>58:D3:49:EF:E7:E2</td></tr>
   <tr><td>Apple TV 4</td><td>192.168.0.35</td><td>F0:B3:EC:5E:7B:B9</td></tr>
 </table>
-<p>Pair each unit twice (Companion for remote keys, AirPlay for the control channel), e.g. Apple TV 1:</p>
-<pre>atvremote -s 192.168.0.145 --protocol companion pair
-atvremote -s 192.168.0.145 --protocol airplay pair</pre>
-<p>Enter the PIN shown on that Apple TV each time and copy the credentials it prints. App → <em>Apple TVs</em> →
-enable <strong>LIVE</strong> → paste them into that Apple TV's <em>Companion</em> and <em>AirPlay credentials</em> → Save.</p>
+<p><strong>Pair from the app (no command line):</strong> Settings → <em>Apple TVs</em> → LIVE → on each Apple TV card tap
+<strong>Pair this Apple TV</strong>. A 4-digit PIN appears on that TV — type it in and tap Pair. It then asks a second time
+(AirPlay). Both credentials are saved automatically. The TV must be on and awake.</p>
 
 <h3>8.4 Sony Bravia TVs — Living, Office, Master, Guest</h3>
 <table>
@@ -328,12 +326,24 @@ enable <strong>LIVE</strong> → paste them into that Apple TV's <em>Companion</
   <li>Windows: allow Python on <strong>Private</strong> networks so mDNS discovery (UDP 5353) works.</li>
 </ul>
 
-<h3>8.6 UniFi cameras</h3>
+<h3>8.6 UniFi G6 PTZ camera (Front Entry) + Protect NVR</h3>
+<p>Camera <code>192.168.0.73</code> (8C:ED:E1:DA:15:4F) · NVR <code>192.168.0.166</code> (74:FA:29:4B:01:30).</p>
+<p><strong>A. Live video link</strong> (easiest on a computer, in the Protect web app):</p>
 <ul>
-  <li>In <strong>UniFi Protect</strong>, open each camera → enable <strong>RTSP</strong> and copy the stream URL (looks like <code>rtsp://&lt;NVR-IP&gt;:7447/&lt;streamID&gt;_0</code>).</li>
-  <li>App → <em>UniFi Protect Camera</em> (or the setup wizard) → paste each camera's <strong>RTSP URL</strong>.</li>
-  <li>The backend converts RTSP to a browser‑friendly stream using <strong>ffmpeg</strong> (installed in Part 2).</li>
+  <li>Open <code>https://192.168.0.166</code> → <strong>Protect</strong> → click the <strong>G6 PTZ</strong> → <strong>Settings</strong> (gear) → <strong>Advanced</strong>.</li>
+  <li>Under <strong>RTSP / RTSPS</strong> turn on <strong>High</strong> and copy the link (<code>rtsps://192.168.0.166:7441/…?enableSrtp</code>).</li>
+  <li>App → Settings → <em>UniFi Camera</em> → LIVE → paste into <strong>RTSPS stream link</strong> → Save.</li>
 </ul>
+<p><strong>B. Save preset positions</strong> (needed for the preset buttons):</p>
+<ul>
+  <li>In Protect, open the G6 PTZ <strong>live view</strong> and use the on-screen PTZ joystick/zoom to aim at a spot (e.g. the door).</li>
+  <li>Open the <strong>PTZ / Presets</strong> panel next to the view → <strong>Add / Save preset</strong> → name it. Repeat for each position. The first saved preset is slot&nbsp;0, the next slot&nbsp;1, and so on.</li>
+  <li>Optional: in the same panel create a <strong>Patrol</strong> that tours your presets (the app's <em>Start patrol</em> button runs patrol slot&nbsp;0).</li>
+  <li>App → Settings → <em>UniFi Camera</em> → <strong>Preset names</strong>: type them in the same order, e.g. <code>Door, Hallway, Wide</code>.</li>
+</ul>
+<p><strong>C. API key</strong> (presets + patrol, official): Protect → <strong>Settings → Control Plane → Integrations → Create API Key</strong>, copy it once and paste into <strong>Protect API key</strong>.</p>
+<p><strong>D. Arrows & zoom (experimental)</strong>: create a <strong>local-only</strong> Protect user (UniFi OS → Admins &amp; Users → Add → <em>Restrict to local access</em>, Protect permission <em>Full Management</em>), then enter it under <strong>Local Protect user / password</strong>. These buttons use an unofficial API and may stop working after a Protect update; presets and patrol will keep working.</p>
+<div class="warn">The camera auto-stops 1.5 s after you let go of an arrow, even if the panel loses connection.</div>
 
 <!-- ============================================================ -->
 <div class="page-break"></div>

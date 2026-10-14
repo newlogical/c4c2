@@ -4,6 +4,7 @@ import { Activity, X, Cable, Radio, Thermometer, Camera, Tv, Wifi, Loader2, Moni
 import { BACKEND } from "@/lib/api";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
+import { AtvPair } from "@/components/AtvPair";
 
 const Toggle = ({ on, onChange, testid }) => (
   <button
@@ -412,11 +413,15 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                   G6 PTZ · {c("camera").ip} · NVR {c("nvr").ip}
                 </p>
                 <Field label="RTSPS stream link (from UniFi Protect)" type="password" value={c("camera").rtsp_url} placeholder="rtsps://192.168.0.166:7441/xxxx?enableSrtp" onChange={(v) => setField("camera", "rtsp_url", v)} testid="camera-rtsp-input" />
+                <Field label="Protect API key (presets & patrol)" type="password" value={c("camera").protect_api_key} placeholder="Protect → Settings → Control Plane → Integrations" onChange={(v) => setField("camera", "protect_api_key", v)} testid="camera-apikey-input" />
+                <Field label="Preset names (slot order, comma-separated)" value={c("camera").ptz_presets} placeholder="Door, Hallway, Wide" onChange={(v) => setField("camera", "ptz_presets", v)} testid="camera-presets-input" />
+                <Field label="Local Protect user (experimental arrows/zoom)" value={c("camera").protect_user} placeholder="local-only user" onChange={(v) => setField("camera", "protect_user", v)} testid="camera-protect-user-input" />
+                <Field label="Local Protect password" type="password" value={c("camera").protect_password} placeholder="••••" onChange={(v) => setField("camera", "protect_password", v)} testid="camera-protect-pass-input" />
               </DeviceCard>
 
               <DeviceCard icon={Tv} title="Apple TVs" subtitle="pyatv remote control" device="appletv" conn={c("appletv")} onToggle={toggle}>
                 <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
-                  Pair each once on the mini-PC: <code>atvremote -s IP --protocol companion pair</code> and <code>--protocol airplay pair</code>, then paste the credentials.
+                  Turn on LIVE, then tap <b>Pair this Apple TV</b> on each one and type the PIN that appears on its screen (twice: Companion, then AirPlay). Credentials save automatically.
                 </p>
                 {(state?.sources || []).map((src) => {
                   const dv = (c("appletv").devices || {})[src.id] || {};
@@ -428,6 +433,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                       <Field label="MAC" value={dv.mac} placeholder="F0:B3:EC:..." onChange={(v) => setAtv("mac", v)} testid={`atv-mac-${src.id}`} />
                       <Field label="Companion credentials" type="password" value={dv.credentials} placeholder="from atvremote pair" onChange={(v) => setAtv("credentials", v)} testid={`atv-cred-${src.id}`} />
                       <Field label="AirPlay credentials" type="password" value={dv.airplay_credentials} placeholder="from atvremote pair" onChange={(v) => setAtv("airplay_credentials", v)} testid={`atv-apcred-${src.id}`} />
+                      <AtvPair aid={src.id} dev={dv} />
                     </div>
                   );
                 })}
