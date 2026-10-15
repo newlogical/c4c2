@@ -56,7 +56,7 @@ export const DriverDrawer = ({ open, onClose }) => {
                 </p>
               )}
               {log.map((c, i) => (
-                <div key={i} className="glass rounded-xl p-3" data-testid={`log-entry-${i}`}>
+                <div key={`${c.timestamp}-${c.command}-${i}`} className="glass rounded-xl p-3" data-testid={`log-entry-${i}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[11px] font-bold font-mono" style={{ color: colorFor(c.driver) }}>
                       {c.driver}

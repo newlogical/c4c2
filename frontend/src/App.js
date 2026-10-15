@@ -21,8 +21,11 @@ import { ScenesTab } from "@/components/tabs/ScenesTab";
 import { AnimatePresence, motion } from "framer-motion";
 
 const Controller = () => {
-  const { state, loading, refresh } = useSystem();
-  const [unlocked, setUnlocked] = useState(() => api.hasToken());
+  const { state, loading, authed, refresh } = useSystem();
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => {
+    if (authed) setUnlocked(true);
+  }, [authed]);
   const [tab, setTab] = useState("home");
   const [driversOpen, setDriversOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -80,7 +83,7 @@ const Controller = () => {
 
   return (
     <div className="c4-shell min-h-screen flex flex-col">
-      <TopBar onLock={() => { api.logout(); setUnlocked(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
+      <TopBar onLock={() => { api.logout().catch((e) => console.warn("Logout failed", e)); setUnlocked(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div

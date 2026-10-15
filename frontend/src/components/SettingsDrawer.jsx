@@ -143,10 +143,10 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
 
   useEffect(() => {
     if (open) {
-      api.getScenes().then(setVoiceScenes).catch(() => {});
-      api.getVoicePhrases().then((p) => setPhrases(p || {})).catch(() => {});
+      api.getScenes().then(setVoiceScenes).catch((e) => console.warn("Could not load scenes", e));
+      api.getVoicePhrases().then((p) => setPhrases(p || {})).catch((e) => console.warn("Could not load voice phrases", e));
     }
-  }, [open]);
+  }, [open, api]);
   const setPhrase = (id, v) => setPhrases((p) => ({ ...p, [id]: v }));
   const savePhrases = () => api.setVoicePhrases(phrases).catch(() => {});
 

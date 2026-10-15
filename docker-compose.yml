@@ -13,7 +13,7 @@ services:
     environment:
       - MONGO_URL=mongodb://localhost:27017
       - DB_NAME=c4clone
-      - CORS_ORIGINS=*
+      - CORS_ORIGINS=http://192.168.0.10:3000
     depends_on:
       - mongo
     restart: unless-stopped

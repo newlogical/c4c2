@@ -84,7 +84,7 @@ Create the backend config file **`C:\apartment-controller\backend\.env`** with t
 ```
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=c4clone
-CORS_ORIGINS=*
+CORS_ORIGINS=http://192.168.0.10:3000
 DEFAULT_PIN=1234
 ```
 

@@ -147,3 +147,9 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Person: public POST /api/protect/webhook/{config.camera.webhook_token} (Protect Alarm Manager webhook); alerts only when camera.armed; state.person_alert; POST /api/protect/test-person, /api/protect/webhook-token (rotate). GET /api/alerts (light poll). PersonAlert.jsx global modal (polls 4s, live CameraPlayer, auto-close 60s).
 - Offline: scheduler job offline_watch every 60s (reload_jobs keeps it); devices live && offline >=180s -> state.offline_alerts; OfflineBanner.jsx on Home (polls 30s, opens Device health).
 - Room presets (seed_room_presets): preset_office_tv_sound (tv_office/atv2/audio_office), preset_master_tv_sound (tv_master/atv2/audio_master), preset_bathroom_audio (audio_bathroom->atv2); all pinned to Home. Only atv1/atv2 feed the amp.
+
+## 2026-06 Code-review fixes
+- Auth: session token now in httpOnly cookie c4_session (SameSite=Lax, Secure on https, 30d), not localStorage; body no longer returns token; Bearer header still accepted for scripts. CSRF guard: cookie-authed non-GET requests need Origin in CORS_ORIGINS or same hostname. CORS allow_credentials=True with explicit CORS_ORIGINS (.env: preview URL, http://192.168.0.10:3000, localhost:3000). Frontend: axios withCredentials, SystemContext.authed drives unlock.
+- ping subprocess only accepts literal IPs. exec() finding was a false positive (create_subprocess_exec).
+- SSL verify=False kept for Protect/Linkplay self-signed certs (user choice).
+- Hook deps fixed (Automations, Scenes, Security, PinLock, SettingsDrawer, SetupWizard); stable keys (PresetBuilder uid, PinLock, DriverDrawer, Automations); empty catches now warn/toast. Big refactors skipped by user choice.

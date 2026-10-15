@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Circle, Maximize2, X, Wifi, Aperture, Move, Activity, Shield, ShieldOff, Film, Trash2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
@@ -13,8 +13,10 @@ export const SecurityTab = () => {
   const [full, setFull] = useState(false);
   const [selected, setSelected] = useState("cam_front");
   const [clips, setClips] = useState([]);
-  const loadClips = async () => { try { setClips(await api.getClips()); } catch (e) {} };
-  useEffect(() => { loadClips(); }, []);
+  const loadClips = useCallback(async () => {
+    try { setClips(await api.getClips()); } catch (e) { console.warn("Could not load clips", e); }
+  }, [api]);
+  useEffect(() => { loadClips(); }, [loadClips]);
   if (!state) return null;
   const cam = state.camera;
   const cameras = state.cameras || [];

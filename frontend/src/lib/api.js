@@ -1,21 +1,14 @@
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const TOKEN_KEY = "c4_token";
-
-const http = axios.create({ baseURL: API });
-
-http.interceptors.request.use((config) => {
-  const t = localStorage.getItem(TOKEN_KEY);
-  if (t) config.headers.Authorization = `Bearer ${t}`;
-  return config;
-});
+// Session lives in an httpOnly cookie set by the server; JS never sees the token.
+const http = axios.create({ baseURL: API, withCredentials: true });
+localStorage.removeItem("c4_token"); // clean up the old storage location
 
 http.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err?.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event("c4-unauthorized"));
     }
     return Promise.reject(err);
@@ -23,21 +16,11 @@ http.interceptors.response.use(
 );
 
 export const api = {
-  hasToken: () => !!localStorage.getItem(TOKEN_KEY),
-  clearToken: () => localStorage.removeItem(TOKEN_KEY),
   getBootstrap: () => http.get("/bootstrap").then((r) => r.data),
   getState: () => http.get("/state").then((r) => r.data),
-  verifyPin: (pin) =>
-    http.post("/auth/pin", { pin }).then((r) => {
-      if (r.data?.token) localStorage.setItem(TOKEN_KEY, r.data.token);
-      return r.data;
-    }),
-  demoBypass: () =>
-    http.post("/auth/demo").then((r) => {
-      if (r.data?.token) localStorage.setItem(TOKEN_KEY, r.data.token);
-      return r.data;
-    }),
-  logout: () => http.post("/auth/logout").catch(() => {}).finally(() => localStorage.removeItem(TOKEN_KEY)),
+  verifyPin: (pin) => http.post("/auth/pin", { pin }).then((r) => r.data),
+  demoBypass: () => http.post("/auth/demo").then((r) => r.data),
+  logout: () => http.post("/auth/logout").then((r) => r.data),
   changePin: (current, new_pin) => http.post("/auth/change-pin", { current, new_pin }).then((r) => r.data),
   reset: () => http.post("/state/reset").then((r) => r.data),
   route: (display_id, source_id) =>

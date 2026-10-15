@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Power, Moon, Clapperboard, Radio, RotateCcw, Sparkles, Plus, Trash2, X, Film, Coffee, Sun, Pencil, ListPlus, Tv, Star } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
@@ -82,8 +82,10 @@ export const ScenesTab = () => {
   const [modal, setModal] = useState(false);
   const [builder, setBuilder] = useState(null);
 
-  const load = async () => setScenes(await api.getScenes());
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => {
+    try { setScenes(await api.getScenes()); } catch (e) { console.warn("Could not load scenes", e); }
+  }, [api]);
+  useEffect(() => { load(); }, [load]);
 
   const run = async (sc) => {
     await act(api.scene(sc.id));

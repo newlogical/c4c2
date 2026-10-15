@@ -55,7 +55,7 @@ pip install -r requirements.txt
 #   pip install pyatv       &&   sudo apt-get install -y ffmpeg
 export MONGO_URL="mongodb://localhost:27017"
 export DB_NAME="c4clone"
-export CORS_ORIGINS="*"
+export CORS_ORIGINS="http://192.168.0.10:3000"
 uvicorn server:app --host 0.0.0.0 --port 8001
 
 # Frontend (new terminal)

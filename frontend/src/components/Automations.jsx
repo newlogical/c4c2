@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Clock, Activity, Trash2, Play, X, CalendarClock } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
@@ -84,7 +84,7 @@ const CreateModal = ({ open, onClose, scenes, onCreate }) => {
                   <div className="flex justify-between gap-1.5">
                     {DAYS.map((d, i) => (
                       <button
-                        key={i}
+                        key={`day-${i}`}
                         data-testid={`automation-day-${i}`}
                         onClick={() => toggleDay(i)}
                         className="flex-1 aspect-square rounded-lg text-xs font-bold transition"
@@ -136,8 +136,10 @@ export const Automations = ({ scenes = [] }) => {
   const [autos, setAutos] = useState([]);
   const [open, setOpen] = useState(false);
 
-  const load = async () => setAutos(await api.getAutomations());
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => {
+    try { setAutos(await api.getAutomations()); } catch (e) { console.warn("Could not load automations", e); }
+  }, [api]);
+  useEffect(() => { load(); }, [load]);
 
   const create = async (payload) => {
     await api.createAutomation(payload);

@@ -33,7 +33,7 @@ export const SetupWizard = ({ open, onClose }) => {
       setI(0);
       setCfg(JSON.parse(JSON.stringify(state?.config || {})));
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps -- snapshot config only when the wizard opens
 
   const c = (d) => cfg[d] || {};
   const setField = (d, k, v) => setCfg((p) => ({ ...p, [d]: { ...p[d], [k]: v } }));

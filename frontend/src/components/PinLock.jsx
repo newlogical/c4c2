@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Delete, Lock, Home, ShieldAlert } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
@@ -19,11 +20,11 @@ export const PinLock = ({ onUnlock, propertyName }) => {
     api.getBootstrap().then((b) => {
       if (b?.property_name) setName(b.property_name);
       setDemoMode(!!b?.demo_mode);
-    }).catch(() => {});
+    }).catch((e) => console.warn("Bootstrap failed", e));
   }, []);
 
   useEffect(() => {
-    if (retry <= 0) return;
+    if (!locked) return;
     timerRef.current = setInterval(() => setRetry((r) => (r <= 1 ? 0 : r - 1)), 1000);
     return () => clearInterval(timerRef.current);
   }, [locked]);
@@ -95,10 +96,10 @@ export const PinLock = ({ onUnlock, propertyName }) => {
         <div className="grid grid-cols-3 gap-4 w-full" style={{ opacity: locked ? 0.4 : 1, pointerEvents: locked ? "none" : "auto" }}>
           {keys.map((k, idx) =>
             k === "" ? (
-              <div key={idx} />
+              <div key={`blank-${idx}`} />
             ) : (
               <button
-                key={idx}
+                key={`key-${k}`}
                 disabled={locked}
                 data-testid={k === "del" ? "pin-key-del" : `pin-key-${k}`}
                 onClick={() => (k === "del" ? setPin(pin.slice(0, -1)) : press(k))}
@@ -118,7 +119,9 @@ export const PinLock = ({ onUnlock, propertyName }) => {
               try {
                 const res = await api.demoBypass();
                 if (res?.success) onUnlock();
-              } catch (e) {}
+              } catch (e) {
+                toast.error(e?.response?.data?.detail || "Demo access is not available");
+              }
             }}
             className="mt-8 text-xs flex items-center gap-1.5"
             style={{ color: "var(--c4-muted)" }}

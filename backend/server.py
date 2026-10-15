@@ -1,10 +1,12 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
+from urllib.parse import urlparse
 from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
+import ipaddress
 import logging
 import copy
 import uuid
@@ -302,9 +304,22 @@ async def valid_session(token: str) -> bool:
     return True
 
 
+SESSION_COOKIE = "c4_session"
+
+
 def _bearer(request: Request) -> str:
+    """Session token from the httpOnly cookie (browser) or a Bearer header (scripts)."""
     auth = request.headers.get("Authorization", "")
-    return auth[7:] if auth.startswith("Bearer ") else ""
+    return request.cookies.get(SESSION_COOKIE) or (auth[7:] if auth.startswith("Bearer ") else "")
+
+
+def _is_https(request: Request) -> bool:
+    return request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
+
+
+def _set_session_cookie(request: Request, response: Response, token: str):
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=_is_https(request),
+                        max_age=SESSION_TTL_DAYS * 86400, path="/")
 
 
 def is_demo_mode(state: dict) -> bool:
@@ -754,7 +769,7 @@ PIN_LOCK_SECONDS = 30
 
 
 @api_router.post("/auth/pin")
-async def verify_pin(req: PinReq):
+async def verify_pin(req: PinReq, request: Request, response: Response):
     doc = await db.auth.find_one({"key": "pin"})
     if not doc:
         await seed_pin()
@@ -767,8 +782,8 @@ async def verify_pin(req: PinReq):
             return {"success": False, "locked": True, "retry_after": int((lu - now).total_seconds()) + 1, "attempts_left": 0}
     if verify_pin_hash(req.pin, doc["pin_hash"]):
         await db.auth.update_one({"key": "pin"}, {"$set": {"fails": 0}, "$unset": {"locked_until": ""}})
-        token = await create_session()
-        return {"success": True, "token": token}
+        _set_session_cookie(request, response, await create_session())
+        return {"success": True}
     fails = int(doc.get("fails", 0)) + 1
     update = {"fails": fails}
     resp = {"success": False, "locked": False, "attempts_left": max(0, PIN_LOCK_THRESHOLD - fails)}
@@ -792,19 +807,20 @@ async def change_pin(req: ChangePinReq):
 
 
 @api_router.post("/auth/demo")
-async def demo_login():
+async def demo_login(request: Request, response: Response):
     state = await get_state()
     if not is_demo_mode(state):
         raise HTTPException(403, "Demo bypass is disabled once real devices are configured")
-    token = await create_session()
-    return {"success": True, "token": token}
+    _set_session_cookie(request, response, await create_session())
+    return {"success": True}
 
 
 @api_router.post("/auth/logout")
-async def logout(request: Request):
+async def logout(request: Request, response: Response):
     token = _bearer(request)
     if token:
         await db.sessions.delete_one({"token": token})
+    response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True}
 
 
@@ -1972,6 +1988,10 @@ async def _tcp_up(host, port, timeout=1.2):
 
 
 async def _ping_up(host):
+    try:
+        host = str(ipaddress.ip_address(host))  # only literal IPs reach the ping subprocess
+    except ValueError:
+        return False, None
     is_win = os.name == "nt"
     args = ["ping", "-n" if is_win else "-c", "1", "-w" if is_win else "-W", "1000" if is_win else "1", host]
     if not shutil.which("ping"):
@@ -2255,13 +2275,26 @@ async def auth_gate(request: Request, call_next):
         return await call_next(request)
     if not await valid_session(_bearer(request)):
         return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    if request.method not in ("GET", "HEAD") and request.cookies.get(SESSION_COOKIE) and not _origin_ok(request):
+        return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)  # CSRF guard for cookie auth
     return await call_next(request)
+
+
+ALLOWED_ORIGINS = [o.strip() for o in os.environ["CORS_ORIGINS"].split(",") if o.strip()]
+
+
+def _origin_ok(request: Request) -> bool:
+    origin = request.headers.get("origin")
+    if not origin:
+        return True
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(":")[0]
+    return origin in ALLOWED_ORIGINS or urlparse(origin).hostname == host
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=False,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

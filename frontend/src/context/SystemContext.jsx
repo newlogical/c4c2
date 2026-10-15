@@ -6,21 +6,22 @@ const SystemContext = createContext(null);
 export const SystemProvider = ({ children }) => {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authed, setAuthed] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await api.getState();
-      setState(data);
+      setState(await api.getState());
+      setAuthed(true);
     } catch (e) {
-      // 401 is handled globally (returns to lock screen)
+      if (e?.response?.status === 401) setAuthed(false); // lock screen handles it
+      else console.warn("Could not load controller state", e);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (api.hasToken()) refresh();
-    else setLoading(false);
+    refresh();
   }, [refresh]);
 
   // Run any api action that returns the full state, then commit it.
@@ -32,7 +33,7 @@ export const SystemProvider = ({ children }) => {
     return data;
   }, []);
 
-  const value = { state, setState, loading, refresh, act, api };
+  const value = { state, setState, loading, authed, refresh, act, api };
   return <SystemContext.Provider value={value}>{children}</SystemContext.Provider>;
 };
 

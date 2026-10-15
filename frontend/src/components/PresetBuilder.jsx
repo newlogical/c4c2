@@ -68,6 +68,9 @@ const ValueInput = ({ step, state, onChange, idx }) => {
   return <select data-testid={tid} className={sel} style={selStyle} value={step.value} onChange={(e) => onChange(e.target.value)}>{opts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>;
 };
 
+let _uid = 0;
+const newUid = () => `step-${Date.now()}-${++_uid}`;
+
 export const PresetBuilder = ({ open, preset, onClose, onSaved }) => {
   const { state, api } = useSystem();
   const [name, setName] = useState("");
@@ -77,12 +80,12 @@ export const PresetBuilder = ({ open, preset, onClose, onSaved }) => {
   useEffect(() => {
     if (!open) return;
     setName(preset?.name || "");
-    setSteps(preset?.actions ? preset.actions.map((a) => ({ ...a })) : []);
+    setSteps(preset?.actions ? preset.actions.map((a) => ({ ...a, uid: newUid() })) : []);
   }, [open, preset]);
 
   if (!open || !state) return null;
   const update = (i, patch) => setSteps((s) => s.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-  const add = () => setSteps((s) => [...s, { type: "tv_power", target: state.displays[0].id, value: true }]);
+  const add = () => setSteps((s) => [...s, { uid: newUid(), type: "tv_power", target: state.displays[0].id, value: true }]);
   const move = (i, d) => setSteps((s) => { const n = [...s]; const j = i + d; if (j < 0 || j >= n.length) return s; [n[i], n[j]] = [n[j], n[i]]; return n; });
   const changeType = (i, type) => update(i, { type, target: targetsFor(type, state)[0]?.[0], value: defaultValue(type, state) });
 
@@ -91,7 +94,7 @@ export const PresetBuilder = ({ open, preset, onClose, onSaved }) => {
     if (!steps.length) return toast.error("Add at least one step");
     setBusy(true);
     try {
-      const body = { name: name.trim(), icon: "Sparkles", actions: steps };
+      const body = { name: name.trim(), icon: "Sparkles", actions: steps.map(({ uid, ...a }) => a) };
       if (preset) await api.updatePreset(preset.id, body); else await api.createPreset(body);
       toast.success(preset ? "Preset updated" : "Preset saved");
       onSaved();
@@ -113,7 +116,7 @@ export const PresetBuilder = ({ open, preset, onClose, onSaved }) => {
           className="w-full rounded-xl px-4 py-3 text-sm outline-none" style={selStyle} />
         <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Steps run top to bottom. Put “TV power on” before other TV steps.</p>
         {steps.map((st, i) => (
-          <div key={i} className="glass rounded-2xl p-3 space-y-2" data-testid={`preset-step-${i}`}>
+          <div key={st.uid} className="glass rounded-2xl p-3 space-y-2" data-testid={`preset-step-${i}`}>
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-mono w-5" style={{ color: "var(--c4-muted)" }}>{i + 1}</span>
               <select data-testid={`preset-step-type-${i}`} className={sel} style={selStyle} value={st.type} onChange={(e) => changeType(i, e.target.value)}>
