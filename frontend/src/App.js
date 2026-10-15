@@ -21,7 +21,7 @@ import { ScenesTab } from "@/components/tabs/ScenesTab";
 import { AnimatePresence, motion } from "framer-motion";
 
 const Controller = () => {
-  const { state, loading, authed, refresh } = useSystem();
+  const { state, loading, authed, setAuthed, refresh } = useSystem();
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => {
     if (authed) setUnlocked(true);
@@ -48,10 +48,10 @@ const Controller = () => {
   };
 
   useEffect(() => {
-    const onUnauthorized = () => setUnlocked(false);
+    const onUnauthorized = () => { setUnlocked(false); setAuthed(false); };
     window.addEventListener("c4-unauthorized", onUnauthorized);
     return () => window.removeEventListener("c4-unauthorized", onUnauthorized);
-  }, []);
+  }, [setAuthed]);
 
   useEffect(() => {
     if (unlocked && !wizardSeen && state && state.config && state.config.setup_done === false) {
@@ -83,7 +83,7 @@ const Controller = () => {
 
   return (
     <div className="c4-shell min-h-screen flex flex-col">
-      <TopBar onLock={() => { api.logout().catch((e) => console.warn("Logout failed", e)); setUnlocked(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
+      <TopBar onLock={() => { api.logout().catch((e) => console.warn("Logout failed", e)); setUnlocked(false); setAuthed(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
         <AnimatePresence mode="wait">
           <motion.div

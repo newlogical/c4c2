@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 22: tested the move from a localStorage token to an httpOnly cookie session, CSRF/CORS, and a regression smoke across the app. Backend: 17/17 pytest pass (cookie login, no token in the body, 401 without the cookie, wrong PIN sets no cookie, demo login sets the cookie, Bearer header still works, logout clears the cookie and deletes the session, CSRF 403 for a foreign Origin / 200 for own, LAN or missing Origin, CORS preflight for LAN with credentials and no echo for unknown origins, preset create/update/order/delete, device health incl. ping targets). Frontend: fresh load shows the lock screen; PIN 1234 unlocks; reload stays unlocked; no c4_token in localStorage; the cookie is httpOnly and not readable via document.cookie; Lock button returns to the lock screen and a reload stays locked; wrong PIN shows attempts left, then a lockout countdown (29s→26s) that ignores the correct PIN while locked; demo bypass works and survives reload. Smoke: pinned preset run, Apple TV and Sony remotes open, Listen stream panel + TuneIn Saved list (7 stations), Security clips, Settings drawer (voice, health, checklist cards), health panel, Scenes preset builder (3 steps, move up, remove, save, order persisted correctly, then deleted), automations section present. No 401 loops after unlock (0 401s over a ~15s session); no page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/pin (preview ingress)", "issue": "Backend emits SameSite=lax (verified on localhost:8001), but the Emergent preview ingress rewrites Set-Cookie to SameSite=None; Secure; Partitioned. Infra only, not an app bug. The Origin-based CSRF guard covers it. On a self-hosted LAN the cookie stays Lax."},
+      {"endpoint": "db.sessions", "issue": "151 session docs have built up. Expired sessions are only removed when they are presented. Consider a TTL index on expires_at, and clearing other sessions on change-pin."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter22_cookie_auth.py", "/app/test_reports/pytest/pytest_iter22.xml"],
+  "action_items": [
+    "Optional: add a Mongo TTL index on db.sessions.expires_at (stored as an ISO string now; it would need to be a datetime) to prune old sessions",
+    "Optional: SystemContext.authed is never reset to false on logout/lock. Harmless today because App's unlocked state drives the UI, but reset it for clarity"
+  ],
+  "critical_code_review_comments": [
+    "The auth_gate CSRF check runs only for cookie-carrying non-GET requests after session validation. This is correct, and Bearer-only callers are exempt as intended.",
+    "_origin_ok trusts X-Forwarded-Host for same-host matching. Fine behind the ingress or a LAN reverse proxy, but note it if the backend is ever exposed directly.",
+    "Fresh page load makes two /api/state calls that return 401 before unlock (SystemContext refresh and a second caller). Expected and harmless, not a loop.",
+    "_ping_up now validates the host with ipaddress.ip_address before create_subprocess_exec. Health returned 15 devices including 2 ping targets (Thermostat, Front Entry)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter22_cookie_auth.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "PIN 1234 (from /app/memory/test_credentials.md); bcrypt hash verified to start with $2b$",
+  "seed_data_creation": "None persisted. TEST_cookie / TEST_order_preset presets were created and then deleted (0 TEST_ scenes remain). The PIN fail counter was reset to 0 after the lockout test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth is cookie-based now: use requests.Session() after POST /api/auth/pin; the body has no token. Run: REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/test_iter22_cookie_auth.py -o addopts=. Older iter test files (e.g. iter21) still read r.json()['token'] and will KeyError; update their fixtures to use a Session or the Bearer value from session.cookies['c4_session']. Playwright: every browser_automation run is a fresh context, so unlock through the pin-key-* buttons each time. Leave about 1.8s between wrong-PIN entries, because PinLock clears input 500ms after the response and faster typing gets dropped. After a lockout test, wait about 30s and POST the correct PIN to reset the fail counter. Remote sheets need about 1.5s for their animation before checking visibility."
+}

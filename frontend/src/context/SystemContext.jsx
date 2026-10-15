@@ -33,7 +33,7 @@ export const SystemProvider = ({ children }) => {
     return data;
   }, []);
 
-  const value = { state, setState, loading, authed, refresh, act, api };
+  const value = { state, setState, loading, authed, setAuthed, refresh, act, api };
   return <SystemContext.Provider value={value}>{children}</SystemContext.Provider>;
 };
 

@@ -682,7 +682,7 @@ def _register_job(auto: dict):
 
 async def reload_jobs():
     for j in scheduler.get_jobs():
-        if j.id != "offline_watch":
+        if j.id not in ("offline_watch", "prune_sessions"):
             j.remove()
     autos = await db.automations.find({}, {"_id": 0}).to_list(200)
     for a in autos:
@@ -796,13 +796,14 @@ async def verify_pin(req: PinReq, request: Request, response: Response):
 
 
 @api_router.post("/auth/change-pin")
-async def change_pin(req: ChangePinReq):
+async def change_pin(req: ChangePinReq, request: Request):
     doc = await db.auth.find_one({"key": "pin"})
     if not doc or not verify_pin_hash(req.current, doc["pin_hash"]):
         raise HTTPException(400, "Current PIN is incorrect")
     if not (req.new_pin.isdigit() and len(req.new_pin) == 4):
         raise HTTPException(400, "New PIN must be exactly 4 digits")
     await db.auth.update_one({"key": "pin"}, {"$set": {"pin_hash": hash_pin(req.new_pin), "fails": 0}, "$unset": {"locked_until": ""}})
+    await db.sessions.delete_many({"token": {"$ne": _bearer(request)}})  # sign out every other panel
     return {"success": True}
 
 
@@ -1608,6 +1609,10 @@ async def protect_new_token():
     return {"token": state["config"]["camera"]["webhook_token"]}
 
 
+async def prune_sessions():
+    await db.sessions.delete_many({"expires_at": {"$lt": datetime.now(timezone.utc).isoformat()}})
+
+
 _offline_since: dict = {}
 
 
@@ -2335,6 +2340,8 @@ async def on_startup():
     if not scheduler.running:
         scheduler.start()
     scheduler.add_job(offline_watch, "interval", seconds=60, id="offline_watch", replace_existing=True)
+    scheduler.add_job(prune_sessions, "interval", hours=6, id="prune_sessions", replace_existing=True)
+    await prune_sessions()
     await reload_jobs()
     hk = await db.homekit.find_one({"key": "ecobee"}, {"_id": 0})
     if hk and hk.get("pairing"):
