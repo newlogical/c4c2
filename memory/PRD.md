@@ -153,3 +153,6 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - ping subprocess only accepts literal IPs. exec() finding was a false positive (create_subprocess_exec).
 - SSL verify=False kept for Protect/Linkplay self-signed certs (user choice).
 - Hook deps fixed (Automations, Scenes, Security, PinLock, SettingsDrawer, SetupWizard); stable keys (PresetBuilder uid, PinLock, DriverDrawer, Automations); empty catches now warn/toast. Big refactors skipped by user choice.
+
+## 2026-06 Rename
+- App title, PWA name, lock screen, Home header and top bar renamed to "Smith Apartment" (server.py default property_name, index.html, manifest.json; preview DB updated).

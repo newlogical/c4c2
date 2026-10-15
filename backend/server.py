@@ -125,7 +125,7 @@ def default_config() -> dict:
 def default_state() -> dict:
     return {
         "key": STATE_KEY,
-        "property_name": "Riverside Apartment",
+        "property_name": "Smith Apartment",
         "sources": [
             {"id": "atv1", "name": "Apple TV 1", "input": 1, "location": "Living Room"},
             {"id": "atv2", "name": "Apple TV 2", "input": 2, "location": "Office"},
