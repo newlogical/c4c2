@@ -156,3 +156,10 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 
 ## 2026-06 Rename
 - App title, PWA name, lock screen, Home header and top bar renamed to "Smith Apartment" (server.py default property_name, index.html, manifest.json; preview DB updated).
+
+## 2026-06 Windows install + network-independent panel
+- Added backend/requirements-windows.txt (18 direct deps; resolves to 66 cp312 win wheels). Guides use py -3.12 venv + this file.
+- Frontend BACKEND falls back to window.location.hostname:8001 when REACT_APP_BACKEND_URL unset (no frontend .env on mini-PC).
+- Backend CORS allow_origin_regex + CSRF accept private-LAN/Tailscale origins (LAN_ORIGIN_RE). CORS_ORIGINS=http://localhost:3000 on mini-PC.
+- User staging mini-PC at home (192.168.1.243) before moving to apartment (192.168.0.x). Mini-PC: Python 3.12.10, Node 24, Yarn 1.22, ffmpeg 9.0.2 essentials, MongoDB reinstalled & running, Git reinstalled, repo newlogical/c4c2 cloned to C:\apartment-controller, backend deps installed.
+- Next: start backend, yarn install/build, serve; optional remote testing via WiFiman Teleport.

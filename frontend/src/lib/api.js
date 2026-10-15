@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// No build-time URL on the mini-PC: talk to port 8001 on whatever host served the panel.
+export const BACKEND = process.env.REACT_APP_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:8001`;
+const API = `${BACKEND}/api`;
 // Session lives in an httpOnly cookie set by the server; JS never sees the token.
 const http = axios.create({ baseURL: API, withCredentials: true });
 localStorage.removeItem("c4_token"); // clean up the old storage location
@@ -102,7 +104,5 @@ export const api = {
   runAutomation: (id) => http.post(`/automations/${id}/run`).then((r) => r.data),
   triggerEvent: (event) => http.post(`/trigger/${event}`).then((r) => r.data),
 };
-
-export const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 export default api;

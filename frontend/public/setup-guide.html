@@ -210,7 +210,7 @@ Open Notepad, paste the block below, then <strong>File → Save As</strong>, set
 <em>"Save as type: All Files"</em>, and name it <code>.env</code> (not <code>.env.txt</code>).</p>
 <pre>MONGO_URL=mongodb://localhost:27017
 DB_NAME=c4clone
-CORS_ORIGINS=*
+CORS_ORIGINS=http://localhost:3000
 DEFAULT_PIN=1234</pre>
 
 <h3>4.2 Run the backend</h3>
@@ -226,10 +226,8 @@ uvicorn server:app --host 0.0.0.0 --port 8001</pre>
 <pre>cd C:\apartment-controller\frontend
 yarn install</pre>
 
-<h3>5.1 Create the frontend config file</h3>
-<p>Create a file named <strong>.env</strong> inside <code>C:\apartment-controller\frontend</code> with this
-one line. This bakes in the mini‑PC's IP so the iPad knows where the API is:</p>
-<pre>REACT_APP_BACKEND_URL=http://192.168.0.10:8001</pre>
+<h3>5.1 Frontend config</h3>
+<p><strong>No frontend <code>.env</code> is needed.</strong> The panel talks to port 8001 on whichever PC served it, so the same build works at home, at the apartment and over VPN.</p>
 
 <h3>5.2 Build and serve the UI</h3>
 <pre>yarn build
@@ -383,7 +381,7 @@ service using <strong>NSSM</strong> — nssm.cc.)</p>
   <li>Install the Tailscale app on the iPad and sign in with the same account.</li>
   <li>Find the mini‑PC's tailnet IP (starts with <code>100.</code>).</li>
   <li>Rebuild the frontend with that IP: edit <code>frontend\.env</code> →
-      <code>REACT_APP_BACKEND_URL=http://100.x.y.z:8001</code>, then <code>yarn build</code>. Open <code>http://100.x.y.z:3000</code> from anywhere.</li>
+      Open <code>http://100.x.y.z:3000</code> from anywhere — no rebuild needed.</li>
 </ol>
 
 <h3>Option B — UniFi WireGuard / Teleport</h3>
@@ -404,7 +402,7 @@ the VPN is connected, just browse to the normal LAN address <code>http://192.168
 <table>
   <tr><th>Symptom</th><th>Fix</th></tr>
   <tr><td>iPad can't load <code>http://192.168.0.10:3000</code></td><td>Firewall rules (Part 6) not added, or iPad on a different Wi‑Fi/VLAN, or the frontend window was closed.</td></tr>
-  <tr><td>UI loads but shows errors / no data</td><td>Frontend <code>.env</code> IP is wrong, or the backend window is closed. It must point to <code>http://192.168.0.10:8001</code>. Rebuild after any change.</td></tr>
+  <tr><td>UI loads but shows errors / no data</td><td>Backend window closed or port 8001 blocked. Make sure there is no <code>frontend\.env</code> (delete it and rebuild if present).</td></tr>
   <tr><td>"not recognized" for python/node/yarn/ffmpeg</td><td>Re‑run that installer with "Add to PATH", then open a fresh PowerShell.</td></tr>
   <tr><td>Command log shows <strong>error</strong> for a device</td><td>Device unreachable/misconfigured — check its IP, that it's on the same subnet, and that its control feature is enabled.</td></tr>
   <tr><td>TV won't power <strong>on</strong></td><td>Needs the correct <strong>MAC</strong> and <strong>Remote start = ON</strong>; the mini‑PC must be on the same L2 network. Prefer Ethernet.</td></tr>
@@ -422,7 +420,7 @@ the VPN is connected, just browse to the normal LAN address <code>http://192.168
   <li>Git, Python 3.11, Node 20, MongoDB (service), ffmpeg installed &amp; on PATH; Yarn enabled</li>
   <li>Code cloned to C:\apartment-controller</li>
   <li>backend\.env created; backend running on port 8001; <code>/api/</code> responds</li>
-  <li>frontend\.env points to http://192.168.0.10:8001; <code>yarn build</code> done; UI serving on port 3000</li>
+  <li>No frontend\.env; <code>yarn build</code> done; UI serving on port 3000</li>
   <li>Firewall rules added for ports 3000 and 8001</li>
   <li>iPad opens http://192.168.0.10:3000 and added to Home Screen</li>
   <li>Each device entered &amp; switched to LIVE; "Test connection" passes</li>

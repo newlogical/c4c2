@@ -2286,6 +2286,8 @@ async def auth_gate(request: Request, call_next):
 
 
 ALLOWED_ORIGINS = [o.strip() for o in os.environ["CORS_ORIGINS"].split(",") if o.strip()]
+# Any private-LAN / Tailscale origin, so the panel works on whatever network the mini-PC is on.
+LAN_ORIGIN_RE = r"^https?://(localhost|127\.0\.0\.1|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])(\.\d{1,3}){2})(:\d+)?$"
 
 
 def _origin_ok(request: Request) -> bool:
@@ -2293,13 +2295,14 @@ def _origin_ok(request: Request) -> bool:
     if not origin:
         return True
     host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(":")[0]
-    return origin in ALLOWED_ORIGINS or urlparse(origin).hostname == host
+    return origin in ALLOWED_ORIGINS or bool(re.match(LAN_ORIGIN_RE, origin)) or urlparse(origin).hostname == host
 
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=LAN_ORIGIN_RE,
     allow_methods=["*"],
     allow_headers=["*"],
 )

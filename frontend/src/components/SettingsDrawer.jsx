@@ -111,7 +111,7 @@ const HomeKitPair = ({ conn, onBeforePair }) => {
 
 const PersonWebhook = ({ token }) => {
   const { api, refresh } = useSystem();
-  const url = `${process.env.REACT_APP_BACKEND_URL}/api/protect/webhook/${token || ""}`;
+  const url = `${BACKEND}/api/protect/webhook/${token || ""}`;
   return (
     <div className="mt-3 rounded-xl p-3 space-y-2" style={{ background: "var(--c4-bg)" }} data-testid="person-webhook">
       <p className="text-xs font-semibold">Person alerts (shown when Security is armed)</p>

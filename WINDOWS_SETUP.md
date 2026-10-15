@@ -84,7 +84,7 @@ Create the backend config file **`C:\apartment-controller\backend\.env`** with t
 ```
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=c4clone
-CORS_ORIGINS=http://192.168.0.10:3000
+CORS_ORIGINS=http://localhost:3000
 DEFAULT_PIN=1234
 ```
 
@@ -105,11 +105,9 @@ cd C:\apartment-controller\frontend
 yarn install
 ```
 
-Create the frontend config file **`C:\apartment-controller\frontend\.env`** — this bakes in your mini‑PC's
-IP so the iPad can reach the API:
-```
-REACT_APP_BACKEND_URL=http://192.168.0.10:8001
-```
+**Do not create a `frontend\.env`.** The panel automatically talks to port 8001 on whichever PC served it,
+so the same build works at home, at the apartment, and over VPN — no IP to edit, no rebuild after moving.
+Any private-LAN (192.168.x / 10.x / 172.16–31.x) or Tailscale (100.64–127.x) address is accepted by the backend.
 
 Build it and serve it:
 ```powershell
@@ -190,7 +188,7 @@ not"; Triggers → **At startup**; Actions → Start the .bat. Now both start on
 
 Never port‑forward 3000/8001 to the internet. Use a VPN:
 - **Tailscale** (easiest): install on the mini‑PC and on the iPad, sign in to both. Then rebuild the
-  frontend with `REACT_APP_BACKEND_URL=http://<tailscale-100.x.y.z-ip>:8001` and browse to it from anywhere.
+  browse to `http://<tailscale-100.x.y.z-ip>:3000` from anywhere (no rebuild needed).
 - **UniFi WireGuard/Teleport**: create a client on the Dream Machine, load it on the iPad, then just use
   the normal LAN IP `http://192.168.0.10:3000`.
 
@@ -201,7 +199,7 @@ Never port‑forward 3000/8001 to the internet. Use a VPN:
 | Symptom | Fix |
 |---|---|
 | iPad can't load `http://192.168.0.10:3000` | Firewall rules (Step 5) not added, or iPad on a different Wi‑Fi/VLAN. |
-| UI loads but everything errors / no data | Frontend `.env` IP wrong, or backend window closed. It must read `http://192.168.0.10:8001`. Rebuild frontend after any `.env` change. |
+| UI loads but everything errors / no data | Backend window closed, or port 8001 blocked by the firewall. Make sure there is NO `frontend\.env` (delete it and `yarn build` again if one exists). |
 | "not recognized" for python/node/yarn/ffmpeg | Re‑run installer with "Add to PATH", reopen PowerShell. |
 | Camera shows "Stream unavailable" | ffmpeg not on PATH, or wrong RTSP URL / camera RTSP disabled. |
 | TV won't power on | Wake‑on‑LAN needs the correct **MAC** + "Network standby" enabled on the TV; host on same L2 network. |
