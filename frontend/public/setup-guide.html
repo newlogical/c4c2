@@ -195,15 +195,14 @@ contains a <code>backend</code> folder and a <code>frontend</code> folder.</div>
 <p>In PowerShell:</p>
 <pre>cd C:\apartment-controller\backend
 
-# create an isolated Python environment
-python -m venv .venv
+# create an isolated Python 3.12 environment (newer Pythons lack prebuilt wheels)
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python --version   # must say 3.12.x
 
-# install dependencies
-pip install -r requirements.txt
-
-# optional: Apple TV control support
-pip install pyatv</pre>
+# install dependencies (Windows-specific list)
+python -m pip install --upgrade pip
+pip install -r requirements-windows.txt</pre>
 
 <h3>4.1 Create the backend config file</h3>
 <p>Create a file named exactly <strong>.env</strong> inside <code>C:\apartment-controller\backend</code>.

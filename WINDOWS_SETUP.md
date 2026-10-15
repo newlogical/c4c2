@@ -69,14 +69,14 @@ From here we assume the project lives at **`C:\apartment-controller`** (contains
 ```powershell
 cd C:\apartment-controller\backend
 
-# create an isolated Python environment
-python -m venv .venv
+# create an isolated Python 3.12 environment (newer Pythons lack prebuilt wheels)
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python --version   # must say 3.12.x
 
-# install dependencies
-pip install -r requirements.txt
-# optional: Apple TV control
-pip install pyatv
+# install dependencies (Windows-specific list; requirements.txt is for the cloud/Linux build)
+python -m pip install --upgrade pip
+pip install -r requirements-windows.txt
 ```
 
 Create the backend config file **`C:\apartment-controller\backend\.env`** with this content
