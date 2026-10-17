@@ -166,5 +166,5 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 
 ## 2026-10 On-site commissioning (apartment)
 - Mini-PC moved to apartment; backend + built panel (npx serve) running. Node reinstalled as portable zip at C:\nodejs (MSI kept failing 1603).
-- USER-CONFIRMED: Living Room Sony TV works LIVE (PSK + IP control). Doing remaining Sony TVs next, then matrix, amp, Apple TVs, Ecobee, camera.
+- USER-CONFIRMED: all 4 Sony TVs work LIVE (PSK + IP control). Next: matrix, amp, Apple TVs, Ecobee, camera.
 - Auto-start service not built yet (user must start backend + serve manually after reboot).
