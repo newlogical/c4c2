@@ -10,7 +10,10 @@ updates, so the UI always stays responsive.
 
 Live config is passed per-call as `conn` (a dict from state['config'][device]).
 """
+import base64
 import socket
+import urllib.parse
+import urllib.request
 import shutil
 import subprocess
 import time
@@ -48,35 +51,25 @@ class BaseDriver:
 
 
 class MatrixDriver(BaseDriver):
-    """J-Tech JTECH-MXT40 4x4 HDBaseT Matrix — Telnet TCP:23, '#video_d outN matrix=I'."""
+    """J-Tech JTECH-MXT40 4x4 HDBaseT Matrix — HTTP POST /output.set (same as its web GUI), '#video_d outN matrix=I'."""
 
     name = "JTECH-MXT40"
-    transport = "Telnet TCP:23"
-
-    def _send(self, conn, payload):
-        host = conn["host"]
-        port = int(conn.get("port", 23))
-        with socket.create_connection((host, port), timeout=4) as s:
-            self._login(s, conn)
-            s.sendall((payload + "\r\n").encode())
+    transport = "HTTP POST /output.set"
 
     @staticmethod
-    def _read(s, wait=0.8):
-        s.settimeout(wait)
-        try:
-            return s.recv(1024).decode(errors="ignore").lower()
-        except socket.timeout:
-            return ""
+    def _cookie(conn):
+        enc = lambda v: urllib.parse.quote(base64.b64encode((v or "").encode()).decode(), safe="")
+        return f"sx_login_name={enc(conn.get('username', 'admin'))}; sx_login_pwd={enc(conn.get('password', 'admin'))}"
 
-    def _login(self, s, conn):
-        # Answer a Telnet login prompt only if the matrix presents one
-        banner = self._read(s)
-        if "login" in banner or "user" in banner:
-            s.sendall((conn.get("username", "") + "\r\n").encode())
-            banner = self._read(s, 1.5)
-        if "pass" in banner:
-            s.sendall((conn.get("password", "") + "\r\n").encode())
-            self._read(s, 1.5)
+    def _send(self, conn, payload):
+        base = f"http://{conn['host']}:{int(conn.get('port') or 80)}"
+        req = urllib.request.Request(
+            f"{base}/output.set{int(time.time() * 1000)}", data=payload.encode(), method="POST",
+            headers={"Content-Type": "charset=UTF-8", "Isajax": "yes", "Cookie": self._cookie(conn),
+                     "Origin": base, "Referer": f"{base}/index.html"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            if r.status != 200:
+                raise RuntimeError(f"Matrix HTTP {r.status}")
 
     def route(self, output_index, input_index, display, source, conn=None):
         payload = f"#video_d out{output_index} matrix={input_index}"

@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import asyncio
 import socket
+import urllib.request
 import secrets
 import re
 import bcrypt
@@ -106,7 +107,7 @@ SONY_TV_MACS = {
 
 def default_config() -> dict:
     return {
-        "matrix": {"live": False, "host": JTECH_HOST, "port": 23, "username": "admin", "password": "admin"},
+        "matrix": {"live": False, "host": JTECH_HOST, "port": 80, "username": "admin", "password": "admin"},
         "amp": {"live": False, "host": WS66I_HOST, "streamers": copy.deepcopy(WS66I_STREAMERS), "input_map": {
 **WS66I_INPUT_MAP}},
         "ecobee": {"live": False, "paired": False, **ECOBEE_LAN},
@@ -212,6 +213,8 @@ async def get_state() -> dict:
         if _cfgm["matrix"].get("host") in ("", None, "192.168.1.1"):
             _cfgm["matrix"]["host"] = JTECH_HOST
         _cfgm["matrix"].setdefault("username", "admin")
+        if _cfgm["matrix"].get("port") in (23, "23", None, ""):
+            _cfgm["matrix"]["port"] = 80  # MXT40 takes commands via its web API, not Telnet
         _cfgm["matrix"].setdefault("password", "admin")
     doc.setdefault("pinned_scenes", [LIVING_TV_PRESET["id"]])
     doc.setdefault("tunein_saved", copy.deepcopy(music.DEFAULT_STATIONS))
@@ -994,7 +997,7 @@ async def checklist():
         ("install", "Install", "App running on the mini-PC", "Follow the Windows setup guide; open http://192.168.0.10:3000 on the iPad.", any(online.values()) or None, "setup-guide-link"),
         ("ipad_wifi", "Install", "iPad on home Wi-Fi, added to Home Screen", "Safari → Share → Add to Home Screen for full-screen mode.", None, None),
         ("pin", "Install", "Unlock PIN changed from 1234", "Pick a new 4-digit code.", pin_changed, "settings-pin"),
-        ("matrix_live", "Video", "HDMI matrix set to Live", "J-Tech MXT40 @ 192.168.0.254, Telnet 23.", bool((c.get("matrix") or {}).get("live")), "settings-matrix"),
+        ("matrix_live", "Video", "HDMI matrix set to Live", "J-Tech MXT40 @ 192.168.0.254, web control (port 80).", bool((c.get("matrix") or {}).get("live")), "settings-matrix"),
         ("matrix_wiring", "Video", "Matrix wiring identified", "Run Identify outputs with all TVs on.", bool(state.get("matrix_wiring_confirmed")), "matrix-wiring-card"),
         ("tv_setup", "Video", f"Sony TVs: pre-shared key + Remote start ({tv_keys}/4 keys entered)", "On each TV: Network → IP control → PSK; Remote start ON.", (tv_keys == 4 and bool((c.get("tv") or {}).get("live"))) or None, "settings-tv"),
         ("amp_live", "Audio", "WS66i amp set to Live", "192.168.0.43; inputs 1-2 Apple TVs, 3-4 AirPlay.", bool((c.get("amp") or {}).get("live")), "settings-amp"),
@@ -1752,8 +1755,9 @@ async def test_connection(device: str):
         return {"device": device, "ok": False, "detail": "Device is in demo mode (not live)."}
     try:
         if device == "matrix":
-            with socket.create_connection((conn["host"], int(conn.get("port", 23))), timeout=4):
-                pass
+            url = f"http://{conn['host']}:{int(conn.get('port') or 80)}/index.html"
+            await asyncio.to_thread(lambda: urllib.request.urlopen(url, timeout=4).close())
+            return {"device": device, "ok": True, "detail": f"Matrix web control reachable @ {conn['host']}"}
         elif device == "amp":
             with socket.create_connection((conn["host"], 8080), timeout=4):
                 pass
@@ -1943,19 +1947,16 @@ async def discover(live: bool = False):
     """Suggest device connection info. Real LAN scan only when self-hosted (live=true);
     the cloud demo returns sample results so the wizard flow is usable."""
     demo_devices = {
-        "matrix": {"host": JTECH_HOST, "port": 23, "label": f"JTECH-MXT40 (Telnet) @ {JTECH_HOST}"},
+        "matrix": {"host": JTECH_HOST, "port": 80, "label": f"JTECH-MXT40 (web control) @ {JTECH_HOST}"},
         "amp": {"host": WS66I_HOST, "label": f"WS66i 6-zone @ {WS66I_HOST}"},
         "camera": {"rtsp_url": f"rtsps://{UNIFI_NVR['ip']}:7441/demo-front?enableSrtp", "label": "UniFi G6 PTZ (Front Entry)"},
         "tv": {tid: {"ip": ip, "mac": SONY_TV_MACS[tid]} for tid, ip in SONY_TV_IPS.items()},
     }
     if not live:
         return {"demo": True, "devices": demo_devices}
-    # Self-hosted lightweight scan of the local /24 for known ports (bounded)
+    # Self-hosted lightweight probe of the known device addresses
     found = {"tv": {}}
     try:
-        host_ip = socket.gethostbyname(socket.gethostname())
-        base = ".".join(host_ip.split(".")[:3])
-
         async def probe(ip, port):
             try:
                 fut = asyncio.open_connection(ip, port)
@@ -1965,14 +1966,10 @@ async def discover(live: bool = False):
             except Exception:
                 return False
 
-        async def scan(port):
-            hits = await asyncio.gather(*[probe(f"{base}.{h}", port) for h in range(1, 255)])
-            return [f"{base}.{h}" for h, ok in zip(range(1, 255), hits) if ok]
-
-        matrix_hosts, tv_up = await asyncio.gather(
-            scan(23), asyncio.gather(*[probe(ip, 80) for ip in SONY_TV_IPS.values()]))
-        if matrix_hosts:
-            found["matrix"] = {"host": matrix_hosts[0], "port": 23, "label": f"Telnet device @ {matrix_hosts[0]}"}
+        matrix_up, tv_up = await asyncio.gather(
+            probe(JTECH_HOST, 80), asyncio.gather(*[probe(ip, 80) for ip in SONY_TV_IPS.values()]))
+        if matrix_up:
+            found["matrix"] = {"host": JTECH_HOST, "port": 80, "label": f"JTECH-MXT40 (web control) @ {JTECH_HOST}"}
         for (disp, ip), ok in zip(SONY_TV_IPS.items(), tv_up):
             if ok:
                 found["tv"][disp] = {"ip": ip, "mac": SONY_TV_MACS[disp]}
@@ -2030,7 +2027,7 @@ def _health_targets(state):
                     "mac": ec.get("mac", ""), "live": bool(ec.get("live"))})
     m = c.get("matrix") or {}
     if m.get("host"):
-        out.append({"id": "matrix", "name": "HDMI Matrix", "kind": "J-Tech MXT40", "ip": m["host"], "port": int(m.get("port", 23)),
+        out.append({"id": "matrix", "name": "HDMI Matrix", "kind": "J-Tech MXT40", "ip": m["host"], "port": int(m.get("port") or 80),
                     "mac": "", "live": bool(m.get("live"))})
     a = c.get("amp") or {}
     if a.get("host"):

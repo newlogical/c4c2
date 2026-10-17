@@ -226,7 +226,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
               </summary>
               <div className="px-4 pb-4 text-[11px] space-y-1.5" style={{ color: "var(--c4-muted)" }}>
                 <p>1. Self-host on a Pi/mini-PC on the apartment LAN (full steps in <code>SELF_HOST.md</code>).</p>
-                <p>2. <b>Matrix</b>: enable Telnet, enter its IP (port 23).</p>
+                <p>2. <b>Matrix</b>: enter its IP (web port 80) and the web login.</p>
                 <p>3. <b>WS66i</b>: set the rear switch to ETHERNET, enter IP, map each source to its wired input.</p>
                 <p>4. <b>Ecobee</b>: enter the HomeKit setup code from the thermostat (Menu → Settings → HomeKit) and tap Pair.</p>
                 <p>5. <b>UniFi</b>: paste the camera's RTSP URL.</p>
@@ -415,7 +415,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
 
               <DeviceCard icon={Cable} title="JTECH-MXT40 Matrix" subtitle="HDMI video routing" device="matrix" conn={c("matrix")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="Host / IP" value={c("matrix").host} placeholder="192.168.0.254" onChange={(v) => setField("matrix", "host", v)} testid="matrix-host-input" />
-                <Field label="Telnet Port" value={c("matrix").port} placeholder="23" type="number" onChange={(v) => setField("matrix", "port", Number(v))} testid="matrix-port-input" />
+                <Field label="Web Port" value={c("matrix").port} placeholder="80" type="number" onChange={(v) => setField("matrix", "port", Number(v))} testid="matrix-port-input" />
                 <Field label="Username" value={c("matrix").username} placeholder="admin" onChange={(v) => setField("matrix", "username", v)} testid="matrix-username-input" />
                 <Field label="Password" value={c("matrix").password} placeholder="admin" type="password" onChange={(v) => setField("matrix", "password", v)} testid="matrix-password-input" />
               </DeviceCard>

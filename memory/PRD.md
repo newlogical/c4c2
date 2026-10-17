@@ -168,3 +168,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Mini-PC moved to apartment; backend + built panel (npx serve) running. Node reinstalled as portable zip at C:\nodejs (MSI kept failing 1603).
 - USER-CONFIRMED: all 4 Sony TVs work LIVE (PSK + IP control). Next: matrix, amp, Apple TVs, Ecobee, camera.
 - Auto-start service not built yet (user must start backend + serve manually after reboot).
+- Matrix: MXT40 has NO Telnet. Captured web GUI: POST http://<ip>/output.set<ms> body "#video_d outN matrix=I", Content-Type "charset=UTF-8", Isajax: yes, Cookie sx_login_name/sx_login_pwd = urlencoded base64(user/pass). MatrixDriver now uses this (port 80); config port 23 auto-migrated to 80; test = GET /index.html. Verified against a fake server (byte-identical). Awaiting user live test.
