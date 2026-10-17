@@ -163,3 +163,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Backend CORS allow_origin_regex + CSRF accept private-LAN/Tailscale origins (LAN_ORIGIN_RE). CORS_ORIGINS=http://localhost:3000 on mini-PC.
 - User staging mini-PC at home (192.168.1.243) before moving to apartment (192.168.0.x). Mini-PC: Python 3.12.10, Node 24, Yarn 1.22, ffmpeg 9.0.2 essentials, MongoDB reinstalled & running, Git reinstalled, repo newlogical/c4c2 cloned to C:\apartment-controller, backend deps installed.
 - Next: start backend, yarn install/build, serve; optional remote testing via WiFiman Teleport.
+
+## 2026-10 On-site commissioning (apartment)
+- Mini-PC moved to apartment; backend + built panel (npx serve) running. Node reinstalled as portable zip at C:\nodejs (MSI kept failing 1603).
+- USER-CONFIRMED: Living Room Sony TV works LIVE (PSK + IP control). Doing remaining Sony TVs next, then matrix, amp, Apple TVs, Ecobee, camera.
+- Auto-start service not built yet (user must start backend + serve manually after reboot).
