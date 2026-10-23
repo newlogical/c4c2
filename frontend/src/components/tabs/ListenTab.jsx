@@ -1,186 +1,70 @@
-import React, { useState, useEffect } from "react";
-import { Volume2, VolumeX, Power, Radio, Speaker, Music, Link2 } from "lucide-react";
+import React, { useState } from "react";
+import { RotateCcw, Loader2, MonitorSmartphone } from "lucide-react";
+import { api } from "@/lib/api";
+import { useListen } from "@/context/ListenContext";
 import { useSystem } from "@/context/SystemContext";
-import { StreamPanel } from "@/components/StreamPanel";
-import { toast } from "sonner";
+import { RoomPanel } from "@/components/listen/RoomPanel";
+import { PartyPanel } from "@/components/listen/PartyPanel";
+import { FavoriteShortcuts } from "@/components/listen/FavoriteShortcuts";
 
-const ZoneCard = ({ zone, sources, onChange }) => {
-  const [vol, setVol] = useState(zone.volume);
-  useEffect(() => setVol(zone.volume), [zone.volume]);
+const RoomTabs = ({ rooms, tab, setTab, partyOn }) => (
+  <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0" role="tablist" data-testid="room-tabs">
+    {[...rooms.map((r) => ({ id: r.id, label: r.name, on: r.status.power })), { id: "party", label: "Party Mode", on: partyOn }].map((t) => {
+      const sel = tab === t.id;
+      return (
+        <button key={t.id} role="tab" aria-selected={sel} data-testid={`room-tab-${t.id}`} onClick={() => setTab(t.id)}
+          className="shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold flex items-center gap-2 transition-colors"
+          style={{ background: sel ? "var(--c4-text)" : "rgba(255,255,255,0.05)", color: sel ? "#0A0D14" : "var(--c4-muted)" }}>
+          {t.label}
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.on ? "var(--c4-emerald)" : "rgba(148,163,184,0.4)" }} />
+        </button>
+      );
+    })}
+  </div>
+);
 
-  const src = sources.find((s) => s.id === zone.source);
+export const ListenTab = ({ onRemote }) => {
+  const { data, run, busy } = useListen();
+  const { state } = useSystem();
+  const [tab, setTab] = useState("living");
+  if (!data) return <div className="p-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+
+  const rooms = data.rooms.filter((r) => r.visible);
+  const current = tab === "party" ? null : rooms.find((r) => r.id === tab) || rooms[0];
+  const roomTvs = new Set(rooms.map((r) => r.tv_id));
+  const otherTvs = (state?.displays || []).filter((d) => !roomTvs.has(d.id));
 
   return (
-    <div className="glass rounded-2xl p-4" data-testid={`zone-card-${zone.id}`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: zone.power ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.05)" }}>
-            <Speaker className="w-4.5 h-4.5" style={{ color: zone.power ? "var(--c4-amber)" : "var(--c4-muted)" }} />
-          </div>
-          <div>
-            <p className="font-semibold text-sm">{zone.name}</p>
-            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
-              {zone.paired_tv ? "TV + Audio zone" : "Audio only"}
-            </p>
-          </div>
+    <div className="p-4 sm:p-6 space-y-5 pb-8" data-testid="listen-tab">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c4-amber)" }}>Audio · WS66i</p>
+          <h1 className="font-head text-4xl sm:text-5xl font-extrabold tracking-tight">Listen</h1>
         </div>
-        <button
-          data-testid={`zone-power-${zone.id}`}
-          onClick={() => onChange({ zone_id: zone.id, power: !zone.power })}
-          className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition"
-          style={{ background: zone.power ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)" }}
-        >
-          <Power className="w-4 h-4" style={{ color: zone.power ? "var(--c4-emerald)" : "var(--c4-muted)" }} />
+        <button data-testid="restore-default-audio" disabled={busy} onClick={() => run(api.restoreDefaults(), "Default audio restored")}
+          className="rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+          style={{ background: "rgba(6,182,212,0.14)", color: "var(--c4-cyan)", border: "1px solid rgba(6,182,212,0.35)" }}>
+          <RotateCcw className="w-4 h-4" /> Restore Default Audio
         </button>
       </div>
 
-      {/* Volume */}
-      <div className="flex items-center gap-3 mb-3">
-        <button
-          data-testid={`zone-mute-${zone.id}`}
-          onClick={() => onChange({ zone_id: zone.id, mute: !zone.mute })}
-          className="shrink-0"
-        >
-          {zone.mute ? (
-            <VolumeX className="w-5 h-5" style={{ color: "var(--c4-rose)" }} />
-          ) : (
-            <Volume2 className="w-5 h-5" style={{ color: "var(--c4-text)" }} />
-          )}
-        </button>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={zone.mute ? 0 : vol}
-          data-testid={`zone-volume-${zone.id}`}
-          className="c4-range flex-1"
-          onChange={(e) => setVol(Number(e.target.value))}
-          onPointerUp={() => onChange({ zone_id: zone.id, volume: vol })}
-          onTouchEnd={() => onChange({ zone_id: zone.id, volume: vol })}
-        />
-        <span className="w-9 text-right text-sm font-mono" style={{ color: "var(--c4-muted)" }}>
-          {zone.mute ? "—" : `${vol}%`}
-        </span>
-      </div>
+      <FavoriteShortcuts />
+      <RoomTabs rooms={rooms} tab={current ? current.id : "party"} setTab={setTab} partyOn={data.party.active} />
+      {current ? <RoomPanel room={current} data={data} onRemote={onRemote} /> : <PartyPanel data={data} />}
 
-      {/* Source select */}
-      <div className="flex flex-wrap gap-1.5">
-        {sources.map((s) => (
-          <button
-            key={s.id}
-            data-testid={`zone-source-${zone.id}-${s.id}`}
-            onClick={() => onChange({ zone_id: zone.id, source: s.id })}
-            className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95"
-            style={{
-              background: zone.source === s.id ? "var(--c4-amber)" : "rgba(255,255,255,0.05)",
-              color: zone.source === s.id ? "#0A0D14" : "var(--c4-muted)",
-            }}
-          >
-            {s.name}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-export const ListenTab = () => {
-  const { state, act, api } = useSystem();
-  const [groupSource, setGroupSource] = useState("spotify");
-  const [groupVol, setGroupVol] = useState(30);
-  if (!state) return null;
-
-  const change = async (payload) => {
-    await act(api.zone(payload));
-  };
-
-  const applyGroup = async () => {
-    await act(api.audioGroup(groupSource, groupVol));
-    const name = state.audio_sources.find((s) => s.id === groupSource)?.name;
-    toast.success(`All zones synced to ${name}`);
-  };
-
-  const toggleFollow = async () => {
-    await act(api.setAudioFollow(!state.audio_follow_tv));
-  };
-  const follow = state.audio_follow_tv;
-
-  return (
-    <div className="p-4 sm:p-6 space-y-6 pb-8" data-testid="listen-tab">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c4-amber)" }}>WS66i · 6-Zone Amplifier</p>
-        <h1 className="font-head text-2xl font-extrabold tracking-tight">Audio Zones</h1>
-      </div>
-
-      <StreamPanel />
-
-      {/* Sound follows screen */}
-      <button
-        data-testid="audio-follow-toggle"
-        onClick={toggleFollow}
-        className="w-full glass rounded-2xl p-3.5 flex items-center justify-between active:scale-[0.99] transition"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: follow ? "rgba(6,182,212,0.15)" : "rgba(255,255,255,0.05)" }}>
-            <Link2 className="w-4.5 h-4.5" style={{ color: follow ? "var(--c4-cyan)" : "var(--c4-muted)" }} />
-          </div>
-          <div className="text-left">
-            <p className="font-semibold text-sm">Sound follows screen</p>
-            <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>A room's audio switches to its TV's source</p>
+      {otherTvs.length > 0 && (
+        <div className="pt-2" data-testid="other-tv-controls">
+          <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--c4-muted)" }}>TV Controls</p>
+          <div className="flex flex-wrap gap-2">
+            {otherTvs.map((d) => (
+              <button key={d.id} data-testid={`tv-remote-${d.id}`} onClick={() => onRemote(d.id)}
+                className="glass rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform">
+                <MonitorSmartphone className="w-4 h-4" style={{ color: "var(--c4-primary)" }} /> {d.name}
+              </button>
+            ))}
           </div>
         </div>
-        <span className="w-11 h-6 rounded-full relative transition shrink-0" style={{ background: follow ? "var(--c4-emerald)" : "rgba(255,255,255,0.12)" }}>
-          <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: follow ? "22px" : "2px" }} />
-        </span>
-      </button>
-
-      {/* Whole home group */}
-      <div className="glass rounded-2xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Radio className="w-4 h-4" style={{ color: "var(--c4-indigo)" }} />
-          <p className="font-semibold text-sm">Whole-Home Audio</p>
-        </div>
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {state.audio_sources.map((s) => (
-            <button
-              key={s.id}
-              data-testid={`group-source-${s.id}`}
-              onClick={() => setGroupSource(s.id)}
-              className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95"
-              style={{
-                background: groupSource === s.id ? "var(--c4-indigo)" : "rgba(255,255,255,0.05)",
-                color: groupSource === s.id ? "#fff" : "var(--c4-muted)",
-              }}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 mb-3">
-          <Music className="w-4 h-4 shrink-0" style={{ color: "var(--c4-muted)" }} />
-          <input
-            type="range" min="0" max="100" value={groupVol}
-            data-testid="group-volume"
-            className="c4-range flex-1"
-            onChange={(e) => setGroupVol(Number(e.target.value))}
-          />
-          <span className="w-9 text-right text-sm font-mono" style={{ color: "var(--c4-muted)" }}>{groupVol}%</span>
-        </div>
-        <button
-          data-testid="apply-group-btn"
-          onClick={applyGroup}
-          className="w-full rounded-xl py-2.5 text-sm font-semibold active:scale-95 transition"
-          style={{ background: "rgba(99,102,241,0.15)", color: "var(--c4-indigo)", border: "1px solid rgba(99,102,241,0.3)" }}
-        >
-          Sync all 4 zones
-        </button>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-3">
-        {state.audio_zones.map((z) => (
-          <ZoneCard key={z.id} zone={z} sources={state.audio_sources} onChange={change} />
-        ))}
-      </div>
+      )}
     </div>
   );
 };

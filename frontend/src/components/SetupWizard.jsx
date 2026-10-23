@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronRight, ChevronLeft, Wifi, Loader2, Cable, Radio, Thermometer, Camera, MonitorSpeaker, Sparkles, CheckCircle2 } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Wifi, Loader2, Radio, Thermometer, MonitorSpeaker, Sparkles, CheckCircle2 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 
 const STEPS = [
   { key: "welcome" },
-  { key: "matrix", title: "HDMI Matrix", sub: "JTECH-MXT40 video routing", icon: Cable, device: "matrix", fields: [["host", "IP address", "192.168.0.254"], ["port", "Web port", "80"]] },
   { key: "amp", title: "WS66i Amplifier", sub: "6-zone audio", icon: Radio, device: "amp", fields: [["host", "IP address", "192.168.0.43"]] },
   { key: "ecobee", title: "Ecobee Thermostat", sub: "Local HomeKit control — pair in Settings", icon: Thermometer, device: "ecobee", fields: [["ip", "Thermostat LAN IP", "192.168.0.222"]] },
-  { key: "camera", title: "UniFi Camera", sub: "Live video feed", icon: Camera, device: "camera", fields: [["rtsp_url", "RTSPS link (Protect → G6 PTZ → Settings → Advanced)", "rtsps://192.168.0.166:7441/..."]] },
   { key: "tv", title: "Sony Bravia TVs", sub: "Power, volume & HDMI", icon: MonitorSpeaker, device: "tv", tv: true },
   { key: "done" },
 ];
@@ -39,7 +37,6 @@ export const SetupWizard = ({ open, onClose }) => {
   const setField = (d, k, v) => setCfg((p) => ({ ...p, [d]: { ...p[d], [k]: v } }));
   const setLive = (d, v) => setCfg((p) => ({ ...p, [d]: { ...p[d], live: v } }));
   const setTv = (id, k, v) => setCfg((p) => ({ ...p, tv: { ...p.tv, sets: { ...(p.tv?.sets || {}), [id]: { ...((p.tv?.sets || {})[id] || {}), [k]: v } } } }));
-  const setCam = (id, v) => setCfg((p) => ({ ...p, cameras: { ...(p.cameras || {}), [id]: { ...((p.cameras || {})[id] || {}), live: true, rtsp_url: v } } }));
 
   const persist = async (extra = {}) => { await act(api.updateConfig({ ...cfg, ...extra })); };
 
@@ -64,9 +61,7 @@ export const SetupWizard = ({ open, onClose }) => {
       const d = r.devices || {};
       setCfg((p) => {
         const n = JSON.parse(JSON.stringify(p));
-        if (d.matrix) n.matrix = { ...n.matrix, live: true, host: d.matrix.host, port: d.matrix.port };
         if (d.amp) n.amp = { ...n.amp, live: true, host: d.amp.host };
-        if (d.camera) n.camera = { ...n.camera, live: true, rtsp_url: d.camera.rtsp_url };
         if (d.tv) {
           const sets = { ...(n.tv?.sets || {}) };
           Object.entries(d.tv).forEach(([k, v]) => { sets[k] = { ...(sets[k] || {}), ...v }; });
@@ -139,12 +134,6 @@ export const SetupWizard = ({ open, onClose }) => {
                       <button data-testid={`wizard-test-${step.device}`} onClick={() => test(step.device)} className="w-full mt-2 rounded-lg py-2 text-xs font-semibold flex items-center justify-center gap-2 glass">
                         {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} />} Test connection
                       </button>
-                      {step.device === "camera" && (state?.cameras || []).filter((cm) => cm.id !== "cam_front").map((cm) => (
-                        <div key={cm.id} className="pt-1">
-                          <label className="text-[11px] font-semibold" style={{ color: "var(--c4-muted)" }}>{cm.name} RTSP URL</label>
-                          <input data-testid={`wizard-camera-rtsp-${cm.id}`} value={(cfg.cameras?.[cm.id]?.rtsp_url) ?? ""} placeholder="rtsp://NVR:7447/..." onChange={(e) => setCam(cm.id, e.target.value)} className="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none" style={inputStyle} />
-                        </div>
-                      ))}
                     </div>
                   ) : (
                     <p className="text-xs py-2" style={{ color: "var(--c4-muted)" }}>Leave off to keep this device simulated. Toggle on to enter its connection details.</p>

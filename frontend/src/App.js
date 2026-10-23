@@ -10,14 +10,12 @@ import { DriverDrawer } from "@/components/DriverDrawer";
 import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DeviceHealthPanel } from "@/components/DeviceHealthPanel";
-import { PersonAlert } from "@/components/PersonAlert";
 import { ScreenSaver } from "@/components/ScreenSaver";
-import { HomeTab } from "@/components/tabs/HomeTab";
-import { WatchTab } from "@/components/tabs/WatchTab";
+import { SonyRemote } from "@/components/SonyRemote";
+import { ListenProvider } from "@/context/ListenContext";
 import { ListenTab } from "@/components/tabs/ListenTab";
+import { ShortcutsTab } from "@/components/tabs/ShortcutsTab";
 import { ClimateTab } from "@/components/tabs/ClimateTab";
-import { SecurityTab } from "@/components/tabs/SecurityTab";
-import { ScenesTab } from "@/components/tabs/ScenesTab";
 import { AnimatePresence, motion } from "framer-motion";
 
 const Controller = () => {
@@ -26,14 +24,15 @@ const Controller = () => {
   useEffect(() => {
     if (authed) setUnlocked(true);
   }, [authed]);
-  const [tab, setTab] = useState("home");
+  const [tab, setTab] = useState("listen");
+  const [remoteTv, setRemoteTv] = useState(null);
   const [driversOpen, setDriversOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [healthOpen, setHealthOpen] = useState(false);
   const [wizardSeen, setWizardSeen] = useState(false);
   const [saverOn, setSaverOn] = useState(() => localStorage.getItem("c4_saver") !== "off");
-  const [saverMode, setSaverMode] = useState(() => localStorage.getItem("c4_saver_mode") || "clock");
+  const [saverMode, setSaverMode] = useState(() => (localStorage.getItem("c4_saver_mode") === "photos" ? "photos" : "clock"));
 
   const toggleSaver = () => {
     setSaverOn((v) => {
@@ -73,15 +72,14 @@ const Controller = () => {
   }
 
   const tabs = {
-    home: <HomeTab onNavigate={setTab} onOpenHealth={() => setHealthOpen(true)} />,
-    watch: <WatchTab />,
-    listen: <ListenTab />,
+    listen: <ListenTab onRemote={setRemoteTv} />,
+    shortcuts: <ShortcutsTab />,
     climate: <ClimateTab />,
-    security: <SecurityTab />,
-    scenes: <ScenesTab />,
   };
+  const onNav = (id) => (id === "settings" ? setSettingsOpen(true) : setTab(id));
 
   return (
+    <ListenProvider>
     <div className="c4-shell min-h-screen flex flex-col">
       <TopBar onLock={() => { api.logout().catch((e) => console.warn("Logout failed", e)); setUnlocked(false); setAuthed(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
@@ -97,7 +95,7 @@ const Controller = () => {
           </motion.div>
         </AnimatePresence>
       </main>
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={settingsOpen ? "settings" : tab} onChange={onNav} />
       <DriverDrawer open={driversOpen} onClose={() => setDriversOpen(false)} />
       <SettingsDrawer
         open={settingsOpen}
@@ -110,10 +108,11 @@ const Controller = () => {
         onChangeSaverMode={changeSaverMode}
       />
       <DeviceHealthPanel open={healthOpen} onClose={() => setHealthOpen(false)} />
-      <PersonAlert />
       <SetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <ScreenSaver enabled={saverOn} mode={saverMode} />
+      <SonyRemote display={(state?.displays || []).find((d) => d.id === remoteTv) || null} onClose={() => setRemoteTv(null)} />
     </div>
+    </ListenProvider>
   );
 };
 

@@ -1,13 +1,11 @@
 import React from "react";
-import { LayoutDashboard, Tv, Volume2, Thermometer, Camera, Sparkles } from "lucide-react";
+import { Volume2, Sparkles, Thermometer, Settings } from "lucide-react";
 
 const TABS = [
-  { id: "home", label: "Home", icon: LayoutDashboard },
-  { id: "watch", label: "Watch", icon: Tv },
   { id: "listen", label: "Listen", icon: Volume2 },
-  { id: "climate", label: "Climate", icon: Thermometer },
-  { id: "security", label: "Camera", icon: Camera },
-  { id: "scenes", label: "Scenes", icon: Sparkles },
+  { id: "shortcuts", label: "Shortcuts", icon: Sparkles },
+  { id: "climate", label: "Thermostat", icon: Thermometer },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 export const BottomNav = ({ active, onChange }) => (
@@ -16,7 +14,7 @@ export const BottomNav = ({ active, onChange }) => (
     style={{ background: "rgba(10,13,20,0.85)", borderTop: "1px solid var(--c4-border)", paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
     data-testid="bottom-nav"
   >
-    <div className="max-w-2xl mx-auto grid grid-cols-6 gap-1">
+    <div className="max-w-2xl mx-auto grid grid-cols-4 gap-1">
       {TABS.map(({ id, label, icon: Icon }) => {
         const on = active === id;
         return (
@@ -24,16 +22,13 @@ export const BottomNav = ({ active, onChange }) => (
             key={id}
             data-testid={`nav-${id}`}
             onClick={() => onChange(id)}
-            className="flex flex-col items-center gap-1 py-1.5 rounded-xl transition-all active:scale-95"
+            className="flex flex-col items-center gap-1 py-1.5 rounded-xl transition-transform active:scale-95"
             style={{ color: on ? "var(--c4-primary)" : "var(--c4-muted)" }}
           >
-            <div
-              className="w-full flex justify-center py-1 rounded-lg transition-all"
-              style={{ background: on ? "rgba(59,130,246,0.14)" : "transparent" }}
-            >
+            <div className="w-full flex justify-center py-1 rounded-lg transition-colors" style={{ background: on ? "rgba(59,130,246,0.14)" : "transparent" }}>
               <Icon className="w-5 h-5" strokeWidth={on ? 2.4 : 1.8} />
             </div>
-            <span className="text-[10px] font-semibold tracking-tight">{label}</span>
+            <span className="text-[11px] font-semibold tracking-tight">{label}</span>
           </button>
         );
       })}

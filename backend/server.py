@@ -28,6 +28,7 @@ import homekit
 import protect
 import linkplay
 import music
+import listen
 import secrets as _secrets
 from fastapi.responses import HTMLResponse
 
@@ -881,10 +882,7 @@ async def display_power(req: DisplayPowerReq):
     if not display:
         raise HTTPException(404, "Display not found")
     display["power"] = req.power
-    log_cmd(state, drivers.matrix.power(display["output"], req.power, display["name"], cfg(state, "matrix")))
     log_cmd(state, await asyncio.to_thread(drivers.tv.power, display["name"], req.power, tv_conn(state, display["id"]), True))
-    if req.power:
-        link_zone_to_display(state, display)
     await save_state(state)
     return redact_secrets(state)
 
@@ -972,7 +970,7 @@ async def matrix_map(req: MatrixMapReq):
 
 # ---------------------------------------------------------------------------
 # First-night checklist: auto-detected steps + manual ticks
-CHECKLIST_MANUAL_IDS = {"install", "ipad_wifi", "tv_setup", "ptz_presets", "remote_access"}
+CHECKLIST_MANUAL_IDS = {"install", "ipad_wifi", "tv_setup", "remote_access"}
 
 
 class ChecklistTickReq(BaseModel):
@@ -987,26 +985,17 @@ async def checklist():
     online = {d["id"]: d["online"] for d in health["devices"]}
     pin_doc = await db.auth.find_one({"key": "pin"}) or {}
     pin_changed = bool(pin_doc.get("pin_hash")) and not verify_pin_hash(os.environ.get("DEFAULT_PIN", "1234"), pin_doc["pin_hash"])
-    atvs = (c.get("appletv") or {}).get("devices") or {}
-    paired_atvs = sum(1 for d in atvs.values() if d.get("credentials") and d.get("airplay_credentials"))
     tv_sets = (c.get("tv") or {}).get("sets") or {}
     tv_keys = sum(1 for t in tv_sets.values() if t.get("psk"))
-    cam = c.get("camera") or {}
     manual = state.get("checklist_manual") or {}
     items = [
         ("install", "Install", "App running on the mini-PC", "Follow the Windows setup guide; open http://192.168.0.10:3000 on the iPad.", any(online.values()) or None, "setup-guide-link"),
         ("ipad_wifi", "Install", "iPad on home Wi-Fi, added to Home Screen", "Safari → Share → Add to Home Screen for full-screen mode.", None, None),
         ("pin", "Install", "Unlock PIN changed from 1234", "Pick a new 4-digit code.", pin_changed, "settings-pin"),
-        ("matrix_live", "Video", "HDMI matrix set to Live", "J-Tech MXT40 @ 192.168.0.254, web control (port 80).", bool((c.get("matrix") or {}).get("live")), "settings-matrix"),
-        ("matrix_wiring", "Video", "Matrix wiring identified", "Run Identify outputs with all TVs on.", bool(state.get("matrix_wiring_confirmed")), "matrix-wiring-card"),
         ("tv_setup", "Video", f"Sony TVs: pre-shared key + Remote start ({tv_keys}/4 keys entered)", "On each TV: Network → IP control → PSK; Remote start ON.", (tv_keys == 4 and bool((c.get("tv") or {}).get("live"))) or None, "settings-tv"),
-        ("amp_live", "Audio", "WS66i amp set to Live", "192.168.0.43; inputs 1-2 Apple TVs, 3-4 AirPlay.", bool((c.get("amp") or {}).get("live")), "settings-amp"),
-        ("atv_paired", "Sources & climate", f"Apple TVs paired ({paired_atvs}/4)", "Tap Pair on each Apple TV and type the on-screen PINs.", paired_atvs == 4, "settings-appletv"),
+        ("amp_live", "Audio", "WS66i amp set to Live", "192.168.0.43; room sources are set in Settings → Rooms & sources.", bool((c.get("amp") or {}).get("live")), "settings-amp"),
         ("ecobee_paired", "Sources & climate", "Thermostat paired over HomeKit", "Enter the 8-digit HomeKit code from the thermostat (Menu → Settings → HomeKit).", bool((c.get("ecobee") or {}).get("paired")), "settings-ecobee"),
-        ("cam_stream", "Camera", "Camera stream link added", "Protect → G6 PTZ → Settings → Advanced → RTSPS High.", bool(cam.get("rtsp_url")), "settings-camera"),
-        ("cam_apikey", "Camera", "Protect API key added", "Protect → Settings → Control Plane → Integrations.", bool(cam.get("protect_api_key")), "settings-camera"),
-        ("ptz_presets", "Camera", "PTZ presets saved and named", "Save positions in Protect, then list their names in Settings.", None, "settings-camera"),
-        ("all_green", "Finish", f"All devices green in Device health ({health['online']}/{health['total']})", "Fix anything red before relying on scenes.", health["total"] > 0 and health["online"] == health["total"], "health"),
+        ("all_green", "Finish", f"All devices green in Device health ({health['online']}/{health['total']})", "Fix anything red before relying on shortcuts.", health["total"] > 0 and health["online"] == health["total"], "health"),
         ("remote_access", "Finish", "Remote access via UniFi Teleport / WireGuard", "Never port-forward the controller.", None, None),
     ]
     out = []
@@ -2053,7 +2042,8 @@ def _health_targets(state):
         if mt:
             out.append({"id": cid, "name": cam_names.get(cid, cid), "kind": "UniFi Camera (RTSP)", "ip": mt.group(1),
                         "port": int(mt.group(2) or 554), "mac": "", "live": bool(cam.get("live"))})
-    return out
+    # Matrix, Apple TV and camera control were removed from the app.
+    return [t for t in out if t["id"] not in ("matrix", "nvr") and not t["id"].startswith(("atv", "cam"))]
 
 
 @api_router.get("/health/devices")
@@ -2263,6 +2253,8 @@ def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
 
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
+app.include_router(listen.router)
+listen.D.update(db=db, state_key=STATE_KEY, log_limit=LOG_LIMIT)
 
 PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap", "/api/spotify/callback"}
 PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls", "/api/protect/webhook/")
@@ -2313,30 +2305,13 @@ async def on_startup():
     await get_state()
     await seed_pin()
     await db.sessions.create_index("token")
-    if not await db.meta.find_one({"key": "seed_living_tv_preset"}):
-        if not await db.scenes.find_one({"id": LIVING_TV_PRESET["id"]}):
-            await db.scenes.insert_one(copy.deepcopy(LIVING_TV_PRESET))
-        await db.meta.insert_one({"key": "seed_living_tv_preset"})
-    if not await db.meta.find_one({"key": "seed_music_presets"}):
-        for pr in (GAME_DAY_PRESET, MORNING_PRESET):
-            if not await db.scenes.find_one({"id": pr["id"]}):
-                await db.scenes.insert_one(copy.deepcopy(pr))
-        if not await db.automations.find_one({"id": MORNING_AUTOMATION["id"]}):
-            await db.automations.insert_one(copy.deepcopy(MORNING_AUTOMATION))
-        st = await get_state()
-        if GAME_DAY_PRESET["id"] not in st.get("pinned_scenes", []):
-            st.setdefault("pinned_scenes", []).append(GAME_DAY_PRESET["id"])
-            await save_state(st)
-        await db.meta.insert_one({"key": "seed_music_presets"})
-    if not await db.meta.find_one({"key": "seed_room_presets"}):
-        st = await get_state()
-        for pr in ROOM_PRESETS:
-            if not await db.scenes.find_one({"id": pr["id"]}):
-                await db.scenes.insert_one(copy.deepcopy(pr))
-            if pr["id"] not in st.setdefault("pinned_scenes", []):
-                st["pinned_scenes"].append(pr["id"])
-        await save_state(st)
-        await db.meta.insert_one({"key": "seed_room_presets"})
+    if not await db.meta.find_one({"key": "listen_v2_migration"}):
+        # Old scenes, presets and schedules are replaced by Shortcuts.
+        await db.scenes.delete_many({})
+        await db.automations.delete_many({})
+        await db.system.update_one({"key": STATE_KEY}, {"$set": {"pinned_scenes": [], "audio_follow_tv": False}})
+        await db.meta.insert_one({"key": "listen_v2_migration"})
+    await listen.seed_shortcuts()
     if not scheduler.running:
         scheduler.start()
     scheduler.add_job(offline_watch, "interval", seconds=60, id="offline_watch", replace_existing=True)

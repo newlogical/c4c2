@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Lock, Wifi, Cable, Radio, Terminal, Settings, Maximize, Minimize, Activity } from "lucide-react";
+import { Lock, Wifi, Radio, Terminal, Settings, Maximize, Minimize, Activity } from "lucide-react";
 import { useDeviceHealth } from "@/components/DeviceHealthPanel";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
@@ -65,7 +65,6 @@ export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings, onOpenHealth }) 
       <div className="flex items-center gap-2 sm:gap-4">
         <div className="hidden xs:flex items-center gap-3">
           <StatusDot ok={net.unifi_online} label="UniFi" icon={Wifi} />
-          <StatusDot ok={net.matrix_linked} label="Matrix" icon={Cable} />
           <StatusDot ok={net.amp_linked} label="Amp" icon={Radio} />
         </div>
         <button

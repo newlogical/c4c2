@@ -103,6 +103,24 @@ export const api = {
   deleteAutomation: (id) => http.delete(`/automations/${id}`).then((r) => r.data),
   runAutomation: (id) => http.post(`/automations/${id}/run`).then((r) => r.data),
   triggerEvent: (event) => http.post(`/trigger/${event}`).then((r) => r.data),
+  // Room audio (WS66i), Party Mode, Shortcuts
+  listen: () => http.get("/listen").then((r) => r.data),
+  listenSync: () => http.post("/listen/sync").then((r) => r.data),
+  listenRoom: (rid, body) => http.post(`/listen/room/${rid}`, body).then((r) => r.data),
+  party: (active) => http.post("/listen/party", { active }).then((r) => r.data),
+  partySource: (input) => http.post("/listen/party/source", { input }).then((r) => r.data),
+  partyRoom: (rid, join) => http.post(`/listen/party/room/${rid}`, { join }).then((r) => r.data),
+  partyMaster: (delta) => http.post("/listen/party/master", { delta }).then((r) => r.data),
+  restoreDefaults: () => http.post("/listen/restore-defaults").then((r) => r.data),
+  listenLayout: (body) => http.put("/listen/layout", body).then((r) => r.data),
+  shortcuts: () => http.get("/shortcuts").then((r) => r.data),
+  createShortcut: (body) => http.post("/shortcuts", body).then((r) => r.data),
+  updateShortcut: (id, body) => http.put(`/shortcuts/${id}`, body).then((r) => r.data),
+  deleteShortcut: (id) => http.delete(`/shortcuts/${id}`).then((r) => r.data),
+  duplicateShortcut: (id) => http.post(`/shortcuts/${id}/duplicate`).then((r) => r.data),
+  favoriteShortcut: (id, active) => http.post(`/shortcuts/${id}/favorite`, { active }).then((r) => r.data),
+  reorderShortcuts: (ids) => http.post("/shortcuts/reorder", { ids }).then((r) => r.data),
+  runShortcut: (id) => http.post(`/shortcuts/${id}/run`).then((r) => r.data),
 };
 
 export default api;

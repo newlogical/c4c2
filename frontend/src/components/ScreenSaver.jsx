@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSystem } from "@/context/SystemContext";
-import { CameraPlayer } from "@/components/CameraPlayer";
 
 const PHOTOS = [
   "https://images.unsplash.com/photo-1567316106249-b2ecaeefdade?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
@@ -77,12 +76,6 @@ export const ScreenSaver = ({ enabled = true, timeout = 90000, mode = "clock" })
               </AnimatePresence>
               <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(5,7,12,0.35), rgba(5,7,12,0.75))" }} />
             </>
-          )}
-          {mode === "camera" && (
-            <div className="absolute inset-0">
-              <CameraPlayer camId="cam_front" full />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 55%, rgba(5,7,12,0.8))" }} />
-            </div>
           )}
 
           <div className={compact ? "absolute bottom-12 left-8 text-left z-10" : "flex flex-col items-center z-10"}>
