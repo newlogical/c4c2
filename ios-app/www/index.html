@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Smith Apartment</title>
+  <style>
+    :root { --bg: #0A0D14; --surface: #121824; --border: rgba(255,255,255,0.08); --text: #F1F5F9; --muted: #94A3B8; --primary: #3B82F6; --amber: #F59E0B; --red: #F87171; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+    body { display: flex; align-items: center; justify-content: center; padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom); }
+    .card { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 28px; }
+    .eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--amber); font-weight: 700; margin: 0 0 6px; }
+    h1 { font-size: 30px; margin: 0 0 6px; font-weight: 800; letter-spacing: -0.02em; }
+    p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 18px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input { width: 100%; font-size: 20px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-family: ui-monospace, Menlo, monospace; }
+    input:focus { border-color: var(--primary); }
+    button { width: 100%; margin-top: 14px; padding: 16px; border: 0; border-radius: 14px; font-size: 17px; font-weight: 700; color: #fff; background: var(--primary); transition: opacity .15s, transform .1s; }
+    button:active { transform: scale(0.98); }
+    button.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); font-weight: 600; }
+    button:disabled { opacity: .5; }
+    .err { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 18px; }
+    .spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--primary); animation: s 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes s { to { transform: rotate(360deg); } }
+    .hidden { display: none; }
+    .center { text-align: center; }
+  </style>
+</head>
+<body>
+  <!-- Shown when an address is saved: auto-connects after a short pause, with a way to change it -->
+  <div class="card center hidden" id="connecting" data-testid="ios-connecting">
+    <div class="spin"></div>
+    <p class="eyebrow">Smith Apartment</p>
+    <h1 style="font-size:22px">Connecting…</h1>
+    <p id="connecting-addr"></p>
+    <button class="ghost" id="change-btn" data-testid="ios-change-address">Change controller address</button>
+  </div>
+
+  <!-- First launch / change address -->
+  <div class="card hidden" id="setup" data-testid="ios-setup">
+    <p class="eyebrow">Smith Apartment</p>
+    <h1>Connect to your controller</h1>
+    <p>Enter the address of the home controller (the mini-PC). Your phone or iPad must be on the apartment Wi-Fi.</p>
+    <label for="addr">Controller address</label>
+    <input id="addr" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.0.217" data-testid="ios-address-input" />
+    <button id="connect-btn" data-testid="ios-connect">Connect</button>
+    <div class="err" id="err" data-testid="ios-error"></div>
+  </div>
+
+  <script>
+    var KEY = "controller_host";
+    var DEFAULT_HOST = "192.168.0.217";
+    var $ = function (id) { return document.getElementById(id); };
+    var timer = null;
+
+    function clean(v) { return (v || "").trim().replace(/^https?:\/\//i, "").replace(/[:/].*$/, ""); }
+    function panelUrl(host) { return "http://" + host + ":3000/"; }
+    function show(id) { ["connecting", "setup"].forEach(function (x) { $(x).classList.toggle("hidden", x !== id); }); }
+
+    // An image load is the one request iOS allows from the app shell to a plain-http LAN address.
+    function reachable(host, ms) {
+      return new Promise(function (resolve) {
+        var img = new Image(), done = false;
+        var finish = function (ok) { if (!done) { done = true; resolve(ok); } };
+        img.onload = function () { finish(true); };
+        img.onerror = function () { finish(false); };
+        setTimeout(function () { finish(false); }, ms);
+        img.src = "http://" + host + ":3000/icon-192.png?t=" + Date.now();
+      });
+    }
+
+    function setup(message, value) {
+      clearTimeout(timer);
+      show("setup");
+      $("addr").value = value || localStorage.getItem(KEY) || DEFAULT_HOST;
+      $("err").textContent = message || "";
+    }
+
+    async function connect(host) {
+      $("connect-btn").disabled = true;
+      $("connect-btn").textContent = "Checking…";
+      var ok = await reachable(host, 5000);
+      $("connect-btn").disabled = false;
+      $("connect-btn").textContent = "Connect";
+      if (!ok) { setup("Can't reach " + host + ". Check the address, that the controller is on, and that you're on the apartment Wi-Fi.", host); return; }
+      localStorage.setItem(KEY, host);
+      window.location.href = panelUrl(host);
+    }
+
+    $("connect-btn").onclick = function () {
+      var host = clean($("addr").value);
+      if (!/^[A-Za-z0-9.-]+$/.test(host)) { $("err").textContent = "Enter an address like 192.168.0.217"; return; }
+      connect(host);
+    };
+    $("addr").onkeydown = function (e) { if (e.key === "Enter") $("connect-btn").click(); };
+    $("change-btn").onclick = function () { setup(""); };
+
+    var saved = localStorage.getItem(KEY);
+    if (saved) {
+      show("connecting");
+      $("connecting-addr").textContent = saved;
+      timer = setTimeout(function () {
+        reachable(saved, 5000).then(function (ok) {
+          if (ok) window.location.href = panelUrl(saved);
+          else setup("Can't reach " + saved + " right now. Check the controller and Wi-Fi, or enter a new address.");
+        });
+      }, 1500);
+    } else {
+      setup("");
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "smith-apartment-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "iOS wrapper for the Smith Apartment controller panel (Capacitor)",
+  "scripts": {
+    "assets": "capacitor-assets generate --ios --iconBackgroundColor '#0A0D14' --splashBackgroundColor '#0A0D14'",
+    "sync": "cap sync ios",
+    "patch-ios": "bash scripts/patch-ios.sh",
+    "open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3"
+  }
+}

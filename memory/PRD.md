@@ -179,3 +179,6 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - display_power no longer touches matrix or amp. Health/checklist drop matrix, Apple TVs, cameras/NVR.
 - Tested: iteration_23 (15/15 backend pytest incl. LIVE fake-amp; frontend ~all flows). Fixed after: party false-state on 424, volume readout revert, party label in room header, reorder validation, default auto-fix in Rooms editor.
 - Leftover (dead) backend endpoints for matrix/appletv/camera remain unused.
+
+## 2026-10 iOS wrapper
+- /app/ios-app: Capacitor 8.5.3 shell (appId com.newlogicaltech.smithapartment). www/index.html = first-launch controller-address screen (default 192.168.0.217, saved in localStorage, reachability via image ping to :3000/icon-192.png, then navigates to http://host:3000). scripts/patch-ios.sh sets ATS local/web-content http, NSLocalNetworkUsageDescription, full-screen, hidden status bar, ITSAppUsesNonExemptEncryption=false. assets/ icon+splash for @capacitor/assets. Guide: /app/IOS_APP.md (TestFlight internal testers for iPad + client iPhone). Not yet built on a Mac — unverified on device.
