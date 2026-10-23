@@ -23,7 +23,9 @@ const SourceButton = ({ room, src, on, disabled, onPick }) => {
 export const RoomPanel = ({ room, data, onRemote }) => {
   const { run, busy } = useListen();
   const s = room.status;
-  const current = room.sources.find((x) => x.input === s.input);
+  const current = room.in_party
+    ? { label: `Party Mode · ${data.party_sources.find((x) => x.input === data.party.input)?.label || "Party source"}` }
+    : room.sources.find((x) => x.input === s.input);
   const send = (body) => run(api.listenRoom(room.id, body));
 
   return (
@@ -47,7 +49,7 @@ export const RoomPanel = ({ room, data, onRemote }) => {
         </div>
       )}
 
-      <div className={`grid gap-3 ${room.sources.length > 2 ? "grid-cols-2" : "grid-cols-2"}`}>
+      <div className="grid grid-cols-2 gap-3">
         {room.sources.map((src) => (
           <SourceButton key={src.input} room={room} src={src} on={s.power && s.input === src.input} disabled={busy || room.in_party}
             onPick={(input) => send({ input })} />

@@ -14,11 +14,11 @@ export const VolumeControl = ({ id, status, max = 100, onChange, disabled }) => 
   const [drag, setDrag] = useState(false);
   useEffect(() => { if (!drag) setV(status.volume); }, [status.volume, drag]);
 
-  const commit = (val) => {
+  const commit = async (val) => {
     const n = Math.max(0, Math.min(max, Math.round(val)));
     setDrag(false);
     setV(n);
-    onChange({ volume: n });
+    if ((await onChange({ volume: n })) === false) setV(status.volume); // amp refused: show the real level
   };
 
   return (
@@ -34,7 +34,7 @@ export const VolumeControl = ({ id, status, max = 100, onChange, disabled }) => 
         className="c4-range flex-1 min-w-0"
         onChange={(e) => { setDrag(true); setV(Number(e.target.value)); }}
         onPointerUp={(e) => commit(Number(e.currentTarget.value))}
-        onKeyUp={(e) => commit(Number(e.currentTarget.value))} />
+        onKeyUp={(e) => /^(Arrow|Home|End|Page)/.test(e.key) && commit(Number(e.currentTarget.value))} />
       <Step testid={`vol-up-${id}`} icon={Plus} disabled={disabled} onClick={() => commit(v + 5)} />
       <span className="w-14 text-right text-sm font-mono tabular-nums" style={{ color: status.mute ? "var(--c4-rose)" : "var(--c4-muted)" }} data-testid={`vol-readout-${id}`}>
         {status.mute ? "Muted" : `${v}%`}

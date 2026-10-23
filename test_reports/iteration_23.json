@@ -1,0 +1,50 @@
+{
+  "summary": "Tested the full stack of the room-based WS66i Listen rework. Backend: wrote a new pytest suite (15/15 pass) covering rooms/sources, per-room isolation, 400/404/409, Party Mode (rooms that join vs. don't, source change, master +5, per-room volume, leave restores the room, off restores every room), Restore Defaults, the 5 seeded shortcuts and running them, shortcut CRUD/duplicate/reorder/favorite, layout validation, health/checklist with removed devices gone, Sony keys/power not touching audio, and LIVE mode with the fake amp (confirmed commands; 424 'did not confirm source'; 424 can't connect). Frontend (tablet 768x1024): PIN login lands on Listen; nav shows Listen/Shortcuts/Thermostat/Settings; the 5 room tabs are in the right order with Zone 5/6 hidden; source labels are correct with no numbers; Bathroom has no remote; the Living/Office/Master/Guest Sony remotes open with the right titles and keys leave /api/listen unchanged; Party Mode flows pass; Restore Default Audio works; Shortcuts create/edit/dup/reorder/fav/unfav/delete and run all pass, and shortcuts survive a backend restart; the Settings drawer has none of the removed sections, and editing a room label updates the Listen button; an invalid default is rejected with an error toast; Thermostat mode/setpoint works; LIVE error toasts appear. Found 2 'fake success' bugs in failure paths (Party ON state persisted after amp failure; volume readout keeps the attempted value after a failed command).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/listen/party {active:true} (also party_on via /listen/party/source and shortcut run)", "issue": "In LIVE mode, when the amp is unreachable or doesn't confirm, the call correctly returns 424, but party_on() has already set party.active=True and saved snapshots, and _guarded() then stores the doc. So /api/listen reports party active and the UI toggle shows Party Mode ON even though no zone switched. Reproduced: amp offline -> toggle party -> 424 toast, but GET /api/listen shows party.active=true. With the fake amp ignoring Master's source, Master shows in_party=true while still on input 1. This breaks the 'never fake success' rule.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/listen/party, /listen/party/room/{id}", "issue": "Snapshots are taken from the stored doc without calling sync() first. In LIVE mode, if the panel hasn't polled within 5s, the saved state can be stale (seen: Living restored to stored volume 50 while the amp actually had 29). Call await sync(doc, force=True) before taking snapshots."},
+      {"endpoint": "POST /api/shortcuts/reorder", "issue": "ids aren't checked against existing shortcuts. A partial list leaves duplicate order values."},
+      {"endpoint": "server.py", "issue": "The matrix endpoints (/api/matrix/identify, /api/matrix/map) and /api/display/remote (Apple TV) are still in the backend. The legacy config.amp.input_map (atv1/airplay/spotify) and streamers are still in the DB, and Device health still lists 'Sound Amplifier' and 'Sound Amplifier B' streamers. Dead code: remove it if not needed."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "VolumeControl", "issue": "commit() calls setV(n) before the request. If the command fails (424), refresh() returns the same status.volume, so the useEffect([status.volume]) never fires and the readout/slider keeps the attempted value (seen 29% -> 34% while the amp stayed at 29). Fix: have onChange return run()'s boolean and setV(status.volume) when it's false, or key the effect on a refresh counter.", "selector": "[data-testid=vol-readout-living]", "priority": "HIGH"},
+      {"component": "RoomPanel (room in party)", "issue": "room-current-source still shows 'Playing <room label for the party input>' ('Playing TV' when the party source is 1, 'Playing Other source' for party source 6 in Living) next to the 'Playing Party Mode' banner. The spec says a party room shows 'Playing Party Mode'. Show the party source label when room.in_party.", "selector": "[data-testid=room-current-source]", "priority": "MEDIUM"},
+      {"component": "RoomsSettings default select", "issue": "If you remove the source that is the current default, the native select shows the first remaining option, but the state still holds the old default. Save is then rejected with the error toast, while the UI looked valid. Auto-set default_input to the first remaining source, or show the mismatch.", "selector": "[data-testid=layout-default-living]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Party Mode toggle in LIVE with amp offline", "issue": "Shows the error toast, but then the switch stays ON (backend persisted active=true). See the backend critical issue.", "affected_selectors": ["[data-testid=party-toggle]"]}
+    ],
+    "design_issues": [
+      {"screen": "Shortcut editor", "issues": ["Uses native <select> elements for Speakers/Source/Mute and for party input (RoomActionRow, ShortcutEditor, RoomsSettings) instead of the shadcn Select used elsewhere", "Success toasts overlap the dialog title ('New shortcut')"]},
+      {"screen": "Shortcuts list", "issues": ["Icon-only action buttons (fav/up/down/edit/dup/delete) have no aria-label or tooltip"]},
+      {"screen": "Thermostat dial", "issues": ["In headless Chromium the big current-temperature number in the SVG dial renders as only the degree symbol (text '72°', bbox width 22px). The code here is unchanged; please check on a real device. Possibly Outfit font digits at 56px in SVG."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter23_listen.py", "/app/test_reports/pytest/pytest_iter23.xml"],
+  "action_items": [
+    "listen.party_on/party_join: don't keep party.active=True or saved snapshots when apply() raises. Roll back to the previous party dict, or set active only after a successful apply (and handle a partial failure explicitly, e.g. remove the rooms that failed). Then the UI won't show Party ON after a 424.",
+    "VolumeControl: revert the local slider/readout value when the command fails (run() returns false).",
+    "RoomPanel: when room.in_party, show 'Playing Party Mode · <party source label>' in room-current-source.",
+    "Sync from the amp (force) before taking party snapshots in LIVE mode.",
+    "Optional cleanup: remove the leftover matrix/appletv endpoints and the legacy amp input_map/streamers if they are no longer used."
+  ],
+  "critical_code_review_comments": [
+    "listen.py party_on sets p['active']=True and p['saved'] before apply(). _guarded() stores the doc even on HTTPException, so a failed command still persists the party state.",
+    "set_room power=False on a party member is allowed and leaves the room in the party but powered off. That's probably fine, but party_off will restore it.",
+    "server.py is 2331 lines (>700). It should be split into modules; listen.py is well isolated.",
+    "VolumeControl onKeyUp commits on any key (including Tab), which sends redundant commands."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter23_listen.py"],
+  "success_rate": {"backend": "100% of 15 pytest (plus 1 edge-case bug found via curl: party persisted after 424)", "frontend": "~90% (all flows work; 2 false-state bugs in failure paths, 1 label UX issue)"},
+  "test_credentials": "PIN 1234 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None kept. TEST_ shortcuts and the 'TEST Phone' label were reverted/deleted. Party is off, defaults are restored, amp is back to live=false host=192.168.0.43, fake amp killed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest /app/backend/tests/test_iter23_listen.py (it starts /tmp/fakeamp.py itself for the LIVE test and restores amp live=false / host=192.168.0.43). Retest: (1) LIVE, amp offline -> POST /api/listen/party {active:true} must return 424 AND GET /api/listen party.active must stay false; (2) UI vol-up with amp offline -> the readout must revert; (3) a room tab in party shows 'Playing Party Mode'. Login in Playwright with pin-key-1..4.",
+  "rca of the issue": "Party false-success: party_on() mutates doc['party'] (active=True, saved snapshots) before awaiting apply(). apply() raises HTTPException(424), and _guarded() catches it, calls store(doc) (to keep the statuses of zones that were confirmed), and re-raises, which also persists the party mutation. Repro: start the fake amp, set live, kill the fake amp, POST /api/listen/party {active:true} -> 424, then GET /api/listen -> party.active=true. Mitigation: deep-copy party before the mutation and restore it in an except block, or move active=True after apply. Volume readout: VolumeControl sets local v optimistically, and after a failed request status.volume is unchanged, so the effect never resyncs."
+}

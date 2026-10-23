@@ -170,3 +170,12 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Auto-start service not built yet (user must start backend + serve manually after reboot).
 - Matrix: MXT40 has NO Telnet. Captured web GUI: POST http://<ip>/output.set<ms> body "#video_d outN matrix=I", Content-Type "charset=UTF-8", Isajax: yes, Cookie sx_login_name/sx_login_pwd = urlencoded base64(user/pass). MatrixDriver now uses this (port 80); config port 23 auto-migrated to 80; test = GET /index.html. Verified against a fake server (byte-identical). Awaiting user live test.
 - USER-CONFIRMED: J-Tech matrix switching works LIVE via HTTP driver. Next: Identify outputs, WS66i amp, Apple TVs, Ecobee, camera.
+
+## 2026-10 Listen v2 rework (client spec "Audio, TV Controls, Party Mode & Shortcuts")
+- Nav: Listen (landing) / Shortcuts / Thermostat / Settings. Removed from UI: Home, Watch, Security/camera/PTZ/person alerts, Apple TV remotes+pairing, J-Tech matrix + identify, Scenes/presets/automations, TuneIn/Spotify/stream panel, voice-scene section, saver camera mode.
+- backend/listen.py (router /api/listen*, /api/shortcuts*): Mongo `listen` doc (rooms layout, status, party) + `shortcuts` collection. LIVE amp writes: one pyws66i session per batch under a lock, confirmed by zone_status read-back; failure => 424, party reconciled to confirmed rooms. DEMO only when amp toggle is DEMO.
+- Room map: Living Z1 (TV=1, Mobile=3), Office Z2 (TV=5, Mobile=6), Master Z3 (TV=2, Mobile=4), Bathroom Z4 (Mobile=6, LR TV=1, Office TV=5, Master TV=2); Z5/Z6 hidden. Party sources 6/1/5/2. Admin-editable in Settings → Rooms & sources.
+- Startup migration listen_v2_migration deleted old scenes/automations; seeds 5 default shortcuts once (seed_shortcuts_v1).
+- display_power no longer touches matrix or amp. Health/checklist drop matrix, Apple TVs, cameras/NVR.
+- Tested: iteration_23 (15/15 backend pytest incl. LIVE fake-amp; frontend ~all flows). Fixed after: party false-state on 424, volume readout revert, party label in room header, reorder validation, default auto-fix in Rooms editor.
+- Leftover (dead) backend endpoints for matrix/appletv/camera remain unused.

@@ -286,6 +286,7 @@ async def party_on(doc, inp=None, rooms=None):
             for rid in [r for r in p["rooms"] if r not in rooms]:
                 await party_leave(doc, rid)
         p["rooms"] = [r for r in rooms if any(x["id"] == r for x in doc["rooms"])]
+    await sync(doc, force=True)  # snapshot what the amp really has
     for rid in p["rooms"]:
         p["saved"].setdefault(rid, _snap(doc, rid))
     p["active"] = True
@@ -305,6 +306,7 @@ async def party_join(doc, rid):
     if rid not in p["rooms"]:
         p["rooms"].append(rid)
     if p["active"]:
+        await sync(doc, force=True)
         p["saved"].setdefault(rid, _snap(doc, rid))
         await apply(doc, {rid: {"power": True, "input": p["input"]}})
 
@@ -396,10 +398,25 @@ async def _done(doc):
     return view(doc)
 
 
+def _reconcile_party(doc, keep_rooms):
+    """After a failed command keep only rooms the amp confirmed are on the party source."""
+    p = doc["party"]
+    if not p["active"]:
+        return
+    ok = [r for r in p["rooms"] if doc["status"][r]["power"] and doc["status"][r]["input"] == p["input"]]
+    for r in [r for r in p["rooms"] if r not in ok]:
+        p["saved"].pop(r, None)
+    p["rooms"] = ok
+    if not ok:
+        p["active"], p["saved"], p["rooms"] = False, {}, keep_rooms
+
+
 async def _guarded(doc, coro):
+    keep = list(doc["party"]["rooms"])
     try:
         await coro
     except HTTPException:
+        _reconcile_party(doc, keep)
         await store(doc)
         raise
     return await _done(doc)
@@ -600,6 +617,9 @@ async def favorite_shortcut(sid: str, req: PartyReq):
 
 @router.post("/shortcuts/reorder")
 async def reorder_shortcuts(req: ReorderReq):
+    existing = {s["id"] for s in await _shortcuts()}
+    if set(req.ids) != existing or len(req.ids) != len(existing):
+        raise HTTPException(400, "Send every shortcut id exactly once")
     for i, sid in enumerate(req.ids):
         await D["db"].shortcuts.update_one({"id": sid}, {"$set": {"order": i}})
     return await _shortcuts()

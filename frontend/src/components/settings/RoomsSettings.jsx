@@ -44,7 +44,8 @@ const RoomEditor = ({ r, onChange }) => {
           {(r.sources.length ? r.sources : [{ input: r.default_input, label: "—" }]).map((s) => <option key={s.input} value={s.input}>{s.label}</option>)}</select></label>
         <label>Max vol %<input type="number" min="5" max="100" value={r.max_volume} onChange={(e) => set("max_volume", Number(e.target.value))} className={`${inp} w-full`} style={inpStyle} data-testid={`layout-max-${r.id}`} /></label>
       </div>
-      <SourceListEditor items={r.sources} onChange={(v) => set("sources", v)} testid={`layout-sources-${r.id}`} />
+      <SourceListEditor items={r.sources} testid={`layout-sources-${r.id}`}
+        onChange={(v) => onChange({ ...r, sources: v, default_input: v.some((x) => x.input === r.default_input) ? r.default_input : (v[0]?.input ?? r.default_input) })} />
     </div>
   );
 };
