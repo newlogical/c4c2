@@ -8,10 +8,12 @@ import asyncio
 import copy
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+
+import linkplay
 
 router = APIRouter(prefix="/api")
 D = {}  # injected by server: db, state_key, log_limit
@@ -35,6 +37,11 @@ DEFAULT_ROOMS = [
 DEFAULT_PARTY_SOURCES = [{"input": 6, "label": "Mobile Device from Living Room"}, {"input": 1, "label": "Living Room TV"},
                          {"input": 5, "label": "Office TV"}, {"input": 2, "label": "Master Bedroom TV"}]
 FOUR = ["living", "office", "master", "bathroom"]
+DEFAULT_WIIMS = [{"id": "wiim1", "name": "WiiM 1", "ip": "", "amp_input": None},
+                 {"id": "wiim2", "name": "WiiM 2", "ip": "", "amp_input": None}]
+WIIM_MODES = {"wifi": "Wi-Fi / AirPlay", "bluetooth": "Bluetooth", "line-in": "Line in", "optical": "Optical"}
+# LinkPlay getPlayerStatus "mode" codes for the non-network inputs
+_WIIM_MODE_CODE = {"line-in": "40", "bluetooth": "41", "optical": "43"}
 DEFAULT_SHORTCUTS = [
     {"name": "Watch TV", "icon": "Tv", "description": "Every room back to its TV sound; Bathroom on Mobile Device",
      "rooms": {"living": {"input": 1}, "office": {"input": 5}, "master": {"input": 2}, "bathroom": {"input": 6}}},
@@ -66,6 +73,7 @@ async def load() -> dict:
         await D["db"].listen.insert_one(copy.deepcopy(doc))
     st = await D["db"].system.find_one({"key": D["state_key"]}, {"_id": 0, "config.amp": 1}) or {}
     doc["_amp"] = (st.get("config") or {}).get("amp") or {}
+    doc.setdefault("wiims", copy.deepcopy(DEFAULT_WIIMS))
     for r in doc["rooms"]:
         doc["status"].setdefault(r["id"], {"power": False, "input": r["default_input"], "volume": 30, "mute": False})
     return doc
@@ -188,9 +196,47 @@ def _cmd(r, ch):
     return " ".join(c)
 
 
+def find_source(r, label=None, inp=None):
+    srcs = r.get("sources") or []
+    if label is not None:
+        return next((x for x in srcs if x["label"] == label), None)
+    return next((x for x in srcs if x["input"] == inp), None)
+
+
+async def wiim_switch(doc, src):
+    """Put the WiiM a source relies on into the right mode (e.g. Bluetooth for TV sound) and confirm it."""
+    if not src or not src.get("wiim") or not src.get("wiim_mode"):
+        return
+    w = next((x for x in doc["wiims"] if x["id"] == src["wiim"]), None)
+    mode = src["wiim_mode"]
+    name = (w or {}).get("name") or src["wiim"]
+    entry = {"driver": "WiiM", "transport": "LinkPlay HTTP API", "command": f"setPlayerCmd:switchmode:{mode}",
+             "note": f"{name} → {WIIM_MODES.get(mode, mode)} ({src['label']})", "timestamp": _now()}
+    if not live(doc):
+        await log([{**entry, "status": "simulated"}])
+        return
+    if not w or not w.get("ip"):
+        await log([{**entry, "status": "error", "error": "no IP address set"}])
+        raise HTTPException(424, f"{name} has no IP address yet — set it in Settings → Rooms & sources")
+    try:
+        await linkplay.switch_mode(w["ip"], mode)
+        code = None
+        for _ in range(6):  # the WiiM takes a moment to change input
+            await asyncio.sleep(0.5)
+            code = str((await linkplay.status(w["ip"])).get("mode"))
+            if (code == _WIIM_MODE_CODE[mode]) if mode in _WIIM_MODE_CODE else (code not in _WIIM_MODE_CODE.values()):
+                break
+        else:
+            raise RuntimeError(f"still reports mode {code}")
+    except Exception as e:
+        await log([{**entry, "status": "error", "error": str(e)}])
+        raise HTTPException(424, f"{name} did not switch to {WIIM_MODES.get(mode, mode)}: {e}")
+    await log([{**entry, "status": "confirmed"}])
+
+
 async def apply(doc, changes: Dict[str, dict]):
     """changes: {room_id: {power?, input?, volume?, mute?}}. Updates doc['status'] only for confirmed zones."""
-    changes = {rid: {k: v for k, v in ch.items() if v is not None} for rid, ch in changes.items()}
+    changes = {rid: {k: v for k, v in ch.items() if v is not None and k != "label"} for rid, ch in changes.items()}
     changes = {rid: ch for rid, ch in changes.items() if ch}
     if not changes:
         return
@@ -255,10 +301,10 @@ async def sync(doc, force=False):
 
 def view(doc):
     party = doc["party"]
-    return {"live": live(doc), "synced_at": doc.get("synced_at"), "amp_error": doc.get("amp_error"),
+    return {"live": live(doc), "synced_at": doc.get("synced_at"), "amp_error": doc.get("amp_error") if live(doc) else None,
             "rooms": [{**r, "status": doc["status"][r["id"]], "in_party": party["active"] and r["id"] in party["rooms"]}
                       for r in doc["rooms"]],
-            "party_sources": doc["party_sources"],
+            "party_sources": doc["party_sources"], "wiims": doc["wiims"], "wiim_modes": WIIM_MODES,
             "party": {k: party[k] for k in ("active", "input", "rooms")}}
 
 
@@ -290,6 +336,8 @@ async def party_on(doc, inp=None, rooms=None):
     for rid in p["rooms"]:
         p["saved"].setdefault(rid, _snap(doc, rid))
     p["active"] = True
+    if p["rooms"]:
+        await wiim_switch(doc, next((x for x in doc["party_sources"] if x["input"] == p["input"]), None))
     await apply(doc, {rid: {"power": True, "input": p["input"]} for rid in p["rooms"]})
 
 
@@ -337,9 +385,15 @@ async def run_shortcut(doc, sc):
             await party_off(doc)
     changes = {}
     for rid, ch in (sc.get("rooms") or {}).items():
+        r = next((x for x in doc["rooms"] if x["id"] == rid), None)
+        src = find_source(r, ch.get("label"), ch.get("input")) if r and (ch.get("label") or ch.get("input")) else None
         ch = {k: ch.get(k) for k in ("power", "input", "volume", "mute") if ch.get(k) is not None}
-        if not ch or not any(r["id"] == rid for r in doc["rooms"]):
+        if not ch or not r:
             continue
+        if src:
+            ch["input"] = src["input"]
+            await wiim_switch(doc, src)
+            doc["status"][rid]["source_label"] = src["label"]
         if doc["party"]["active"] and rid in doc["party"]["rooms"] and ("input" in ch or "power" in ch):
             await party_leave(doc, rid, restore=False)
         changes[rid] = ch
@@ -352,6 +406,7 @@ async def run_shortcut(doc, sc):
 class RoomReq(BaseModel):
     power: Optional[bool] = None
     input: Optional[int] = None
+    label: Optional[str] = None
     volume: Optional[int] = None
     mute: Optional[bool] = None
 
@@ -375,6 +430,15 @@ class PartyMasterReq(BaseModel):
 class SourceItem(BaseModel):
     input: int = Field(ge=1, le=6)
     label: str
+    wiim: Optional[str] = None
+    wiim_mode: Optional[Literal["wifi", "bluetooth", "line-in", "optical"]] = None
+
+
+class WiimItem(BaseModel):
+    id: str
+    name: str
+    ip: str = ""
+    amp_input: Optional[int] = Field(None, ge=1, le=6)
 
 
 class RoomLayout(BaseModel):
@@ -391,6 +455,7 @@ class RoomLayout(BaseModel):
 class LayoutReq(BaseModel):
     rooms: List[RoomLayout]
     party_sources: List[SourceItem]
+    wiims: Optional[List[WiimItem]] = None
 
 
 async def _done(doc):
@@ -443,14 +508,23 @@ async def set_room(rid: str, req: RoomReq):
     doc = await load()
     r = room(doc, rid)
     ch = req.model_dump(exclude_none=True)
-    if "input" in ch:
-        if ch["input"] not in [s["input"] for s in r["sources"]]:
+    src = None
+    if "label" in ch or "input" in ch:
+        src = find_source(r, ch.get("label"), ch.get("input"))
+        if not src:
             raise HTTPException(400, f"{r['name']} can't select that source")
+        ch["input"] = src["input"]
         if doc["party"]["active"] and rid in doc["party"]["rooms"]:
             raise HTTPException(409, f"{r['name']} is in Party Mode — remove it from the party to pick its own source")
         if not doc["status"][rid]["power"]:
             ch.setdefault("power", True)
-    return await _guarded(doc, apply(doc, {rid: ch}))
+
+    async def go():
+        if src:
+            await wiim_switch(doc, src)
+            doc["status"][rid]["source_label"] = src["label"]
+        await apply(doc, {rid: ch})
+    return await _guarded(doc, go())
 
 
 @router.post("/listen/party")
@@ -492,6 +566,22 @@ async def party_master(req: PartyMasterReq):
     return await _guarded(doc, apply(doc, {rid: {"volume": doc["status"][rid]["volume"] + req.delta} for rid in p["rooms"]}))
 
 
+@router.get("/listen/wiim/{wid}/status")
+async def wiim_status(wid: str):
+    doc = await load()
+    w = next((x for x in doc["wiims"] if x["id"] == wid), None)
+    if not w or not w.get("ip"):
+        raise HTTPException(404, "Set this WiiM's IP address and save first")
+    try:
+        st = await linkplay.status(w["ip"])
+    except Exception as e:
+        raise HTTPException(424, f"{w['name']} not reachable at {w['ip']}: {e}")
+    code = str(st.get("mode"))
+    mode = next((k for k, v in _WIIM_MODE_CODE.items() if v == code), "wifi")
+    return {"ip": w["ip"], "mode": mode, "mode_label": WIIM_MODES[mode], "playing": st.get("status") == "play",
+            "title": st.get("title"), "artist": st.get("artist")}
+
+
 @router.post("/listen/restore-defaults")
 async def post_restore_defaults():
     doc = await load()
@@ -504,13 +594,21 @@ async def put_layout(req: LayoutReq):
     ids = [r.id for r in req.rooms]
     if len(set(ids)) != len(ids) or len({r.amp_zone for r in req.rooms}) != len(ids):
         raise HTTPException(400, "Each room needs a unique id and its own amp zone")
+    wiims = [w.model_dump() for w in req.wiims] if req.wiims is not None else doc["wiims"]
+    wids = {w["id"] for w in wiims}
     for r in req.rooms:
         if r.sources and r.default_input not in [s.input for s in r.sources]:
             raise HTTPException(400, f"{r.name}: the default source must be one of its sources")
+        if len({s.label for s in r.sources}) != len(r.sources):
+            raise HTTPException(400, f"{r.name}: each source needs a different name")
+    for s_ in [s for r in req.rooms for s in r.sources] + list(req.party_sources):
+        if s_.wiim and (s_.wiim not in wids or not s_.wiim_mode):
+            raise HTTPException(400, f"{s_.label}: pick a WiiM and the mode it should switch to")
     if not req.party_sources:
         raise HTTPException(400, "Party Mode needs at least one source")
     doc["rooms"] = [r.model_dump() for r in req.rooms]
     doc["party_sources"] = [s.model_dump() for s in req.party_sources]
+    doc["wiims"] = wiims
     doc["status"] = {k: v for k, v in doc["status"].items() if k in ids}
     p = doc["party"]
     p["rooms"] = [r for r in p["rooms"] if r in ids]
@@ -522,6 +620,7 @@ async def put_layout(req: LayoutReq):
 
 # ---- shortcuts --------------------------------------------------------------
 class RoomAction(BaseModel):
+    label: Optional[str] = None
     power: Optional[bool] = None
     input: Optional[int] = Field(None, ge=1, le=6)
     volume: Optional[int] = Field(None, ge=0, le=100)

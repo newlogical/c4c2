@@ -71,3 +71,8 @@ async def command(ip: str, cmd: str, value: int | None = None):
         await _get(ip, f"setPlayerCmd:vol:{max(0, min(100, int(value or 0)))}")
     else:
         await _get(ip, CMDS[cmd])
+
+
+async def switch_mode(ip: str, mode: str):
+    """Change input: wifi | bluetooth | line-in | optical (WiiM / LinkPlay)."""
+    await _get(ip, f"setPlayerCmd:switchmode:{mode}")

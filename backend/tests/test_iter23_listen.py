@@ -268,7 +268,7 @@ def fakeamp():
     procs = []
 
     def start(ignore):
-        src = open("/tmp/fakeamp.py").read().replace("IGNORE_SOURCE = set()", f"IGNORE_SOURCE = {ignore!r}")
+        src = open("/app/backend/tests/fakes/fakeamp.py").read().replace("IGNORE_SOURCE = set()", f"IGNORE_SOURCE = {ignore!r}")
         open("/tmp/fakeamp_run.py", "w").write(src)
         p = subprocess.Popen(["python3", "/tmp/fakeamp_run.py"])
         procs.append(p)

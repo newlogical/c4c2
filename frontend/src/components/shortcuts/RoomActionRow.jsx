@@ -23,8 +23,10 @@ export const RoomActionRow = ({ room, action = {}, onChange }) => {
       <p className="text-sm font-semibold">{room.name}</p>
       <div className="grid grid-cols-2 gap-2">
         <Pick label="Speakers" testid={`sc-power-${room.id}`} value={action.power} onChange={(v) => set("power", bool(v))} options={[["true", "On"], ["false", "Off"]]} />
-        <Pick label="Source" testid={`sc-input-${room.id}`} value={action.input} onChange={(v) => set("input", v === "" ? null : Number(v))}
-          options={room.sources.map((s) => [String(s.input), s.label])} />
+        <Pick label="Source" testid={`sc-input-${room.id}`}
+          value={action.label ?? room.sources.find((s) => s.input === action.input)?.label}
+          onChange={(v) => { const s = room.sources.find((x) => x.label === v); onChange({ ...action, label: s ? s.label : null, input: s ? s.input : null }); }}
+          options={room.sources.map((s) => [s.label, s.label])} />
         <Pick label="Mute" testid={`sc-mute-${room.id}`} value={action.mute} onChange={(v) => set("mute", bool(v))} options={[["true", "Muted"], ["false", "Unmuted"]]} />
         <label className="block">
           <span className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Volume %</span>

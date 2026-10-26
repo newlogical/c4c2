@@ -182,3 +182,11 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 
 ## 2026-10 iOS wrapper
 - /app/ios-app: Capacitor 8.5.3 shell (appId com.newlogicaltech.smithapartment). www/index.html = first-launch controller-address screen (default 192.168.0.217, saved in localStorage, reachability via image ping to :3000/icon-192.png, then navigates to http://host:3000). scripts/patch-ios.sh sets ATS local/web-content http, NSLocalNetworkUsageDescription, full-screen, hidden status bar, ITSAppUsesNonExemptEncryption=false. assets/ icon+splash for @capacitor/assets. Guide: /app/IOS_APP.md (TestFlight internal testers for iPad + client iPhone). Not yet built on a Mac — unverified on device.
+
+## 2026-10 WiiM integration (Office TV over Bluetooth)
+- listen doc gains `wiims` [{id,name,ip,amp_input}] (2 slots, wiim1/wiim2). Sources (room + party) can carry `wiim` + `wiim_mode` (wifi|bluetooth|line-in|optical). Picking such a source first runs linkplay.switch_mode() and confirms via getPlayerStatus mode (41 BT, 40 line-in, 43 optical, else wifi); failure => 424 and the amp is NOT changed.
+- Sources are now identified by label (unique per room); room status stores `source_label` so two buttons sharing one amp input highlight correctly. Shortcut room actions store `label` too.
+- Bathroom sources have no WiiM link by default => Bathroom never flips the WiiM (user default).
+- Settings → Rooms & sources: WiiM rows (name/IP/wired input/Check) + "Also switch WiiM → mode" per source. GET /api/listen/wiim/{id}/status.
+- Sony TV Bluetooth output can't be commanded (no Sony API) — relies on TV auto-reconnect; UI hint shown.
+- Fakes for live tests: /app/backend/tests/fakes/fakeamp.py (WS66i telnet :8080), fakewiim.py (LinkPlay HTTP :8098, arg "stuck"). Verified end-to-end; 15/15 iter23 regression pass. Not yet tested on real WiiM Mini.

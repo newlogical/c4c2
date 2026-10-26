@@ -7,10 +7,10 @@ import { StatusPill, Switch } from "@/components/listen/StatusPill";
 
 const srcIcon = (label) => (/tv/i.test(label) ? Tv : /mobile|phone/i.test(label) ? Smartphone : Speaker);
 
-const SourceButton = ({ room, src, on, disabled, onPick }) => {
+const SourceButton = ({ testid, src, on, disabled, onPick }) => {
   const Icon = srcIcon(src.label);
   return (
-    <button data-testid={`source-${room.id}-${src.input}`} onClick={() => onPick(src.input)} disabled={disabled}
+    <button data-testid={testid} onClick={() => onPick(src.label)} disabled={disabled}
       className="rounded-2xl p-4 min-h-[88px] flex flex-col items-start justify-between text-left active:scale-[0.97] transition-transform disabled:opacity-40"
       style={{ background: on ? "var(--c4-amber)" : "var(--c4-card)", color: on ? "#0A0D14" : "var(--c4-text)",
         border: on ? "1px solid var(--c4-amber)" : "1px solid var(--c4-border)" }}>
@@ -23,9 +23,12 @@ const SourceButton = ({ room, src, on, disabled, onPick }) => {
 export const RoomPanel = ({ room, data, onRemote }) => {
   const { run, busy } = useListen();
   const s = room.status;
+  // Two buttons can share one amp input (e.g. a WiiM for TV over Bluetooth and for AirPlay): prefer the one last picked.
+  const picked = room.sources.find((x) => x.label === s.source_label && x.input === s.input) || room.sources.find((x) => x.input === s.input);
   const current = room.in_party
     ? { label: `Party Mode · ${data.party_sources.find((x) => x.input === data.party.input)?.label || "Party source"}` }
-    : room.sources.find((x) => x.input === s.input);
+    : picked;
+  const shared = (src) => room.sources.filter((x) => x.input === src.input).length > 1;
   const send = (body) => run(api.listenRoom(room.id, body));
 
   return (
@@ -50,11 +53,16 @@ export const RoomPanel = ({ room, data, onRemote }) => {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        {room.sources.map((src) => (
-          <SourceButton key={src.input} room={room} src={src} on={s.power && s.input === src.input} disabled={busy || room.in_party}
-            onPick={(input) => send({ input })} />
+        {room.sources.map((src, i) => (
+          <SourceButton key={src.label} src={src} on={s.power && !room.in_party && src === picked} disabled={busy || room.in_party}
+            testid={`source-${room.id}-${src.input}${shared(src) ? `-${i}` : ""}`} onPick={(label) => send({ label })} />
         ))}
       </div>
+      {s.power && !room.in_party && picked?.wiim_mode === "bluetooth" && (
+        <p className="text-xs px-1" style={{ color: "var(--c4-muted)" }} data-testid="room-bt-hint">
+          TV sound comes over Bluetooth. If it's silent, turn the TV off and on so it reconnects to the WiiM.
+        </p>
+      )}
 
       <div className="glass rounded-2xl p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--c4-muted)" }}>Volume</p>

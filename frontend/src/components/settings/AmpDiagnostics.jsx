@@ -13,7 +13,7 @@ export const AmpDiagnostics = () => {
   const { state, refresh } = useSystem();
   useEffect(() => { refresh(); }, [refresh, data?.synced_at]);
   if (!data) return null;
-  const log = (state?.command_log || []).filter((e) => e.driver === "WS66i").slice(0, 8);
+  const log = (state?.command_log || []).filter((e) => e.driver === "WS66i" || e.driver === "WiiM").slice(0, 8);
 
   return (
     <div className="glass rounded-2xl p-4 space-y-3" data-testid="amp-diagnostics">

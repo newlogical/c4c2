@@ -112,6 +112,7 @@ export const api = {
   partyRoom: (rid, join) => http.post(`/listen/party/room/${rid}`, { join }).then((r) => r.data),
   partyMaster: (delta) => http.post("/listen/party/master", { delta }).then((r) => r.data),
   restoreDefaults: () => http.post("/listen/restore-defaults").then((r) => r.data),
+  wiimStatus: (id) => http.get(`/listen/wiim/${id}/status`).then((r) => r.data),
   listenLayout: (body) => http.put("/listen/layout", body).then((r) => r.data),
   shortcuts: () => http.get("/shortcuts").then((r) => r.data),
   createShortcut: (body) => http.post("/shortcuts", body).then((r) => r.data),
