@@ -30,7 +30,7 @@ npm run assets           # generates the app icon + launch screen from assets/
 npx cap sync ios
 npx cap open ios         # opens Xcode
 ```
-Later updates: `git pull`, then `npm run patch-ios && npx cap sync ios`.
+Later updates: `git pull`, then `npm install && npm run patch-ios && npx cap sync ios`, then rebuild in Xcode.
 
 ## 3. Signing in Xcode
 1. In the left sidebar click **App** (blue icon) → **TARGETS: App** → **Signing & Capabilities**.
@@ -68,4 +68,5 @@ Later updates: `git pull`, then `npm run patch-ios && npx cap sync ios`.
 | "Can't reach 192.168.0.217" | Device not on apartment Wi-Fi, mini-PC/panel window not running, wrong address, or "Local Network" was denied: **Settings → Privacy & Security → Local Network → Smith Apartment → On**. |
 | Panel opens in Safari instead of inside the app | Tell the developer — the `allowNavigation` list in `capacitor.config.json` needs the exact address. |
 | Change the controller address | Force-close the app, reopen, tap **Change controller address** on the connecting screen. |
+| **View recordings** opens the App Store instead of Protect | The UniFi Protect app isn't installed (install it and sign in once), or the build is older than this update — re-run the "Later updates" line and rebuild. Guided Access also blocks switching apps on the wall iPad. |
 | Signing errors in Xcode | Re-check the Team in step 3, or change the Bundle Identifier to something unique. |
