@@ -69,4 +69,5 @@ Later updates: `git pull`, then `npm install && npm run patch-ios && npx cap syn
 | Panel opens in Safari instead of inside the app | Tell the developer — the `allowNavigation` list in `capacitor.config.json` needs the exact address. |
 | Change the controller address | Force-close the app, reopen, tap **Change controller address** on the connecting screen. |
 | **View recordings** opens the App Store instead of Protect | The UniFi Protect app isn't installed (install it and sign in once), or the build is older than this update — re-run the "Later updates" line and rebuild. Guided Access also blocks switching apps on the wall iPad. |
+| Snapshot button does nothing / no Save Image | Rebuild after the latest update (it adds sharing + the Photos permission). If Photos was denied: **Settings → Smith Apartment → Photos → Add Photos Only**. |
 | Signing errors in Xcode | Re-check the Team in step 3, or change the Bundle Identifier to something unique. |

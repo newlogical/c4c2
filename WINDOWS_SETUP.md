@@ -160,27 +160,27 @@ tap **Test connection**, then **Save**. Full per‑device field details are in `
 
 ---
 
-## 8. Make it start automatically on boot (optional but recommended)
+## 8. Make it start automatically on boot (recommended)
 
-So you never have to touch the mini‑PC after a power cut. Two simple `.bat` files + Task Scheduler:
+One command sets this up. Afterwards the backend and panel start by themselves at every power-on —
+**even if nobody signs into Windows** — and restart on their own if they ever crash.
 
-Create **`C:\apartment-controller\start-backend.bat`**:
-```bat
-cd /d C:\apartment-controller\backend
-call .venv\Scripts\activate.bat
-uvicorn server:app --host 0.0.0.0 --port 8001
+1. Close any backend/panel PowerShell windows you have open.
+2. Right-click **Start** → **Terminal (Admin)** / **Windows PowerShell (Admin)**, then:
+```powershell
+cd C:\apartment-controller
+powershell -ExecutionPolicy Bypass -File .\windows\install-autostart.ps1
 ```
+3. It checks your setup, starts both, and prints **OK** for each. Restart the mini-PC once to confirm
+   the panel comes back without signing in.
 
-Create **`C:\apartment-controller\start-frontend.bat`**:
-```bat
-cd /d C:\apartment-controller\frontend
-npx serve -s build -l 3000
-```
+**After an update** (`git pull`, plus `yarn build` in `frontend` if the panel changed): run the same
+command again — it restarts both with the new code.
 
-Then in **Task Scheduler** → Create Task (for each .bat): General → "Run whether user is logged on or
-not"; Triggers → **At startup**; Actions → Start the .bat. Now both start on boot.
-
-> For a cleaner service install you can use **NSSM** (https://nssm.cc) to run each as a Windows service.
+- Logs: `C:\apartment-controller\logs\backend.log` and `panel.log`
+- Task Scheduler → *Task Scheduler Library* shows "Smith Apartment Backend" / "Smith Apartment Panel".
+- Turn auto-start off: `powershell -ExecutionPolicy Bypass -File .\windows\remove-autostart.ps1`
+- If you install ffmpeg/Node somewhere new later, re-run the install command so the tasks see it.
 
 ---
 

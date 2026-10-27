@@ -61,6 +61,7 @@ export const CameraPlayer = ({ full, camId }) => {
         ref={videoRef}
         muted
         playsInline
+        crossOrigin="anonymous"
         autoPlay
         poster={STILL}
         className="w-full h-full object-cover"

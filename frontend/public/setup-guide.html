@@ -351,25 +351,19 @@ atvremote scan</pre>
 <!-- ============================================================ -->
 <div class="page-break"></div>
 <h2 id="part9">Part 9 — Auto‑start on boot</h2>
-<p>So the controller comes back by itself after a power cut. Create two small batch files.</p>
-
-<p><strong>C:\apartment-controller\start-backend.bat</strong></p>
-<pre>cd /d C:\apartment-controller\backend
-call .venv\Scripts\activate.bat
-uvicorn server:app --host 0.0.0.0 --port 8001</pre>
-
-<p><strong>C:\apartment-controller\start-frontend.bat</strong></p>
-<pre>cd /d C:\apartment-controller\frontend
-npx serve -s build -l 3000</pre>
-
-<p>Then open <strong>Task Scheduler</strong> → <strong>Create Task</strong> (do this once per .bat):</p>
+<p>One command makes the backend and panel start at every power‑on — <strong>even before anyone signs into Windows</strong> — and restart by themselves if they crash.</p>
+<ol>
+  <li>Close any backend/panel PowerShell windows.</li>
+  <li>Right‑click <strong>Start</strong> → <strong>Terminal (Admin)</strong>, then paste:</li>
+</ol>
+<pre>cd C:\apartment-controller
+powershell -ExecutionPolicy Bypass -File .\windows\install-autostart.ps1</pre>
+<p>It prints <strong>OK</strong> for each part. Restart the mini‑PC once to confirm the panel returns without signing in.</p>
+<p><strong>After an update</strong> (<code>git pull</code>, plus <code>yarn build</code> in <code>frontend</code> if the panel changed): run the same command again to restart both.</p>
 <ul>
-  <li><strong>General:</strong> tick "Run whether user is logged on or not".</li>
-  <li><strong>Triggers:</strong> New → Begin the task <strong>At startup</strong>.</li>
-  <li><strong>Actions:</strong> New → Start a program → browse to the .bat file.</li>
+  <li>Logs: <code>C:\apartment-controller\logs\backend.log</code> and <code>panel.log</code></li>
+  <li>Turn it off: <code>powershell -ExecutionPolicy Bypass -File .\windows\remove-autostart.ps1</code></li>
 </ul>
-<p>Both services now launch automatically at boot. (For a cleaner install you can run each as a Windows
-service using <strong>NSSM</strong> — nssm.cc.)</p>
 
 <!-- ============================================================ -->
 <h2 id="part10">Part 10 — Remote access (using it away from home)</h2>

@@ -4,19 +4,26 @@ import { api } from "@/lib/api";
 import { useListen } from "@/context/ListenContext";
 import { VolumeControl } from "@/components/listen/VolumeControl";
 import { StatusPill, Switch } from "@/components/listen/StatusPill";
+import { useWiimNowPlaying, NowPlayingText, PlayPauseButton } from "@/components/listen/WiimNowPlaying";
 
 const srcIcon = (label) => (/tv/i.test(label) ? Tv : /mobile|phone/i.test(label) ? Smartphone : Speaker);
 
 const SourceButton = ({ testid, src, on, disabled, onPick }) => {
   const Icon = srcIcon(src.label);
+  const streaming = on && src.wiim && src.wiim_mode === "wifi";
+  const [np, setNp] = useWiimNowPlaying(src.wiim, streaming);
   return (
-    <button data-testid={testid} onClick={() => onPick(src.label)} disabled={disabled}
-      className="rounded-2xl p-4 min-h-[88px] flex flex-col items-start justify-between text-left active:scale-[0.97] transition-transform disabled:opacity-40"
-      style={{ background: on ? "var(--c4-amber)" : "var(--c4-card)", color: on ? "#0A0D14" : "var(--c4-text)",
-        border: on ? "1px solid var(--c4-amber)" : "1px solid var(--c4-border)" }}>
-      <Icon className="w-5 h-5" />
-      <span className="font-semibold text-base leading-tight">{src.label}</span>
-    </button>
+    <div className="relative">
+      <button data-testid={testid} onClick={() => onPick(src.label)} disabled={disabled}
+        className="w-full h-full rounded-2xl p-4 min-h-[88px] flex flex-col items-start justify-between gap-2 text-left active:scale-[0.97] transition-transform disabled:opacity-40"
+        style={{ background: on ? "var(--c4-amber)" : "var(--c4-card)", color: on ? "#0A0D14" : "var(--c4-text)",
+          border: on ? "1px solid var(--c4-amber)" : "1px solid var(--c4-border)" }}>
+        <Icon className="w-5 h-5" />
+        <span className="font-semibold text-base leading-tight">{src.label}</span>
+        {streaming && np && <NowPlayingText np={np} testid={`${testid}-now-playing`} />}
+      </button>
+      {streaming && np && <PlayPauseButton wid={src.wiim} np={np} onChange={setNp} testid={`${testid}-play-pause`} />}
+    </div>
   );
 };
 

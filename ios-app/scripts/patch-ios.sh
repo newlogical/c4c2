@@ -18,6 +18,7 @@ setkey UIRequiresFullScreen bool true
 setkey UIStatusBarHidden bool true
 setkey UIViewControllerBasedStatusBarAppearance bool false
 setkey ITSAppUsesNonExemptEncryption bool false
+setkey NSPhotoLibraryAddUsageDescription string "Save camera snapshots to your Photos."
 
 # Lets "View recordings" detect the UniFi Protect app (falls back to its App Store page)
 $PB -c "Delete :LSApplicationQueriesSchemes" "$PLIST" 2>/dev/null || true

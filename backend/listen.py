@@ -576,10 +576,46 @@ async def party_master(req: PartyMasterReq):
     return await _guarded(doc, apply(doc, {rid: {"volume": doc["status"][rid]["volume"] + req.delta} for rid in p["rooms"]}))
 
 
+_DEMO_TRACKS = {"wiim1": ("Sunday Morning", "Maroon 5"), "wiim2": ("Here Comes the Sun", "The Beatles")}
+_demo_playing: Dict[str, bool] = {}
+
+
+def _demo_wiim(wid):
+    title, artist = _DEMO_TRACKS.get(wid, ("Demo track", "Demo artist"))
+    return {"ip": "", "mode": "wifi", "mode_label": WIIM_MODES["wifi"], "playing": _demo_playing.get(wid, True),
+            "title": title, "artist": artist, "demo": True}
+
+
+@router.post("/listen/wiim/{wid}/play-pause")
+async def wiim_play_pause(wid: str):
+    doc = await load()
+    w = next((x for x in doc["wiims"] if x["id"] == wid), None)
+    if not w:
+        raise HTTPException(404, "WiiM not found")
+    entry = {"driver": "WiiM", "transport": "LinkPlay HTTP API", "command": linkplay.CMDS["play_pause"],
+             "note": f"{w['name']} play/pause", "timestamp": _now()}
+    if not live(doc):
+        _demo_playing[wid] = not _demo_playing.get(wid, True)
+        await log([{**entry, "status": "simulated"}])
+        return _demo_wiim(wid)
+    if not w.get("ip"):
+        raise HTTPException(424, f"{w['name']} has no IP address yet — set it in Settings → Rooms & sources")
+    try:
+        await linkplay.command(w["ip"], "play_pause")
+    except Exception as e:
+        await log([{**entry, "status": "error", "error": str(e)}])
+        raise HTTPException(424, f"{w['name']} not reachable at {w['ip']}: {e}")
+    await log([{**entry, "status": "sent"}])
+    await asyncio.sleep(0.4)
+    return await wiim_status(wid)
+
+
 @router.get("/listen/wiim/{wid}/status")
 async def wiim_status(wid: str):
     doc = await load()
     w = next((x for x in doc["wiims"] if x["id"] == wid), None)
+    if w and not live(doc):
+        return _demo_wiim(wid)
     if not w or not w.get("ip"):
         raise HTTPException(404, "Set this WiiM's IP address and save first")
     try:

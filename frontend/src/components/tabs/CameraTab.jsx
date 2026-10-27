@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Maximize2, X, Film } from "lucide-react";
+import { Maximize2, X, Film, Camera, Loader2 } from "lucide-react";
+import { captureStill, shareStill } from "@/lib/snapshot";
 import { toast } from "sonner";
 import { CameraPlayer } from "@/components/CameraPlayer";
 import { PtzControls } from "@/components/PtzControls";
@@ -33,6 +34,29 @@ const openProtect = async () => {
   window.location.href = PROTECT_URL;
 };
 
+const SnapshotButton = () => {
+  const [busy, setBusy] = useState(false);
+  const snap = async () => {
+    setBusy(true);
+    try {
+      const still = await captureStill(document.querySelector("[data-testid='camera-live'] video"), "Front Entry");
+      const how = await shareStill(still);
+      if (how === "downloaded") toast.success("Snapshot saved");
+    } catch (e) {
+      toast.error(e?.message || "Couldn't take a snapshot");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button onClick={snap} disabled={busy} aria-label="Snapshot" data-testid="camera-snapshot-btn"
+      className="absolute bottom-3 right-[3.75rem] w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
+      style={{ background: "rgba(5,7,12,0.65)", backdropFilter: "blur(12px)" }}>
+      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+    </button>
+  );
+};
+
 export const CameraTab = () => {
   const [full, setFull] = useState(false);
   return (
@@ -44,8 +68,9 @@ export const CameraTab = () => {
 
       <div className="relative rounded-2xl overflow-hidden aspect-video glass" data-testid="camera-live">
         <CameraPlayer camId="cam_front" />
+        <SnapshotButton />
         <button onClick={() => setFull(true)} aria-label="Full screen" data-testid="camera-fullscreen-btn"
-          className="absolute top-3 right-3 w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+          className="absolute bottom-3 right-3 w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
           style={{ background: "rgba(5,7,12,0.65)", backdropFilter: "blur(12px)" }}>
           <Maximize2 className="w-4 h-4" />
         </button>
