@@ -202,3 +202,7 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - windows/install-autostart.ps1 (Admin, re-run after updates): two Task Scheduler tasks "Smith Apartment Backend/Panel", AtStartup +20s, SYSTEM, restart loop in start-backend.cmd / start-panel.cmd, logs in /logs, PATH + serve saved in windows/path.cmd (gitignored). remove-autostart.ps1 turns it off. .gitattributes forces CRLF for .cmd/.ps1. Static-reviewed only, NOT run on Windows.
 - Camera snapshot (CameraTab SnapshotButton + lib/snapshot.js): canvas capture of live <video>, date/time stamp; iOS app → @capacitor/filesystem + @capacitor/share; browser → Web Share files → download fallback. Stock poster used only in DEMO. Real-camera frame capture NOT verified (headless can't decode demo stream).
 - WiiM now playing: GET /api/listen/wiim/{id}/status (demo tracks when amp not LIVE), POST /api/listen/wiim/{id}/play-pause. Shown on active Wi-Fi WiiM Mobile Device buttons (Office, Bathroom), polled every 5s. Real WiiM NOT verified.
+
+## 2026-06 — Power-cut / restart banner
+- server.py record_reboot() on startup: if OS uptime < 10 min (Windows GetTickCount64, Linux /proc/uptime) store db.meta last_reboot {boot_at, back_online_at}; same boot (backend crash-loop) not re-recorded. /api/alerts returns "reboot" for 24h.
+- frontend RestartBanner.jsx above every tab, polls /alerts every 60s, hides itself after 24h (no dismiss, per user). Self-tested (logic script + screenshots 390/1920). Not yet seen after a real mini-PC reboot.

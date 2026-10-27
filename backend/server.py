@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
+import sys
 import ipaddress
 import logging
 import copy
@@ -1581,12 +1582,48 @@ async def protect_webhook(token: str, request: Request):
     return {"ok": True, "alerted": shown}
 
 
+REBOOT_WINDOW_S = 600  # backend up within 10 min of power-on = the mini-PC itself restarted
+REBOOT_BANNER_S = 24 * 3600
+
+
+def _uptime_s() -> float:
+    if sys.platform == "win32":
+        import ctypes
+        return ctypes.windll.kernel32.GetTickCount64() / 1000
+    with open("/proc/uptime") as f:
+        return float(f.read().split()[0])
+
+
+async def record_reboot():
+    """Remember when the mini-PC came back after a power cut / Windows restart (not app restarts)."""
+    try:
+        up = _uptime_s()
+    except Exception as e:
+        logger.warning("Uptime unavailable: %s", e)
+        return
+    if up > REBOOT_WINDOW_S:
+        return
+    now = datetime.now(timezone.utc)
+    boot_at = now - timedelta(seconds=up)
+    last = await db.meta.find_one({"key": "last_reboot"}, {"_id": 0})
+    if last and abs((datetime.fromisoformat(last["boot_at"]) - boot_at).total_seconds()) < 120:
+        return  # same boot; backend just restarted itself
+    await db.meta.update_one({"key": "last_reboot"}, {"$set": {"boot_at": boot_at.isoformat(), "back_online_at": now.isoformat()}}, upsert=True)
+
+
+async def recent_reboot():
+    r = await db.meta.find_one({"key": "last_reboot"}, {"_id": 0, "key": 0})
+    if r and (datetime.now(timezone.utc) - datetime.fromisoformat(r["back_online_at"])).total_seconds() < REBOOT_BANNER_S:
+        return r
+    return None
+
+
 @api_router.get("/alerts")
 async def alerts():
     doc = await db.system.find_one({"key": STATE_KEY}, {"_id": 0, "person_alert": 1, "offline_alerts": 1, "camera.armed": 1})
     doc = doc or {}
     return {"person_alert": doc.get("person_alert"), "offline_alerts": doc.get("offline_alerts", []),
-            "armed": bool((doc.get("camera") or {}).get("armed"))}
+            "armed": bool((doc.get("camera") or {}).get("armed")), "reboot": await recent_reboot()}
 
 
 @api_router.post("/protect/test-person")
@@ -2306,6 +2343,7 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def on_startup():
     await get_state()
+    await record_reboot()
     await seed_pin()
     await db.sessions.create_index("token")
     if not await db.meta.find_one({"key": "listen_v2_migration"}):

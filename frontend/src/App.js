@@ -11,6 +11,7 @@ import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { SetupWizard } from "@/components/SetupWizard";
 import { DeviceHealthPanel } from "@/components/DeviceHealthPanel";
 import { ScreenSaver } from "@/components/ScreenSaver";
+import { RestartBanner } from "@/components/RestartBanner";
 import { SonyRemote } from "@/components/SonyRemote";
 import { ListenProvider } from "@/context/ListenContext";
 import { ListenTab } from "@/components/tabs/ListenTab";
@@ -85,6 +86,7 @@ const Controller = () => {
     <div className="c4-shell min-h-screen flex flex-col">
       <TopBar onLock={() => { api.logout().catch((e) => console.warn("Logout failed", e)); setUnlocked(false); setAuthed(false); }} onOpenDrivers={() => setDriversOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenHealth={() => setHealthOpen(true)} />
       <main className="flex-1 max-w-2xl w-full mx-auto">
+        <RestartBanner />
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
