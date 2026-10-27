@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ListChecks, Activity, X, Radio, Thermometer, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Printer, ExternalLink } from "lucide-react";
+import { ListChecks, Activity, X, Radio, Thermometer, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Printer, ExternalLink, Camera } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { toast } from "sonner";
 import { FirstNightChecklist } from "@/components/FirstNightChecklist";
@@ -347,6 +347,17 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 <Field label="LAN IP (from UniFi)" value={c("ecobee").ip} placeholder="192.168.0.222" onChange={(v) => setField("ecobee", "ip", v)} testid="ecobee-ip-input" />
                 <Field label="MAC Address" value={c("ecobee").mac} placeholder="44:61:32:DF:C2:A9" onChange={(v) => setField("ecobee", "mac", v)} testid="ecobee-mac-input" />
                 <HomeKitPair conn={c("ecobee")} onBeforePair={() => api.updateConfig(config)} />
+              </DeviceCard>
+
+              <DeviceCard icon={Camera} title="UniFi Protect Camera" subtitle="Live RTSP → HLS stream + PTZ" device="camera" conn={c("camera")} onToggle={toggle} onTest={test} testing={testing}>
+                <p className="text-[11px] font-mono" style={{ color: "var(--c4-muted)" }} data-testid="camera-device-info">
+                  G6 PTZ · {c("camera").ip} · NVR {c("nvr").ip}
+                </p>
+                <Field label="RTSPS stream link (from UniFi Protect)" type="password" value={c("camera").rtsp_url} placeholder="rtsps://192.168.0.166:7441/xxxx?enableSrtp" onChange={(v) => setField("camera", "rtsp_url", v)} testid="camera-rtsp-input" />
+                <Field label="Protect API key (presets & patrol)" type="password" value={c("camera").protect_api_key} placeholder="Protect → Settings → Control Plane → Integrations" onChange={(v) => setField("camera", "protect_api_key", v)} testid="camera-apikey-input" />
+                <Field label="Preset names (slot order, comma-separated)" value={c("camera").ptz_presets} placeholder="Door, Hallway, Wide" onChange={(v) => setField("camera", "ptz_presets", v)} testid="camera-presets-input" />
+                <Field label="Local Protect user (experimental arrows/zoom)" value={c("camera").protect_user} placeholder="local-only user" onChange={(v) => setField("camera", "protect_user", v)} testid="camera-protect-user-input" />
+                <Field label="Local Protect password" type="password" value={c("camera").protect_password} placeholder="••••" onChange={(v) => setField("camera", "protect_password", v)} testid="camera-protect-pass-input" />
               </DeviceCard>
 
               <div className="glass rounded-2xl p-4" data-testid="settings-tv">

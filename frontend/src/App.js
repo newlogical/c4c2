@@ -15,6 +15,7 @@ import { SonyRemote } from "@/components/SonyRemote";
 import { ListenProvider } from "@/context/ListenContext";
 import { ListenTab } from "@/components/tabs/ListenTab";
 import { ShortcutsTab } from "@/components/tabs/ShortcutsTab";
+import { CameraTab } from "@/components/tabs/CameraTab";
 import { ClimateTab } from "@/components/tabs/ClimateTab";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -74,6 +75,7 @@ const Controller = () => {
   const tabs = {
     listen: <ListenTab onRemote={setRemoteTv} />,
     shortcuts: <ShortcutsTab />,
+    camera: <CameraTab />,
     climate: <ClimateTab />,
   };
   const onNav = (id) => (id === "settings" ? setSettingsOpen(true) : setTab(id));

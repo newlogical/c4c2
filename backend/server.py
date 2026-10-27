@@ -970,7 +970,7 @@ async def matrix_map(req: MatrixMapReq):
 
 # ---------------------------------------------------------------------------
 # First-night checklist: auto-detected steps + manual ticks
-CHECKLIST_MANUAL_IDS = {"install", "ipad_wifi", "tv_setup", "remote_access"}
+CHECKLIST_MANUAL_IDS = {"install", "ipad_wifi", "tv_setup", "ptz_presets", "remote_access"}
 
 
 class ChecklistTickReq(BaseModel):
@@ -995,6 +995,9 @@ async def checklist():
         ("tv_setup", "Video", f"Sony TVs: pre-shared key + Remote start ({tv_keys}/4 keys entered)", "On each TV: Network → IP control → PSK; Remote start ON.", (tv_keys == 4 and bool((c.get("tv") or {}).get("live"))) or None, "settings-tv"),
         ("amp_live", "Audio", "WS66i amp set to Live", "192.168.0.43; room sources are set in Settings → Rooms & sources.", bool((c.get("amp") or {}).get("live")), "settings-amp"),
         ("ecobee_paired", "Sources & climate", "Thermostat paired over HomeKit", "Enter the 8-digit HomeKit code from the thermostat (Menu → Settings → HomeKit).", bool((c.get("ecobee") or {}).get("paired")), "settings-ecobee"),
+        ("cam_stream", "Camera", "Camera stream link added", "Protect → G6 PTZ → Settings → Advanced → RTSPS (Medium).", bool((c.get("camera") or {}).get("rtsp_url")), "settings-camera"),
+        ("cam_apikey", "Camera", "Protect API key added", "Protect → Settings → Control Plane → Integrations.", bool((c.get("camera") or {}).get("protect_api_key")), "settings-camera"),
+        ("ptz_presets", "Camera", "PTZ presets saved and named", "Save positions in Protect, then list their names in Settings.", None, "settings-camera"),
         ("all_green", "Finish", f"All devices green in Device health ({health['online']}/{health['total']})", "Fix anything red before relying on shortcuts.", health["total"] > 0 and health["online"] == health["total"], "health"),
         ("remote_access", "Finish", "Remote access via UniFi Teleport / WireGuard", "Never port-forward the controller.", None, None),
     ]
@@ -2042,8 +2045,8 @@ def _health_targets(state):
         if mt:
             out.append({"id": cid, "name": cam_names.get(cid, cid), "kind": "UniFi Camera (RTSP)", "ip": mt.group(1),
                         "port": int(mt.group(2) or 554), "mac": "", "live": bool(cam.get("live"))})
-    # Matrix, Apple TV and camera control were removed from the app.
-    return [t for t in out if t["id"] not in ("matrix", "nvr") and not t["id"].startswith(("atv", "cam"))]
+    # Matrix and Apple TV control were removed from the app.
+    return [t for t in out if t["id"] != "matrix" and not t["id"].startswith("atv")]
 
 
 @api_router.get("/health/devices")

@@ -239,10 +239,10 @@ def test_layout_invalid_default_and_label(s):
 def test_health_and_checklist_no_old_devices(s):
     h = s.get(f"{API}/health/devices").json()
     txt = str(h).lower()
-    for w in ["matrix", "apple", "camera", "nvr", "protect"]:
+    for w in ["matrix", "apple"]:
         assert w not in txt, w
     c = str(s.get(f"{API}/checklist").json()).lower()
-    for w in ["matrix", "apple tv", "camera", "nvr"]:
+    for w in ["matrix", "apple tv"]:
         assert w not in c, w
 
 

@@ -1,9 +1,10 @@
 import React from "react";
-import { Volume2, Sparkles, Thermometer, Settings } from "lucide-react";
+import { Volume2, Sparkles, Thermometer, Settings, Cctv } from "lucide-react";
 
 const TABS = [
   { id: "listen", label: "Listen", icon: Volume2 },
   { id: "shortcuts", label: "Shortcuts", icon: Sparkles },
+  { id: "camera", label: "Camera", icon: Cctv },
   { id: "climate", label: "Thermostat", icon: Thermometer },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -14,7 +15,7 @@ export const BottomNav = ({ active, onChange }) => (
     style={{ background: "rgba(10,13,20,0.85)", borderTop: "1px solid var(--c4-border)", paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
     data-testid="bottom-nav"
   >
-    <div className="max-w-2xl mx-auto grid grid-cols-4 gap-1">
+    <div className="max-w-2xl mx-auto grid grid-cols-5 gap-1">
       {TABS.map(({ id, label, icon: Icon }) => {
         const on = active === id;
         return (
