@@ -12,6 +12,7 @@ import { SetupWizard } from "@/components/SetupWizard";
 import { DeviceHealthPanel } from "@/components/DeviceHealthPanel";
 import { ScreenSaver } from "@/components/ScreenSaver";
 import { RestartBanner } from "@/components/RestartBanner";
+import { RemoteLogin } from "@/components/RemoteLogin";
 import { SonyRemote } from "@/components/SonyRemote";
 import { ListenProvider } from "@/context/ListenContext";
 import { ListenTab } from "@/components/tabs/ListenTab";
@@ -19,6 +20,16 @@ import { ShortcutsTab } from "@/components/tabs/ShortcutsTab";
 import { CameraTab } from "@/components/tabs/CameraTab";
 import { ClimateTab } from "@/components/tabs/ClimateTab";
 import { AnimatePresence, motion } from "framer-motion";
+
+// Outside the apartment: personal sign-in first, then the usual PIN.
+const LockGate = ({ onUnlock, propertyName }) => {
+  const [remote, setRemote] = useState(null);
+  const check = () => api.remoteMe().then(setRemote).catch(() => setRemote({ remote: false }));
+  useEffect(() => { check(); }, []);
+  if (!remote) return null;
+  if (remote.remote && !remote.signed_in) return <RemoteLogin onSignedIn={check} propertyName={propertyName} />;
+  return <PinLock onUnlock={onUnlock} propertyName={propertyName} />;
+};
 
 const Controller = () => {
   const { state, loading, authed, setAuthed, refresh } = useSystem();
@@ -70,7 +81,7 @@ const Controller = () => {
   }
 
   if (!unlocked) {
-    return <PinLock onUnlock={async () => { await refresh(); setUnlocked(true); }} propertyName={state?.property_name} />;
+    return <LockGate onUnlock={async () => { await refresh(); setUnlocked(true); }} propertyName={state?.property_name} />;
   }
 
   const tabs = {

@@ -12,6 +12,7 @@ ast_serialize==0.11.1
 async_interrupt==1.2.2
 attrs==26.1.0
 bcrypt==4.1.3
+pyotp==2.10.0
 black==26.5.1
 bleak==3.0.2
 bleak-retry-connector==4.7.1

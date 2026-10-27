@@ -93,3 +93,6 @@ credentials.json
 frontend/node_modules/.cache/default-development/1.pack
 logs/
 windows/path.cmd
+windows/remote.cmd
+windows/caddy.exe
+windows/caddy-data/

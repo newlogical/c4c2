@@ -30,6 +30,7 @@ import protect
 import linkplay
 import music
 import listen
+import remote_auth
 import secrets as _secrets
 from fastapi.responses import HTMLResponse
 
@@ -787,7 +788,10 @@ async def verify_pin(req: PinReq, request: Request, response: Response):
             return {"success": False, "locked": True, "retry_after": int((lu - now).total_seconds()) + 1, "attempts_left": 0}
     if verify_pin_hash(req.pin, doc["pin_hash"]):
         await db.auth.update_one({"key": "pin"}, {"$set": {"fails": 0}, "$unset": {"locked_until": ""}})
-        _set_session_cookie(request, response, await create_session())
+        if remote_auth.is_remote(request):  # outside: unlock the signed-in session instead of making a new one
+            await db.sessions.update_one({"token": request.cookies.get(SESSION_COOKIE)}, {"$set": {"pin_ok": True}})
+        else:
+            _set_session_cookie(request, response, await create_session())
         return {"success": True}
     fails = int(doc.get("fails", 0)) + 1
     update = {"fails": fails}
@@ -824,6 +828,9 @@ async def demo_login(request: Request, response: Response):
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
     token = _bearer(request)
+    if remote_auth.is_remote(request):  # Lock from outside keeps the sign-in; only the PIN is asked again
+        await db.sessions.update_one({"token": token, "remote": True}, {"$set": {"pin_ok": False}})
+        return {"ok": True}
     if token:
         await db.sessions.delete_one({"token": token})
     response.delete_cookie(SESSION_COOKIE, path="/")
@@ -831,9 +838,10 @@ async def logout(request: Request, response: Response):
 
 
 @api_router.get("/bootstrap")
-async def bootstrap():
+async def bootstrap(request: Request):
     state = await get_state()
-    return {"property_name": state.get("property_name"), "demo_mode": is_demo_mode(state)}
+    remote = remote_auth.is_remote(request)
+    return {"property_name": state.get("property_name"), "demo_mode": is_demo_mode(state) and not remote, "remote": remote}
 
 
 @api_router.get("/state")
@@ -2296,9 +2304,12 @@ def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
 app.include_router(listen.router)
+app.include_router(remote_auth.router)
+remote_auth.D.update(db=db, session_cookie=SESSION_COOKIE, ttl_days=SESSION_TTL_DAYS, set_cookie=_set_session_cookie)
 listen.D.update(db=db, state_key=STATE_KEY, log_limit=LOG_LIMIT)
 
-PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap", "/api/spotify/callback"}
+PUBLIC_EXACT = {"/api", "/api/", "/api/auth/pin", "/api/auth/demo", "/api/bootstrap", "/api/spotify/callback",
+                "/api/remote/me", "/api/remote/login"}
 PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls", "/api/protect/webhook/")
 
 
@@ -2306,6 +2317,13 @@ PUBLIC_PREFIXES = ("/api/voice/scene/", "/api/camera/stream", "/api/camera/hls",
 async def auth_gate(request: Request, call_next):
     path = request.url.path
     if request.method == "OPTIONS" or not path.startswith("/api"):
+        return await call_next(request)
+    if remote_auth.is_remote(request):
+        denied = await remote_auth.gate(request, path)
+        if denied:
+            return JSONResponse({"detail": denied[1]}, status_code=denied[0])
+        if request.method not in ("GET", "HEAD") and not _origin_ok(request):
+            return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
         return await call_next(request)
     if path in PUBLIC_EXACT or path.startswith(PUBLIC_PREFIXES):
         return await call_next(request)
@@ -2348,6 +2366,7 @@ async def on_startup():
     await record_reboot()
     await seed_pin()
     await db.sessions.create_index("token")
+    await remote_auth.init_indexes()
     if not await db.meta.find_one({"key": "listen_v2_migration"}):
         # Old scenes, presets and schedules are replaced by Shortcuts.
         await db.scenes.delete_many({})

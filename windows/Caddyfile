@@ -1,0 +1,40 @@
+# HTTPS gateway for outside access. Only ports 80 + 443 are forwarded to the mini-PC; 3000/8001 stay LAN-only.
+# The domain comes from SMITH_DOMAIN (set by install-remote-access.ps1). Certificates are automatic (Let's Encrypt).
+{
+	email {$SMITH_ACME_EMAIL}
+}
+
+{$SMITH_DOMAIN} {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# Never reachable from the internet
+	@blocked path /api/protect/webhook/* /api/voice/* /api/spotify/callback /api/auth/demo /setup-guide.html
+	respond @blocked 404
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8001 {
+			# Marks the request as "from outside" so the controller asks for the personal sign-in
+			header_up X-Smith-Remote 1
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	log {
+		output file {$SMITH_LOG_DIR}/gateway.log {
+			roll_size 10MiB
+			roll_keep 3
+		}
+	}
+}

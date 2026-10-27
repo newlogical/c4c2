@@ -41,9 +41,9 @@
   <div class="card hidden" id="setup" data-testid="ios-setup">
     <p class="eyebrow">Smith Apartment</p>
     <h1>Connect to your controller</h1>
-    <p>Enter the address of the home controller (the mini-PC). Your phone or iPad must be on the apartment Wi-Fi.</p>
+    <p>Enter the mini-PC's address (e.g. 192.168.0.217) when on the apartment Wi-Fi, or your web address (e.g. home.smithapartment.com) to use it from anywhere.</p>
     <label for="addr">Controller address</label>
-    <input id="addr" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.0.217" data-testid="ios-address-input" />
+    <input id="addr" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.0.217 or home.example.com" data-testid="ios-address-input" />
     <button id="connect-btn" data-testid="ios-connect">Connect</button>
     <div class="err" id="err" data-testid="ios-error"></div>
   </div>
@@ -54,8 +54,11 @@
     var $ = function (id) { return document.getElementById(id); };
     var timer = null;
 
-    function clean(v) { return (v || "").trim().replace(/^https?:\/\//i, "").replace(/[:/].*$/, ""); }
-    function panelUrl(host) { return "http://" + host + ":3000/"; }
+    function clean(v) { return (v || "").trim().toLowerCase().replace(/^https?:\/\//i, "").replace(/[:/].*$/, ""); }
+    // LAN IPs / .local → the panel on port 3000; a real domain → the HTTPS gateway (outside access).
+    function isLan(host) { return /^\d+\.\d+\.\d+\.\d+$/.test(host) || /\.local$/.test(host) || host.indexOf(".") < 0; }
+    function base(host) { return isLan(host) ? "http://" + host + ":3000/" : "https://" + host + "/"; }
+    function panelUrl(host) { return base(host); }
     function show(id) { ["connecting", "setup"].forEach(function (x) { $(x).classList.toggle("hidden", x !== id); }); }
 
     // An image load is the one request iOS allows from the app shell to a plain-http LAN address.
@@ -66,7 +69,7 @@
         img.onload = function () { finish(true); };
         img.onerror = function () { finish(false); };
         setTimeout(function () { finish(false); }, ms);
-        img.src = "http://" + host + ":3000/icon-192.png?t=" + Date.now();
+        img.src = base(host) + "icon-192.png?t=" + Date.now();
       });
     }
 
@@ -90,7 +93,7 @@
 
     $("connect-btn").onclick = function () {
       var host = clean($("addr").value);
-      if (!/^[A-Za-z0-9.-]+$/.test(host)) { $("err").textContent = "Enter an address like 192.168.0.217"; return; }
+      if (!/^[A-Za-z0-9.-]+$/.test(host)) { $("err").textContent = "Enter an address like 192.168.0.217 or home.example.com"; return; }
       connect(host);
     };
     $("addr").onkeydown = function (e) { if (e.key === "Enter") $("connect-btn").click(); };

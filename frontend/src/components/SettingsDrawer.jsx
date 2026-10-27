@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FirstNightChecklist } from "@/components/FirstNightChecklist";
 import { RoomsSettings } from "@/components/settings/RoomsSettings";
 import { AmpDiagnostics } from "@/components/settings/AmpDiagnostics";
+import { RemoteAccessSettings } from "@/components/settings/RemoteAccessSettings";
 
 const Toggle = ({ on, onChange, testid }) => (
   <button
@@ -316,6 +317,8 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                   <span className="block text-[11px] font-normal mt-0.5" style={{ color: "var(--c4-muted)" }}>Connect this app to a different mini-PC address.</span>
                 </button>
               )}
+
+              <RemoteAccessSettings />
 
               <div className="glass rounded-2xl p-4" data-testid="settings-pin">
                 <div className="flex items-center gap-2.5 mb-3">

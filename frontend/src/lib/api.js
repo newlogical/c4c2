@@ -1,7 +1,9 @@
 import axios from "axios";
 
 // No build-time URL on the mini-PC: talk to port 8001 on whatever host served the panel.
-export const BACKEND = process.env.REACT_APP_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:8001`;
+// Through the HTTPS gateway (standard port, e.g. https://home.example.com) the API is on the same address.
+export const BACKEND = process.env.REACT_APP_BACKEND_URL
+  || (window.location.port ? `${window.location.protocol}//${window.location.hostname}:8001` : window.location.origin);
 const API = `${BACKEND}/api`;
 // Session lives in an httpOnly cookie set by the server; JS never sees the token.
 const http = axios.create({ baseURL: API, withCredentials: true });
@@ -23,6 +25,14 @@ export const api = {
   verifyPin: (pin) => http.post("/auth/pin", { pin }).then((r) => r.data),
   demoBypass: () => http.post("/auth/demo").then((r) => r.data),
   logout: () => http.post("/auth/logout").then((r) => r.data),
+  remoteMe: () => http.get("/remote/me").then((r) => r.data),
+  remoteLogin: (body) => http.post("/remote/login", body).then((r) => r.data),
+  remoteLogout: () => http.post("/remote/logout").then((r) => r.data),
+  remoteUsers: () => http.get("/remote/users").then((r) => r.data),
+  remoteCreateUser: (body) => http.post("/remote/users", body).then((r) => r.data),
+  remoteSetPassword: (id, password) => http.post(`/remote/users/${id}/password`, { password }).then((r) => r.data),
+  remoteReset2fa: (id) => http.post(`/remote/users/${id}/reset-2fa`).then((r) => r.data),
+  remoteDeleteUser: (id) => http.delete(`/remote/users/${id}`).then((r) => r.data),
   changePin: (current, new_pin) => http.post("/auth/change-pin", { current, new_pin }).then((r) => r.data),
   reset: () => http.post("/state/reset").then((r) => r.data),
   route: (display_id, source_id) =>
