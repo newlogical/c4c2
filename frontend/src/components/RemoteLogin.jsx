@@ -62,7 +62,7 @@ export const RemoteLogin = ({ onSignedIn, propertyName }) => {
         <div className="flex items-center gap-3">
           <ShieldCheck className="w-7 h-7" style={{ color: "var(--c4-emerald)" }} />
           <div>
-            <p className="font-head font-bold text-lg">{propertyName || "Smith Apartment"}</p>
+            <p className="font-head font-bold text-lg">{propertyName || "Casa Vestry"}</p>
             <p className="text-xs" style={{ color: "var(--c4-muted)" }}>Secure sign-in for access away from home</p>
           </div>
         </div>

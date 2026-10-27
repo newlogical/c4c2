@@ -9,18 +9,23 @@ param(
 $ErrorActionPreference = "Stop"
 $win = $PSScriptRoot
 $root = Split-Path -Parent $win
-$task = "Smith Apartment Gateway"
+$task = "Casa Vestry Gateway"
 
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $admin) { Write-Host "Please run this in PowerShell opened with 'Run as administrator'." -ForegroundColor Red; exit 1 }
 $Domain = $Domain.Trim().ToLower() -replace '^https?://', '' -replace '/.*$', ''
-if ($Domain -notmatch '^[a-z0-9.-]+\.[a-z]{2,}$') { Write-Host "That doesn't look like a domain (e.g. home.smithapartment.com)." -ForegroundColor Red; exit 1 }
+if ($Domain -notmatch '^[a-z0-9.-]+\.[a-z]{2,}$') { Write-Host "That doesn't look like a domain (e.g. home.casavestry.com)." -ForegroundColor Red; exit 1 }
 
-if (-not (Get-ScheduledTask -TaskName "Smith Apartment Backend" -ErrorAction SilentlyContinue)) {
+if (-not (Get-ScheduledTask -TaskName "Casa Vestry Backend" -ErrorAction SilentlyContinue)) {
   Write-Host "Run .\windows\install-autostart.ps1 first so the backend and panel are running." -ForegroundColor Red; exit 1
 }
 
 if (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue) { Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue }
+if (Get-ScheduledTask -TaskName "Smith Apartment Gateway" -ErrorAction SilentlyContinue) {  # from before the rename
+  Stop-ScheduledTask -TaskName "Smith Apartment Gateway" -ErrorAction SilentlyContinue
+  Unregister-ScheduledTask -TaskName "Smith Apartment Gateway" -Confirm:$false
+}
+Remove-NetFirewallRule -DisplayName "Smith Apartment Gateway (HTTPS)" -ErrorAction SilentlyContinue
 Get-Process caddy -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
@@ -41,8 +46,8 @@ $env:SMITH_DOMAIN = $Domain; $env:SMITH_ACME_EMAIL = $Email; $env:SMITH_LOG_DIR 
 if ($LASTEXITCODE -ne 0) { Write-Host "Caddyfile check failed (see above)." -ForegroundColor Red; exit 1 }
 
 Write-Host "Opening ports 80 and 443 in Windows Firewall..." -ForegroundColor Cyan
-Remove-NetFirewallRule -DisplayName "Smith Apartment Gateway (HTTPS)" -ErrorAction SilentlyContinue
-New-NetFirewallRule -DisplayName "Smith Apartment Gateway (HTTPS)" -Direction Inbound -Protocol TCP -LocalPort 80,443 -Action Allow -Profile Any | Out-Null
+Remove-NetFirewallRule -DisplayName "Casa Vestry Gateway (HTTPS)" -ErrorAction SilentlyContinue
+New-NetFirewallRule -DisplayName "Casa Vestry Gateway (HTTPS)" -Direction Inbound -Protocol TCP -LocalPort 80,443 -Action Allow -Profile Any | Out-Null
 
 $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"`"$win\start-gateway.cmd`"`"" -WorkingDirectory $win
 $trigger = New-ScheduledTaskTrigger -AtStartup

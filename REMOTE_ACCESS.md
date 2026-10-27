@@ -35,8 +35,8 @@ Port Forwarding*; newest: *Settings → Policy Table → Create New Policy → P
 
 | Name | WAN port | Forward IP | Forward port | Protocol |
 |---|---|---|---|---|
-| Smith HTTPS | 443 | mini-PC IP | 443 | TCP |
-| Smith cert | 80 | mini-PC IP | 80 | TCP |
+| Casa Vestry HTTPS | 443 | mini-PC IP | 443 | TCP |
+| Casa Vestry cert | 80 | mini-PC IP | 80 | TCP |
 
 Do **not** forward 3000 or 8001.
 

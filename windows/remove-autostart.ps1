@@ -1,6 +1,6 @@
 # Turns auto-start off and stops the background backend + panel. Run in an Administrator PowerShell:
 #   powershell -ExecutionPolicy Bypass -File .\windows\remove-autostart.ps1
-foreach ($n in "Smith Apartment Backend", "Smith Apartment Panel") {
+foreach ($n in "Casa Vestry Backend", "Casa Vestry Panel", "Smith Apartment Backend", "Smith Apartment Panel") {
   if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) {
     Stop-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $n -Confirm:$false

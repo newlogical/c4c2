@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Smith Apartment</title>
+  <title>Casa Vestry</title>
   <style>
     :root { --bg: #0A0D14; --surface: #121824; --border: rgba(255,255,255,0.08); --text: #F1F5F9; --muted: #94A3B8; --primary: #3B82F6; --amber: #F59E0B; --red: #F87171; }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -31,7 +31,7 @@
   <!-- Shown when an address is saved: auto-connects after a short pause, with a way to change it -->
   <div class="card center hidden" id="connecting" data-testid="ios-connecting">
     <div class="spin"></div>
-    <p class="eyebrow">Smith Apartment</p>
+    <p class="eyebrow">Casa Vestry</p>
     <h1 style="font-size:22px">Connecting…</h1>
     <p id="connecting-addr"></p>
     <button class="ghost" id="change-btn" data-testid="ios-change-address">Change controller address</button>
@@ -39,9 +39,9 @@
 
   <!-- First launch / change address -->
   <div class="card hidden" id="setup" data-testid="ios-setup">
-    <p class="eyebrow">Smith Apartment</p>
+    <p class="eyebrow">Casa Vestry</p>
     <h1>Connect to your controller</h1>
-    <p>Enter the mini-PC's address (e.g. 192.168.0.217) when on the apartment Wi-Fi, or your web address (e.g. home.smithapartment.com) to use it from anywhere.</p>
+    <p>Enter the mini-PC's address (e.g. 192.168.0.217) when on the apartment Wi-Fi, or your web address (e.g. home.casavestry.com) to use it from anywhere.</p>
     <label for="addr">Controller address</label>
     <input id="addr" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.0.217 or home.example.com" data-testid="ios-address-input" />
     <button id="connect-btn" data-testid="ios-connect">Connect</button>

@@ -1,6 +1,6 @@
 {
-  "short_name": "Smith Apartment",
-  "name": "Smith Apartment",
+  "short_name": "Casa Vestry",
+  "name": "Casa Vestry",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

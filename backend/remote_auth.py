@@ -17,7 +17,7 @@ REMOTE_HEADER = "x-smith-remote"
 LOCK_AFTER = 5
 LOCK_MINUTES = 15
 MIN_PASSWORD = 12
-ISSUER = "Smith Apartment"
+ISSUER = "Casa Vestry"
 
 # Paths that never make sense from the internet (device webhooks, demo bypass, OAuth callback).
 REMOTE_BLOCKED = ("/api/protect/webhook/", "/api/voice/", "/api/spotify/callback", "/api/auth/demo")

@@ -228,3 +228,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Frontend: RemoteLogin.jsx, LockGate in App.js, Settings "Outside access" card (RemoteAccessSettings.jsx), PinLock hides setup-guide QR remotely, api.js same-origin API when served on standard port, iOS shell accepts a domain (https). Checklist + Settings guide text updated. REMOTE_ACCESS.md walkthrough.
 - Tests: backend/tests/test_remote_access.py (5) + test_iter25_remote_ext.py (4) pass. NOT yet set up on the real router/domain.
 - Stale tests to ignore: test_iter11_sony.py (token in body), test_iter22 preset_crud_order (removed music presets).
+
+## 2026-06 — Renamed to "Casa Vestry"
+- All visible names (panel, title, manifest, iOS display name, ios-shell, guides, Windows task names, TOTP issuer) → Casa Vestry. Bundle ID → com.newlogicaltech.casavestry. Codemagic integration name → CasaVestryAppStoreConnect.
+- get_state migrates stored property_name "Smith Apartment"/"Riverside Apartment" → "Casa Vestry". Windows install/remove scripts also remove the old "Smith Apartment *" tasks/firewall rule.
+- Internal identifiers unchanged on purpose: X-Smith-Remote header, SMITH_* env vars (invisible).

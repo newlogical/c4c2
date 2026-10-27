@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Smith Apartment</string>
+	<string>Casa Vestry</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -38,7 +38,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Smith Apartment connects to your home controller on the local network.</string>
+	<string>Casa Vestry connects to your home controller on the local network.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save camera snapshots to your Photos.</string>
 	<key>UIApplicationSceneManifest</key>

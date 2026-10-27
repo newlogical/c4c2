@@ -1,5 +1,5 @@
 @echo off
-rem Run by the "Smith Apartment Gateway" scheduled task: HTTPS for outside access (Caddy).
+rem Run by the "Casa Vestry Gateway" scheduled task: HTTPS for outside access (Caddy).
 setlocal
 cd /d "%~dp0"
 if exist "%~dp0remote.cmd" call "%~dp0remote.cmd"

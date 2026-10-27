@@ -1,4 +1,4 @@
-# Starts the Smith Apartment backend + panel at power-on (before anyone signs in) and keeps them running.
+# Starts the Casa Vestry backend + panel at power-on (before anyone signs in) and keeps them running.
 # Run in an Administrator PowerShell from the project folder:
 #   powershell -ExecutionPolicy Bypass -File .\windows\install-autostart.ps1
 # Safe to re-run: after a git pull / yarn build, re-run it to restart both with the new code.
@@ -6,8 +6,8 @@ $ErrorActionPreference = "Stop"
 $win = $PSScriptRoot
 $root = Split-Path -Parent $win
 $tasks = @(
-  @{ Name = "Smith Apartment Backend"; Cmd = "start-backend.cmd"; Port = 8001; Url = "http://localhost:8001/api/" },
-  @{ Name = "Smith Apartment Panel";   Cmd = "start-panel.cmd";   Port = 3000; Url = "http://localhost:3000/" }
+  @{ Name = "Casa Vestry Backend"; Cmd = "start-backend.cmd"; Port = 8001; Url = "http://localhost:8001/api/" },
+  @{ Name = "Casa Vestry Panel";   Cmd = "start-panel.cmd";   Port = 3000; Url = "http://localhost:3000/" }
 )
 
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -35,6 +35,12 @@ Set-Content -Path "$win\path.cmd" -Encoding ASCII -Value @(
 )
 
 Write-Host "Stopping anything already using ports 8001 / 3000 (close old backend/panel windows)..." -ForegroundColor Cyan
+foreach ($old in "Smith Apartment Backend", "Smith Apartment Panel") {  # tasks from before the rename
+  if (Get-ScheduledTask -TaskName $old -ErrorAction SilentlyContinue) {
+    Stop-ScheduledTask -TaskName $old -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $old -Confirm:$false
+  }
+}
 foreach ($t in $tasks) {
   if (Get-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue) { Stop-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue }
 }

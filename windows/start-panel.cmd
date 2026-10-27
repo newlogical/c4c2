@@ -1,5 +1,5 @@
 @echo off
-rem Run by the "Smith Apartment Panel" scheduled task. Serves frontend\build on port 3000.
+rem Run by the "Casa Vestry Panel" scheduled task. Serves frontend\build on port 3000.
 setlocal
 cd /d "%~dp0..\frontend"
 if exist "%~dp0path.cmd" call "%~dp0path.cmd"

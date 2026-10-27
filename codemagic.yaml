@@ -1,6 +1,6 @@
-# Builds the Smith Apartment iOS app (Capacitor, in /frontend) and uploads it to TestFlight.
+# Builds the Casa Vestry iOS app (Capacitor, in /frontend) and uploads it to TestFlight.
 # One-time setup in Codemagic (see IOS_APP.md):
-#   1. Teams → Integrations → Developer Portal → add an App Store Connect API key named "SmithAppStoreConnect".
+#   1. Teams → Integrations → Developer Portal → add an App Store Connect API key named "CasaVestryAppStoreConnect".
 #   2. Set APP_STORE_APPLE_ID below to your app's Apple ID (App Store Connect → App → App Information).
 workflows:
   ios-testflight:
@@ -9,11 +9,11 @@ workflows:
     instance_type: mac_mini_m2
     working_directory: frontend
     integrations:
-      app_store_connect: SmithAppStoreConnect
+      app_store_connect: CasaVestryAppStoreConnect
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.newlogicaltech.smithapartment
+        bundle_identifier: com.newlogicaltech.casavestry
       vars:
         APP_STORE_APPLE_ID: 0000000000 # TODO: replace with your App Store Connect app ID
         XCODE_PROJECT: ios/App/App.xcodeproj

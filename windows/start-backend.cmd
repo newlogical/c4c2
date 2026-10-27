@@ -1,5 +1,5 @@
 @echo off
-rem Run by the "Smith Apartment Backend" scheduled task. Restarts the backend if it ever stops.
+rem Run by the "Casa Vestry Backend" scheduled task. Restarts the backend if it ever stops.
 setlocal
 cd /d "%~dp0..\backend"
 if exist "%~dp0path.cmd" call "%~dp0path.cmd"

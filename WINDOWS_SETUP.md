@@ -178,7 +178,7 @@ powershell -ExecutionPolicy Bypass -File .\windows\install-autostart.ps1
 command again — it restarts both with the new code.
 
 - Logs: `C:\apartment-controller\logs\backend.log` and `panel.log`
-- Task Scheduler → *Task Scheduler Library* shows "Smith Apartment Backend" / "Smith Apartment Panel".
+- Task Scheduler → *Task Scheduler Library* shows "Casa Vestry Backend" / "Casa Vestry Panel".
 - Turn auto-start off: `powershell -ExecutionPolicy Bypass -File .\windows\remove-autostart.ps1`
 - If you install ffmpeg/Node somewhere new later, re-run the install command so the tasks see it.
 

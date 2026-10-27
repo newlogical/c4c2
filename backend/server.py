@@ -129,7 +129,7 @@ def default_config() -> dict:
 def default_state() -> dict:
     return {
         "key": STATE_KEY,
-        "property_name": "Smith Apartment",
+        "property_name": "Casa Vestry",
         "sources": [
             {"id": "atv1", "name": "Apple TV 1", "input": 1, "location": "Living Room"},
             {"id": "atv2", "name": "Apple TV 2", "input": 2, "location": "Office"},
@@ -182,6 +182,9 @@ async def get_state() -> dict:
     doc.setdefault("audio_follow_tv", True)
     doc.setdefault("away", False)
     doc.pop("pin", None)  # PIN lives in db.auth, never in state
+    if doc.get("property_name") in ("Smith Apartment", "Riverside Apartment"):  # renamed to Casa Vestry
+        doc["property_name"] = "Casa Vestry"
+        await db.system.update_one({"key": STATE_KEY}, {"$set": {"property_name": "Casa Vestry"}})
     _cfgm = doc.get("config") or {}
     for _s in ((_cfgm.get("tv") or {}).get("sets") or {}).values():  # migrate Samsung token -> Sony PSK
         if isinstance(_s, dict) and "psk" not in _s:

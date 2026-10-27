@@ -10,7 +10,7 @@ ALL = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDo
 p = plistlib.loads(PLIST.read_bytes())
 p.update({
     "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True, "NSAllowsArbitraryLoadsInWebContent": True},
-    "NSLocalNetworkUsageDescription": "Smith Apartment connects to your home controller on the local network.",
+    "NSLocalNetworkUsageDescription": "Casa Vestry connects to your home controller on the local network.",
     "NSPhotoLibraryAddUsageDescription": "Save camera snapshots to your Photos.",
     "LSApplicationQueriesSchemes": ["unifi-protect"],
     "UISupportedInterfaceOrientations": ALL,
