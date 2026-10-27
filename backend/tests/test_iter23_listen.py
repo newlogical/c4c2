@@ -54,11 +54,11 @@ def test_listen_structure(s):
     assert vis == FOUR
     assert not r["zone5"]["visible"] and not r["zone6"]["visible"]
     assert [x["input"] for x in r["living"]["sources"]] == [1, 3]
-    assert [x["input"] for x in r["office"]["sources"]] == [5, 6]
+    assert [x["input"] for x in r["office"]["sources"]] == [5, 5]
     assert [x["input"] for x in r["master"]["sources"]] == [2, 4]
     assert [x["input"] for x in r["bathroom"]["sources"]] == [6, 1, 5, 2]
     assert r["bathroom"]["tv_id"] is None
-    assert [x["input"] for x in d["party_sources"]] == [6, 1, 5, 2]
+    assert [x["input"] for x in d["party_sources"]] == [3, 1, 5, 2]
     assert [r[k]["default_input"] for k in FOUR] == [1, 5, 2, 6]
 
 
@@ -100,18 +100,18 @@ def test_party_flow(s):
     p = s.get(f"{API}/listen").json()["party"]
     for rid in FOUR:
         s.post(f"{API}/listen/party/room/{rid}", json={"join": rid != "office"})
-    s.post(f"{API}/listen/party/source", json={"input": 6})
+    s.post(f"{API}/listen/party/source", json={"input": 3})
     r = s.post(f"{API}/listen/party", json={"active": True})
     assert r.status_code == 200 and r.json()["party"]["active"]
     a = rooms(s)
     for rid in ["living", "master", "bathroom"]:
-        assert a[rid]["status"]["input"] == 6 and a[rid]["status"]["power"] and a[rid]["in_party"]
+        assert a[rid]["status"]["input"] == 3 and a[rid]["status"]["power"] and a[rid]["in_party"]
     assert a["office"]["status"] == before["office"]["status"] and not a["office"]["in_party"]
     # source change
     s.post(f"{API}/listen/party/source", json={"input": 5})
     a = rooms(s)
     assert all(a[x]["status"]["input"] == 5 for x in ["living", "master", "bathroom"])
-    assert s.post(f"{API}/listen/party/source", json={"input": 3}).status_code == 400
+    assert s.post(f"{API}/listen/party/source", json={"input": 4}).status_code == 400
     # 409 for source change on participant
     assert s.post(f"{API}/listen/room/living", json={"input": 1}).status_code == 409
     # master +5
@@ -172,8 +172,8 @@ def test_run_seeded_shortcuts(s):
     reset(s)
     sc = _sc(s)
     d = s.post(f"{API}/shortcuts/{sc['Music Everywhere']['id']}/run").json()
-    assert d["party"]["active"] and sorted(d["party"]["rooms"]) == sorted(FOUR) and d["party"]["input"] == 6
-    assert all(r["status"]["input"] == 6 and r["status"]["power"] for r in d["rooms"] if r["id"] in FOUR)
+    assert d["party"]["active"] and sorted(d["party"]["rooms"]) == sorted(FOUR) and d["party"]["input"] == 3
+    assert all(r["status"]["input"] == 3 and r["status"]["power"] for r in d["rooms"] if r["id"] in FOUR)
     d = s.post(f"{API}/shortcuts/{sc['Good Night']['id']}/run").json()
     assert d["party"]["active"] is False
     assert all(not r["status"]["power"] for r in d["rooms"] if r["id"] in FOUR)
@@ -191,11 +191,11 @@ def test_run_seeded_shortcuts(s):
 
 
 def test_shortcut_crud(s):
-    body = {"name": "TEST_sc", "icon": "Moon", "rooms": {"office": {"input": 6, "volume": 20}}, "favorite": False}
+    body = {"name": "TEST_sc", "icon": "Moon", "rooms": {"office": {"input": 5, "volume": 20}}, "favorite": False}
     c = s.post(f"{API}/shortcuts", json=body)
     assert c.status_code == 200
     sid = c.json()["id"]
-    assert c.json()["rooms"] == {"office": {"input": 6, "volume": 20}}
+    assert c.json()["rooms"] == {"office": {"input": 5, "volume": 20}}
     u = s.put(f"{API}/shortcuts/{sid}", json={**body, "name": "TEST_sc2"})
     assert u.json()["name"] == "TEST_sc2"
     assert _sc(s)["TEST_sc2"]["id"] == sid
@@ -210,7 +210,7 @@ def test_shortcut_crud(s):
     s.post(f"{API}/shortcuts/reorder", json={"ids": ids})
     r = s.post(f"{API}/shortcuts/{sid}/run")
     assert r.status_code == 200
-    assert {x["id"]: x for x in r.json()["rooms"]}["office"]["status"]["input"] == 6
+    assert {x["id"]: x for x in r.json()["rooms"]}["office"]["status"]["input"] == 5
     for x in (sid, dup["id"]):
         assert s.delete(f"{API}/shortcuts/{x}").status_code == 200
     assert s.delete(f"{API}/shortcuts/{sid}").status_code == 404

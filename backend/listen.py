@@ -25,20 +25,28 @@ DEFAULT_ROOMS = [
     {"id": "living", "name": "Living Room", "amp_zone": 1, "visible": True, "default_input": 1, "max_volume": 100, "tv_id": "tv_living",
      "sources": [{"input": 1, "label": "TV"}, {"input": 3, "label": "Mobile Device"}]},
     {"id": "office", "name": "Office", "amp_zone": 2, "visible": True, "default_input": 5, "max_volume": 100, "tv_id": "tv_office",
-     "sources": [{"input": 5, "label": "TV"}, {"input": 6, "label": "Mobile Device"}]},
+     "sources": [{"input": 5, "label": "TV", "wiim": "wiim1", "wiim_mode": "bluetooth"},
+                 {"input": 5, "label": "Mobile Device", "wiim": "wiim1", "wiim_mode": "wifi"}]},
     {"id": "master", "name": "Master Bedroom", "amp_zone": 3, "visible": True, "default_input": 2, "max_volume": 100, "tv_id": "tv_master",
      "sources": [{"input": 2, "label": "TV"}, {"input": 4, "label": "Mobile Device"}]},
     {"id": "bathroom", "name": "Bathroom", "amp_zone": 4, "visible": True, "default_input": 6, "max_volume": 100, "tv_id": None,
-     "sources": [{"input": 6, "label": "Mobile Device"}, {"input": 1, "label": "Living Room TV"},
+     "sources": [{"input": 6, "label": "Mobile Device", "wiim": "wiim2", "wiim_mode": "wifi"}, {"input": 1, "label": "Living Room TV"},
                  {"input": 5, "label": "Office TV"}, {"input": 2, "label": "Master Bedroom TV"}]},
     {"id": "zone5", "name": "Zone 5", "amp_zone": 5, "visible": False, "default_input": 1, "max_volume": 100, "tv_id": None, "sources": []},
     {"id": "zone6", "name": "Zone 6", "amp_zone": 6, "visible": False, "default_input": 1, "max_volume": 100, "tv_id": None, "sources": []},
 ]
-DEFAULT_PARTY_SOURCES = [{"input": 6, "label": "Mobile Device from Living Room"}, {"input": 1, "label": "Living Room TV"},
-                         {"input": 5, "label": "Office TV"}, {"input": 2, "label": "Master Bedroom TV"}]
+DEFAULT_PARTY_SOURCES = [{"input": 3, "label": "Mobile Device from Living Room"}, {"input": 1, "label": "Living Room TV"},
+                         {"input": 5, "label": "Office TV", "wiim": "wiim1", "wiim_mode": "bluetooth"},
+                         {"input": 2, "label": "Master Bedroom TV"}]
+# Layout shipped before the WiiMs were installed; migrate_layout_v2 only replaces parts still equal to this.
+_V1 = {"office": [{"input": 5, "label": "TV"}, {"input": 6, "label": "Mobile Device"}],
+       "bathroom": [{"input": 6, "label": "Mobile Device"}, {"input": 1, "label": "Living Room TV"},
+                    {"input": 5, "label": "Office TV"}, {"input": 2, "label": "Master Bedroom TV"}],
+       "party": [{"input": 6, "label": "Mobile Device from Living Room"}, {"input": 1, "label": "Living Room TV"},
+                 {"input": 5, "label": "Office TV"}, {"input": 2, "label": "Master Bedroom TV"}]}
 FOUR = ["living", "office", "master", "bathroom"]
-DEFAULT_WIIMS = [{"id": "wiim1", "name": "WiiM 1", "ip": "", "amp_input": None},
-                 {"id": "wiim2", "name": "WiiM 2", "ip": "", "amp_input": None}]
+DEFAULT_WIIMS = [{"id": "wiim1", "name": "Office WiiM", "ip": "", "amp_input": 5},
+                 {"id": "wiim2", "name": "Bathroom WiiM", "ip": "", "amp_input": 6}]
 WIIM_MODES = {"wifi": "Wi-Fi / AirPlay", "bluetooth": "Bluetooth", "line-in": "Line in", "optical": "Optical"}
 # LinkPlay getPlayerStatus "mode" codes for the non-network inputs
 _WIIM_MODE_CODE = {"line-in": "40", "bluetooth": "41", "optical": "43"}
@@ -46,7 +54,7 @@ DEFAULT_SHORTCUTS = [
     {"name": "Watch TV", "icon": "Tv", "description": "Every room back to its TV sound; Bathroom on Mobile Device",
      "rooms": {"living": {"input": 1}, "office": {"input": 5}, "master": {"input": 2}, "bathroom": {"input": 6}}},
     {"name": "Music Everywhere", "icon": "PartyPopper", "description": "Party Mode: Mobile Device in all four rooms",
-     "rooms": {}, "party": {"enabled": True, "input": 6, "rooms": FOUR}},
+     "rooms": {}, "party": {"enabled": True, "input": 3, "rooms": FOUR}},
     {"name": "Bathroom TV Audio", "icon": "Bath", "description": "Bathroom plays the Living Room TV",
      "rooms": {"bathroom": {"input": 1}}},
     {"name": "Good Night", "icon": "Moon", "description": "Turn off all four speaker zones",
@@ -69,7 +77,7 @@ async def load() -> dict:
     doc = await D["db"].listen.find_one(DOC, {"_id": 0})
     if not doc:
         doc = {**DOC, "rooms": copy.deepcopy(DEFAULT_ROOMS), "party_sources": copy.deepcopy(DEFAULT_PARTY_SOURCES),
-               "status": {}, "party": {"active": False, "input": 6, "rooms": list(FOUR), "saved": {}}}
+               "status": {}, "party": {"active": False, "input": 3, "rooms": list(FOUR), "saved": {}}}
         await D["db"].listen.insert_one(copy.deepcopy(doc))
     st = await D["db"].system.find_one({"key": D["state_key"]}, {"_id": 0, "config.amp": 1}) or {}
     doc["_amp"] = (st.get("config") or {}).get("amp") or {}
@@ -388,6 +396,8 @@ async def run_shortcut(doc, sc):
         r = next((x for x in doc["rooms"] if x["id"] == rid), None)
         src = find_source(r, ch.get("label"), ch.get("input")) if r and (ch.get("label") or ch.get("input")) else None
         ch = {k: ch.get(k) for k in ("power", "input", "volume", "mute") if ch.get(k) is not None}
+        if r and "input" in ch and not src:
+            ch.pop("input")  # that source was removed from the room since the shortcut was saved
         if not ch or not r:
             continue
         if src:
@@ -664,6 +674,31 @@ async def seed_shortcuts():
         await D["db"].shortcuts.insert_one({"id": str(uuid.uuid4()), "description": "", "party": None, "restore_defaults": False,
                                             **copy.deepcopy(s), "favorite": True, "order": i, "created_at": _now(), "updated_at": _now()})
     await D["db"].meta.insert_one({"key": "seed_shortcuts_v1"})
+
+
+async def migrate_layout_v2():
+    """One time: Office WiiM on input 5 (TV over Bluetooth + AirPlay), Bathroom WiiM on 6, party phone source on 3.
+    Rooms or shortcuts the admin already edited are left alone."""
+    db = D["db"]
+    if await db.meta.find_one({"key": "listen_layout_v2_wiim"}):
+        return
+    doc = await db.listen.find_one(DOC, {"_id": 0})
+    if doc:
+        new = {r["id"]: r for r in DEFAULT_ROOMS}
+        plain = lambda srcs: [{k: v for k, v in x.items() if v is not None} for x in (srcs or [])]
+        for r in doc["rooms"]:
+            if r["id"] in ("office", "bathroom") and plain(r.get("sources")) == _V1[r["id"]]:
+                r["sources"], r["default_input"] = copy.deepcopy(new[r["id"]]["sources"]), new[r["id"]]["default_input"]
+        if plain(doc.get("party_sources")) == _V1["party"]:
+            doc["party_sources"] = copy.deepcopy(DEFAULT_PARTY_SOURCES)
+            if not doc["party"]["active"] and doc["party"]["input"] == 6:
+                doc["party"]["input"] = 3
+        wiims = doc.get("wiims")
+        if not wiims or all(not w.get("ip") and w["name"] in ("WiiM 1", "WiiM 2") for w in wiims):
+            doc["wiims"] = copy.deepcopy(DEFAULT_WIIMS)
+        await db.listen.update_one(DOC, {"$set": {k: doc[k] for k in ("rooms", "party_sources", "party", "wiims")}})
+    await db.shortcuts.update_many({"name": "Music Everywhere", "party.input": 6}, {"$set": {"party.input": 3, "updated_at": _now()}})
+    await db.meta.insert_one({"key": "listen_layout_v2_wiim"})
 
 
 async def _get_sc(sid):

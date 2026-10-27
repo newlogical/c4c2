@@ -2312,6 +2312,7 @@ async def on_startup():
         await db.system.update_one({"key": STATE_KEY}, {"$set": {"pinned_scenes": [], "audio_follow_tv": False}})
         await db.meta.insert_one({"key": "listen_v2_migration"})
     await listen.seed_shortcuts()
+    await listen.migrate_layout_v2()
     if not scheduler.running:
         scheduler.start()
     scheduler.add_job(offline_watch, "interval", seconds=60, id="offline_watch", replace_existing=True)
