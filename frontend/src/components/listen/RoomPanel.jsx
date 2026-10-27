@@ -19,7 +19,7 @@ const SourceButton = ({ testid, src, on, disabled, onPick }) => {
         style={{ background: on ? "var(--c4-amber)" : "var(--c4-card)", color: on ? "#0A0D14" : "var(--c4-text)",
           border: on ? "1px solid var(--c4-amber)" : "1px solid var(--c4-border)" }}>
         <Icon className="w-5 h-5" />
-        <span className="font-semibold text-base leading-tight">{src.label}</span>
+        <span className={`font-semibold text-base leading-tight ${streaming && np ? "pr-10" : ""}`}>{src.label}</span>
         {streaming && np && <NowPlayingText np={np} testid={`${testid}-now-playing`} />}
       </button>
       {streaming && np && <PlayPauseButton wid={src.wiim} np={np} onChange={setNp} testid={`${testid}-play-pause`} />}

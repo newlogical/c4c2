@@ -12,7 +12,7 @@ export const captureStill = async (video, label) => {
   let w = video?.videoWidth;
   let h = video?.videoHeight;
   if (!video || video.readyState < 2 || !w) {
-    if (!video?.poster) throw new Error("The live feed isn't playing yet");
+    if (video?.dataset.demo !== "true" || !video.poster) throw new Error("The live feed isn't playing yet");
     frame = await loadImg(video.poster);
     w = frame.naturalWidth;
     h = frame.naturalHeight;

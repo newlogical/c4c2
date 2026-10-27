@@ -1,0 +1,37 @@
+{
+  "summary": "Tested WiiM Now Playing (backend demo status/play-pause/auth + Listen UI at 390px & 1920px), Camera Snapshot Share (desktop download, mocked Capacitor Share/Filesystem, recordings AppLauncher regression), regressions (iter23 listen suite 15/15, room tabs, Party, Shortcuts, Thermostat, Settings, Settings WiiM Check), and static review of the windows/ auto-start scripts. Everything requested works. 2 minor issues found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/listen/wiim/{wid}/play-pause (LIVE)", "issue": "After linkplay.command succeeds, it returns await wiim_status(wid). If the status read then fails (424), the user gets an error toast even though the toggle was already sent. Could only be checked in the code; LIVE mode can't run here."},
+      {"endpoint": "GET /api/listen/wiim/{wid}/status", "issue": "Demo vs live is decided by the amp's live flag (live(doc) = _amp.live), not by the WiiM itself. If the amp is LIVE but the WiiMs are not set up, now-playing silently disappears because of a 404. This is acceptable but worth knowing."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "lib/snapshot.js captureStill", "issue": "If the video isn't ready (readyState<2), it falls back to video.poster. The poster is a hard-coded Unsplash STOCK photo (CameraPlayer STILL), so in LIVE mode, if the feed is still loading or has failed, the user shares a stock photo stamped 'Front Entry · <date time>' as if it were a real camera snapshot. Suggest: in LIVE mode throw 'The live feed isn't playing yet', or use a real Protect snapshot endpoint instead of the poster.", "selector": "[data-testid=camera-snapshot-btn]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Listen source button (390px)", "issues": ["The play/pause circle (top-right, 40px) nearly touches the 'Mobile Device' label: they overlap by about 4px horizontally and 7px vertically in bounding boxes. A longer source label would run under the button. Consider pr-12 on the label when streaming."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter24_wiim_nowplaying.py", "/app/test_reports/pytest/pytest_iter24.xml"],
+  "action_items": [
+    "Don't share the stock poster image as a camera snapshot in LIVE mode (snapshot.js poster fallback)",
+    "Optional: add right padding to the source label when the play/pause button is shown",
+    "Optional: in LIVE play-pause, don't error if only the follow-up status read fails"
+  ],
+  "critical_code_review_comments": [
+    "Snapshot poster fallback = stock image (see ui_bugs).",
+    "The Capacitor path writes a new camera-*.jpg to CACHE on every snapshot and never removes old ones. This is minor because the OS clears the cache.",
+    "crossOrigin=anonymous on <video> is fine: the hls.js/MSE path is untainted, and /api/camera/hls* sends ACAO for LAN origins (checked with Origin http://192.168.0.10:3000). Native Safari HLS depends on this CORS header, which is present.",
+    "windows/*.ps1/.cmd: ASCII only (safe for PS 5.1). Tasks are AtStartup, SYSTEM, highest privileges, 20s delay, restart 999, no time limit. PATH and serve are saved to path.cmd. The loop/restart and log rotation look correct. These scripts were reviewed only and not run. Caveat: path.cmd stores the admin's PATH at install time, so re-run the installer after installing new tools."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter24_wiim_nowplaying.py"],
+  "success_rate": {"backend": "100% (6/6 new + 15/15 iter23 regression)", "frontend": "100% of requested flows; 1 medium logic issue (stock poster fallback)"},
+  "seed_data_creation": "None. Ran listen restore-defaults at the end. wiim1/wiim2 are left playing=true. Still in DEMO mode.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Source testids: office Mobile Device=source-office-5-1, office TV=source-office-5-0, bathroom Mobile=source-bathroom-6, living Mobile=source-living-3, master Mobile=source-master-4. Headless Chromium can't decode the mux H264 demo HLS (video readyState stays 0), so the snapshot used the poster fallback. The real video-frame capture path was NOT exercised in the browser. Capacitor mock via add_init_script works (window.__capSnap caches plugins). Run test_iter24 with -n0 or alongside other suites; its log assertion tolerates concurrent writes."
+}

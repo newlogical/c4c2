@@ -62,6 +62,7 @@ export const CameraPlayer = ({ full, camId }) => {
         muted
         playsInline
         crossOrigin="anonymous"
+        data-demo={demo ? "true" : "false"}
         autoPlay
         poster={STILL}
         className="w-full h-full object-cover"

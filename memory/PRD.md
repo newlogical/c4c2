@@ -197,4 +197,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - CameraTab: inside the Capacitor iOS app uses AppLauncher (canOpenUrl unifi-protect:// → open Protect, else App Store id1392492235). Browser/Home Screen: tries scheme, falls back to App Store after 1.8s.
 - ios-app: added @capacitor/app-launcher 8.0.1; patch-ios.sh adds LSApplicationQueriesSchemes [unifi-protect]. IOS_APP.md update line now includes npm install.
 - Verified with mocked Capacitor bridge in preview (both paths). NOT yet tested on a real iPad/iPhone build.
-- Backlog (user deferred): auto-start at power-on before sign-in (Windows service/Task Scheduler); WiiM now playing (song, artist, play/pause) on Office/Bathroom Mobile Device buttons.
+
+## 2026-06 — Auto-start, Camera snapshot, WiiM now playing (iteration_24: all pass)
+- windows/install-autostart.ps1 (Admin, re-run after updates): two Task Scheduler tasks "Smith Apartment Backend/Panel", AtStartup +20s, SYSTEM, restart loop in start-backend.cmd / start-panel.cmd, logs in /logs, PATH + serve saved in windows/path.cmd (gitignored). remove-autostart.ps1 turns it off. .gitattributes forces CRLF for .cmd/.ps1. Static-reviewed only, NOT run on Windows.
+- Camera snapshot (CameraTab SnapshotButton + lib/snapshot.js): canvas capture of live <video>, date/time stamp; iOS app → @capacitor/filesystem + @capacitor/share; browser → Web Share files → download fallback. Stock poster used only in DEMO. Real-camera frame capture NOT verified (headless can't decode demo stream).
+- WiiM now playing: GET /api/listen/wiim/{id}/status (demo tracks when amp not LIVE), POST /api/listen/wiim/{id}/play-pause. Shown on active Wi-Fi WiiM Mobile Device buttons (Office, Bathroom), polled every 5s. Real WiiM NOT verified.

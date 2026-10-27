@@ -607,7 +607,10 @@ async def wiim_play_pause(wid: str):
         raise HTTPException(424, f"{w['name']} not reachable at {w['ip']}: {e}")
     await log([{**entry, "status": "sent"}])
     await asyncio.sleep(0.4)
-    return await wiim_status(wid)
+    try:
+        return await wiim_status(wid)
+    except HTTPException:
+        return {"ip": w["ip"], "mode": "wifi", "mode_label": WIIM_MODES["wifi"], "playing": None, "title": "", "artist": ""}
 
 
 @router.get("/listen/wiim/{wid}/status")

@@ -27,7 +27,10 @@ export const PlayPauseButton = ({ wid, np, onChange, testid }) => {
   const [busy, setBusy] = useState(false);
   const toggle = async () => {
     setBusy(true);
-    try { onChange(await api.wiimPlayPause(wid)); } catch (e) { toast.error(errText(e)); } finally { setBusy(false); }
+    try {
+      const r = await api.wiimPlayPause(wid);
+      onChange(r.playing == null ? { ...np, playing: !np?.playing } : r);
+    } catch (e) { toast.error(errText(e)); } finally { setBusy(false); }
   };
   const Icon = busy ? Loader2 : np?.playing ? Pause : Play;
   return (
