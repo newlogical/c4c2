@@ -256,8 +256,9 @@ async def _tv(tv_id):
     return {**((t.get("sets") or {}).get(tv_id) or {}), "live": bool(t.get("live"))}, name
 
 
-async def ensure_arc(tv_id):
+async def ensure_arc(tv_id, tries=None):
     """Check the TV's sound output and switch it to Audio System (ARC). Failures only warn (Device Health)."""
+    tries = tries or ARC_TRIES
     conn, name = await _tv(tv_id)
     entry = {"driver": "SonyBravia", "transport": "Bravia REST (audio 1.1)", "command": "setSoundSettings outputTerminal=audioSystem",
              "note": f"{name}: sound output → Audio System (ARC)", "timestamp": _now()}
@@ -266,7 +267,7 @@ async def ensure_arc(tv_id):
         result = {"ok": True, "simulated": True}
     else:
         result, err = None, None
-        for i in range(ARC_TRIES):  # a TV that was just woken needs a few seconds before it answers
+        for i in range(tries):  # a TV that was just woken needs a few seconds before it answers
             try:
                 before = await asyncio.to_thread(drivers.tv.get_output, conn)
                 if before != "audioSystem":
@@ -279,12 +280,46 @@ async def ensure_arc(tv_id):
                 break
             except Exception as e:
                 err = str(e)[:200]
-                if i < ARC_TRIES - 1:
+                if i < tries - 1:
                     await asyncio.sleep(4)
         if result is None:
             result = {"ok": False, "error": err}
         await log([{**entry, "status": "confirmed" if result["ok"] else "error", **({"error": result["error"]} if not result["ok"] else {})}])
     await D["db"].meta.update_one({"key": "arc_status"}, {"$set": {tv_id: {**result, "name": name, "at": _now()}}}, upsert=True)
+    return {**result, "name": name}
+
+
+OUTPUT_LABELS = {"audioSystem": "Audio System (ARC)", "speaker": "TV speakers", "speaker_hdmi": "TV speakers + HDMI",
+                 "hdmi": "HDMI", "bluetooth": "Bluetooth"}
+
+
+async def _check_only(tv_id):
+    conn, name = await _tv(tv_id)
+    if not conn["live"]:
+        return {"ok": True, "simulated": True, "name": name, "output": None}
+    try:
+        return {"ok": True, "name": name, "output": await asyncio.to_thread(drivers.tv.get_output, conn)}
+    except Exception as e:
+        return {"ok": False, "name": name, "error": str(e)[:200]}
+
+
+@router.post("/listen/tv-sound-check")
+async def tv_sound_check():
+    """Read every Sony TV's sound output; TVs that feed the amp over ARC are switched back if needed."""
+    doc = await load()
+    st = await D["db"].system.find_one({"key": D["state_key"]}, {"_id": 0, "config.tv.sets": 1}) or {}
+    arc_tvs = set(doc["arc_inputs"].values())
+    tv_ids = list(((st.get("config") or {}).get("tv") or {}).get("sets") or {})
+
+    async def one(tv_id):
+        if tv_id in arc_tvs:
+            r = await ensure_arc(tv_id, tries=1)
+            r = {**r, "output": "audioSystem" if r["ok"] and not r.get("simulated") else None, "fixed": r.get("was") not in (None, "audioSystem")}
+        else:
+            r = await _check_only(tv_id)
+        r["output_label"] = OUTPUT_LABELS.get(r.get("output"), r.get("output"))
+        return {"tv_id": tv_id, "expects_arc": tv_id in arc_tvs, **r}
+    return {"checked_at": _now(), "tvs": list(await asyncio.gather(*(one(t) for t in tv_ids)))}
 
 
 _arc_tasks: Dict[str, asyncio.Task] = {}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, RefreshCw, Activity, AlertTriangle } from "lucide-react";
+import { TvSoundCheck } from "@/components/TvSoundCheck";
 import { useSystem } from "@/context/SystemContext";
 
 const Row = ({ d }) => (
@@ -97,6 +98,7 @@ export const DeviceHealthPanel = ({ open, onClose }) => {
               <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
                 Checks each device from the controller every 30 s. Devices only show online when the app runs on your home network (mini-PC).
               </p>
+              <TvSoundCheck onDone={load} />
               {(data?.arc_warnings || []).map((w) => <ArcWarning key={w.tv_id} w={w} />)}
               {devices.map((d) => <Row key={d.id} d={d} />)}
               {data && devices.length === 0 && <p className="text-sm" style={{ color: "var(--c4-muted)" }}>No devices mapped yet.</p>}

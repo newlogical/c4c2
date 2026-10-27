@@ -95,3 +95,14 @@ def test_tv_refuses_records_warning(monkeypatch):
 def test_office_input_not_mapped():
     assert "5" not in listen.DEFAULT_ARC_INPUTS
     assert listen.DEFAULT_ARC_INPUTS == {"1": "tv_living", "2": "tv_master"}
+
+
+def test_sound_check_fixes_arc_tvs_and_leaves_office():
+    r = run(listen.tv_sound_check())
+    by = {t["tv_id"]: t for t in r["tvs"]}
+    assert {"tv_living", "tv_office", "tv_master"} <= set(by)
+    assert by["tv_office"]["expects_arc"] is False and "fixed" not in by["tv_office"]
+    assert by["tv_living"]["expects_arc"] and by["tv_living"]["ok"] and by["tv_living"]["output_label"] == "Audio System (ARC)"
+    assert any(t.get("fixed") for t in r["tvs"])  # fake TV started on speakers
+    assert ("/sony/audio", "setSoundSettings", "1.1", "test-psk") in TV["calls"]
+    run(server.db.meta.update_one({"key": "arc_status"}, {"$unset": {"tv_living": "", "tv_master": ""}}))

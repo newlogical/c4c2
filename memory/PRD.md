@@ -211,3 +211,7 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - listen.prepare_source(): when a source on amp input 1 (tv_living) or 2 (tv_master) is picked (room, Bathroom TV sources, Party source, shortcuts, Restore Defaults), a background task runs ensure_arc(): Bravia audio v1.1 getSoundSettings outputTerminal → setSoundSettings audioSystem → confirm; 4 tries 4s apart. Office TV (input 5, Bluetooth to WiiM) and Guest TV excluded. Mapping in listen doc `arc_inputs` (no UI yet).
 - Failures never block the room; stored in db.meta arc_status and shown as amber warnings at top of Device Health (/api/health/devices arc_warnings). Cleared when a later attempt succeeds.
 - Tested: backend/tests/test_arc.py (fake Bravia, 4 passed), iter23/24 regression 24 passed, health warning screenshot. NOT yet verified on real Sony TVs. (test_iter11_sony.py is stale: expects token in login body from pre-cookie auth.)
+
+## 2026-06 — TV Sound Check (Device Health)
+- POST /api/listen/tv-sound-check: reads every Sony TV's outputTerminal in parallel; ARC TVs (arc_inputs values: living, master) are switched back via ensure_arc(tries=1) and arc_status/warnings updated; Office/Guest only read. Demo: simulated, no output shown.
+- frontend TvSoundCheck.jsx card at top of Device Health (Check button, per-TV status: On ARC / Switched to ARC / Checked / Couldn't set ARC / Not answering). Tested: test_arc.py 5 passed with fake Bravia + demo screenshot. NOT yet run against real TVs.
