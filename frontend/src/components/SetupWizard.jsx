@@ -83,13 +83,13 @@ export const SetupWizard = ({ open, onClose }) => {
       {open && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center safe-top safe-x"
           style={{ background: "rgba(5,7,12,0.9)" }}
           data-testid="setup-wizard"
         >
           <motion.div
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-            className="glass-elevated w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl flex flex-col max-h-[92vh]"
+            className="glass-elevated w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl flex flex-col max-h-[92vh] safe-bottom"
           >
             <div className="p-5 pb-3 shrink-0">
               <div className="flex items-center justify-between mb-3">

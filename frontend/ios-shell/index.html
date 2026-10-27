@@ -97,7 +97,9 @@
     $("change-btn").onclick = function () { setup(""); };
 
     var saved = localStorage.getItem(KEY);
-    if (saved) {
+    if (/[?&]change=1/.test(window.location.search)) {
+      setup("");
+    } else if (saved) {
       show("connecting");
       $("connecting-addr").textContent = saved;
       timer = setTimeout(function () {

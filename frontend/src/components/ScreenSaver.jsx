@@ -60,7 +60,7 @@ export const ScreenSaver = ({ enabled = true, timeout = 90000, mode = "clock" })
           transition={{ duration: 0.6 }}
           onClick={wake}
           data-testid="screensaver"
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden"
+          className="fixed inset-0 z-[60] safe-all flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden"
           style={{ background: "radial-gradient(120% 80% at 50% 38%, #0e1524, #05070c)" }}
         >
           {mode === "photos" && (

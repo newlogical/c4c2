@@ -64,7 +64,7 @@ export const PinLock = ({ onUnlock, propertyName }) => {
     : "Enter your 4-digit PIN";
 
   return (
-    <div className="c4-shell min-h-screen flex flex-col items-center justify-center px-6" data-testid="pin-lock-screen">
+    <div className="c4-shell min-h-screen flex flex-col items-center justify-center px-6 safe-top safe-bottom" data-testid="pin-lock-screen">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

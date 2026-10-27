@@ -33,7 +33,7 @@ export const DriverDrawer = ({ open, onClose }) => {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md flex flex-col"
+            className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md flex flex-col safe-all"
             style={{ background: "var(--c4-surface)", borderLeft: "1px solid var(--c4-border)" }}
             data-testid="driver-drawer"
           >

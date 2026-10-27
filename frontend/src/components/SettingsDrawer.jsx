@@ -174,7 +174,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
           <motion.div
             initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md flex flex-col"
+            className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md flex flex-col safe-all"
             style={{ background: "var(--c4-surface)", borderLeft: "1px solid var(--c4-border)" }}
             data-testid="settings-drawer"
           >
@@ -308,6 +308,14 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                   </div>
                 )}
               </div>
+
+              {window.Capacitor?.isNativePlatform?.() && (
+                <button data-testid="change-controller-btn" onClick={() => { window.location.href = "capacitor://localhost/?change=1"; }}
+                  className="glass rounded-2xl p-4 w-full text-left text-sm font-semibold active:scale-[0.98] transition-transform">
+                  Change controller address
+                  <span className="block text-[11px] font-normal mt-0.5" style={{ color: "var(--c4-muted)" }}>Connect this app to a different mini-PC address.</span>
+                </button>
+              )}
 
               <div className="glass rounded-2xl p-4" data-testid="settings-pin">
                 <div className="flex items-center gap-2.5 mb-3">

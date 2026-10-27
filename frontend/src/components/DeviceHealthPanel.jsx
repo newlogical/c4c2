@@ -71,7 +71,7 @@ export const DeviceHealthPanel = ({ open, onClose }) => {
         <motion.div
           initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[60] flex flex-col" style={{ background: "var(--c4-bg)" }}
+          className="fixed inset-0 z-[60] flex flex-col safe-all" style={{ background: "var(--c4-bg)" }}
           data-testid="device-health-panel"
         >
           <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--c4-border)" }}>

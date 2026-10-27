@@ -92,7 +92,7 @@ export const CameraTab = () => {
       <AnimatePresence>
         {full && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black" data-testid="camera-fullscreen">
+            className="fixed inset-0 z-[70] bg-black safe-all" data-testid="camera-fullscreen">
             <CameraPlayer full camId="cam_front" />
             <button onClick={() => setFull(false)} aria-label="Close" data-testid="camera-fullscreen-close"
               className="absolute top-4 right-4 w-11 h-11 rounded-xl flex items-center justify-center"

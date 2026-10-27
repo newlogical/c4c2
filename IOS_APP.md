@@ -1,73 +1,68 @@
-# Smith Apartment — iOS app (Mac mini)
+# Smith Apartment — iPhone & iPad app (Capacitor + Codemagic → TestFlight)
 
-The iOS app is a thin wrapper. On launch it asks for the controller address once (pre-filled
-`192.168.0.217`), checks the mini-PC is reachable, then opens the normal panel from
-`http://<address>:3000`. Panel updates still come from the mini-PC (`git pull` + `yarn build`) —
-you only rebuild the iOS app to change its icon/name or when a TestFlight build expires (90 days).
+The web app is unchanged and keeps working in browsers. The iOS app is a native shell built from the
+same `frontend` folder:
 
-Project folder: `ios-app/` in the repo (Capacitor 8).
+- On first launch it asks for the mini-PC address (e.g. `192.168.0.217`), checks it can reach it, then
+  opens the live panel from the mini-PC. Login (PIN + secure cookie), camera, every control and all API
+  calls work exactly as in Safari, because the app is showing the real panel.
+- Next launches reconnect automatically. To switch address: **Settings → Change controller address**.
+- The mini-PC must be on and reachable (apartment Wi-Fi, or Teleport/Tailscale when away).
+- All orientations on iPhone and iPad; screens respect the notch, rounded corners and home indicator.
 
----
+## What's in the repo
+| Path | Purpose |
+|---|---|
+| `frontend/capacitor.config.json` | App ID `com.newlogicaltech.smithapartment`, name, LAN navigation rules |
+| `frontend/ios-shell/index.html` | First-launch "connect to controller" screen |
+| `frontend/ios/` | The Xcode project (Swift Package Manager, no CocoaPods) |
+| `frontend/assets/` | Source icon + splash (already generated into the Xcode project) |
+| `frontend/scripts/patch_ios_plist.py` | iOS permissions: local network, LAN http, orientations, Photos, Protect app |
+| `codemagic.yaml` (repo root) | Cloud build → signed IPA → TestFlight |
 
-## 1. One-time Mac setup
-1. Install **Xcode 26 or newer** from the Mac App Store, open it once, accept the licence and let it
-   install components. Then in Terminal: `xcode-select --install`
-2. Install **Node.js 22 LTS or newer** from https://nodejs.org (macOS installer).
-3. Install **Git** if asked (Terminal: `git --version` offers to install it).
-4. Xcode → **Settings → Accounts → +** → sign in with the Apple ID that owns your
-   **Apple Developer Program** membership.
+## 1. One-time: App Store Connect
+1. **developer.apple.com → Identifiers → +** → App IDs → App → Bundle ID (explicit)
+   `com.newlogicaltech.smithapartment`. (Want a different ID? Change it in `frontend/capacitor.config.json`,
+   `codemagic.yaml` and the Xcode project, or ask me to.)
+2. **appstoreconnect.apple.com → Apps → + New App** → iOS, name *Smith Apartment*, that bundle ID, any SKU.
+3. Open the app → **App Information** → copy the **Apple ID** number (e.g. `6740000000`).
+4. **Users and Access → Integrations → App Store Connect API → +** → name `Codemagic`, access **App Manager**.
+   Download the `.p8` file (only once) and note the **Issuer ID** and **Key ID**.
 
-## 2. Get the code and build the iOS project
-In Terminal:
+## 2. One-time: Codemagic
+1. Sign in at **codemagic.io** with GitHub and add this repository (it detects `codemagic.yaml`).
+2. **Teams → Integrations → Developer Portal → Connect** → upload the `.p8`, enter Issuer ID + Key ID,
+   and name it exactly **`SmithAppStoreConnect`**.
+3. **Code signing identities → iOS certificates → Generate certificate** (Apple Distribution), then
+   **iOS provisioning profiles → Fetch profiles** for the bundle ID (type App Store). Codemagic can create
+   both for you through the integration.
+4. In `codemagic.yaml`, replace `APP_STORE_APPLE_ID: 0000000000` with the number from step 1.3 and save to
+   GitHub. Builds start automatically on every push to `main` (or press **Start new build**).
+
+## 3. Each build
+Codemagic installs packages, syncs the iOS project, signs it, picks the next build number, and uploads to
+TestFlight. After Apple's processing (~10–30 min), open **TestFlight** on the iPad/iPhone and install.
+Add testers in App Store Connect → TestFlight → Internal Testing.
+
+## Building on the Mac mini instead (optional)
 ```bash
-cd ~
-git clone https://github.com/newlogical/c4c2.git
-cd c4c2/ios-app
-npm install
-npx cap add ios          # creates the ios/ Xcode project (first time only)
-npm run patch-ios        # adds the network/full-screen settings to Info.plist
-npm run assets           # generates the app icon + launch screen from assets/
-npx cap sync ios
-npx cap open ios         # opens Xcode
+cd frontend
+yarn install
+yarn ios:sync      # needs Node 22+
+yarn ios:open      # opens Xcode → pick your Team under Signing → Product → Archive
 ```
-Later updates: `git pull`, then `npm install && npm run patch-ios && npx cap sync ios`, then rebuild in Xcode.
 
-## 3. Signing in Xcode
-1. In the left sidebar click **App** (blue icon) → **TARGETS: App** → **Signing & Capabilities**.
-2. Tick **Automatically manage signing**, choose your **Team**.
-3. **Bundle Identifier**: `com.newlogicaltech.smithapartment` (change it if Xcode says it's taken).
-4. **General** tab → **Supported Destinations**: keep **iPhone** and **iPad**.
-
-## 4. Try it on a device (cable, quickest test)
-1. Plug the iPad (or iPhone) into the Mac, unlock it, tap **Trust**.
-2. On the device: **Settings → Privacy & Security → Developer Mode → On** (restart when asked).
-3. In Xcode pick the device at the top, press **▶ Run**.
-4. On first launch tap **Allow** for "find devices on your local network", confirm the address,
-   tap **Connect** — the PIN screen of the panel should appear.
-
-## 5. Install on the iPad and the client's iPhone — TestFlight (no cable)
-1. https://appstoreconnect.apple.com → **Apps → + → New App**: platform iOS, name
-   **Smith Apartment**, bundle ID from step 3, SKU `smith-apartment`. (It never needs to go public.)
-2. Xcode: choose **Any iOS Device (arm64)** at the top → **Product → Archive**.
-3. When the Organizer opens: **Distribute App → App Store Connect → Upload** (defaults are fine).
-4. After ~10–30 min the build shows in App Store Connect → **TestFlight**.
-5. **Users and Access → +**: invite the client with their Apple ID email (role **Marketing** is
-   enough). Then **TestFlight → Internal Testing → +** create a group, add yourself and the client,
-   add the build. Internal testers need no Apple review.
-6. On each device install **TestFlight** from the App Store, open the invite email, **Install**.
-7. TestFlight builds expire after **90 days** — repeat steps 2–3 and the devices update.
-
-## 6. Wall-panel iPad tips
-- **Settings → Display & Brightness → Auto-Lock → Never**, keep it on the charger.
-- Lock it to the app: **Settings → Accessibility → Guided Access → On**, open the app,
-  triple-click the side/top button → **Start**.
+## First launch on a device
+- Tap **Allow** on the "find devices on your local network" prompt (required). If missed: iOS
+  **Settings → Smith Apartment → Local Network** → on.
+- Enter the mini-PC address. Double-check it — earlier we had `192.167.0.217`, which looks like a typo for
+  `192.168.0.217`.
 
 ## Troubleshooting
-| Symptom | Fix |
+| Problem | Fix |
 |---|---|
-| "Can't reach 192.168.0.217" | Device not on apartment Wi-Fi, mini-PC/panel window not running, wrong address, or "Local Network" was denied: **Settings → Privacy & Security → Local Network → Smith Apartment → On**. |
-| Panel opens in Safari instead of inside the app | Tell the developer — the `allowNavigation` list in `capacitor.config.json` needs the exact address. |
-| Change the controller address | Force-close the app, reopen, tap **Change controller address** on the connecting screen. |
-| **View recordings** opens the App Store instead of Protect | The UniFi Protect app isn't installed (install it and sign in once), or the build is older than this update — re-run the "Later updates" line and rebuild. Guided Access also blocks switching apps on the wall iPad. |
-| Snapshot button does nothing / no Save Image | Rebuild after the latest update (it adds sharing + the Photos permission). If Photos was denied: **Settings → Smith Apartment → Photos → Add Photos Only**. |
-| Signing errors in Xcode | Re-check the Team in step 3, or change the Bundle Identifier to something unique. |
+| "Can't reach …" | Same Wi-Fi as the mini-PC? Panel running on port 3000? Local Network permission on? |
+| **View recordings** opens the App Store | Install UniFi Protect and sign in once. Guided Access blocks switching apps on the wall iPad. |
+| Snapshot can't save to Photos | iOS **Settings → Smith Apartment → Photos → Add Photos Only** |
+| Codemagic: "No matching profiles" | Bundle ID in App Store Connect must match `com.newlogicaltech.smithapartment`; re-run Fetch profiles |
+| Codemagic: build number already used | Set the real `APP_STORE_APPLE_ID` so it can read the latest TestFlight build |

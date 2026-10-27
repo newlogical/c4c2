@@ -1,0 +1,52 @@
+# Builds the Smith Apartment iOS app (Capacitor, in /frontend) and uploads it to TestFlight.
+# One-time setup in Codemagic (see IOS_APP.md):
+#   1. Teams → Integrations → Developer Portal → add an App Store Connect API key named "SmithAppStoreConnect".
+#   2. Set APP_STORE_APPLE_ID below to your app's Apple ID (App Store Connect → App → App Information).
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: frontend
+    integrations:
+      app_store_connect: SmithAppStoreConnect
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.newlogicaltech.smithapartment
+      vars:
+        APP_STORE_APPLE_ID: 0000000000 # TODO: replace with your App Store Connect app ID
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Install Capacitor packages
+        script: yarn install --frozen-lockfile --network-timeout 600000
+      - name: Sync iOS project + apply iOS settings
+        script: |
+          npx -y @capacitor/cli@8.5.3 sync ios
+          python3 scripts/patch_ios_plist.py
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Set build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          NEXT=$((LATEST + 1))
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $NEXT;/g" ios/App/App.xcodeproj/project.pbxproj
+          echo "Build number $NEXT"
+      - name: Build signed IPA
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

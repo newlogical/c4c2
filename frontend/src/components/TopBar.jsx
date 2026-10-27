@@ -50,7 +50,7 @@ export const TopBar = ({ onLock, onOpenDrivers, onOpenSettings, onOpenHealth }) 
   return (
     <header
       className="sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between backdrop-blur-xl"
-      style={{ background: "rgba(10,13,20,0.75)", borderBottom: "1px solid var(--c4-border)" }}
+      style={{ background: "rgba(10,13,20,0.75)", borderBottom: "1px solid var(--c4-border)", paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
       data-testid="top-bar"
     >
       <div className="flex flex-col">

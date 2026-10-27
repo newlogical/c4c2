@@ -56,7 +56,7 @@ export const FirstNightChecklist = ({ open, onClose, onGo }) => {
   const pct = data ? Math.round((data.done / data.total) * 100) : 0;
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "var(--c4-bg)" }} data-testid="checklist-panel">
+    <div className="fixed inset-0 z-[80] flex flex-col safe-all" style={{ background: "var(--c4-bg)" }} data-testid="checklist-panel">
       <div className="px-5 pt-5 pb-3 flex items-start justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--c4-cyan)" }}>Mini-PC install</p>
