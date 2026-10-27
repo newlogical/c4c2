@@ -13,6 +13,7 @@ from typing import Dict, List, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+import drivers
 import linkplay
 
 router = APIRouter(prefix="/api")
@@ -45,6 +46,11 @@ _V1 = {"office": [{"input": 5, "label": "TV"}, {"input": 6, "label": "Mobile Dev
        "party": [{"input": 6, "label": "Mobile Device from Living Room"}, {"input": 1, "label": "Living Room TV"},
                  {"input": 5, "label": "Office TV"}, {"input": 2, "label": "Master Bedroom TV"}]}
 FOUR = ["living", "office", "master", "bathroom"]
+# Amp inputs fed by a Sony TV over HDMI ARC. Picking one makes sure that TV's sound output is "Audio System".
+# Office TV is left out on purpose: its sound goes to the Office WiiM over Bluetooth.
+DEFAULT_ARC_INPUTS = {"1": "tv_living", "2": "tv_master"}
+ARC_TRIES = 4
+
 DEFAULT_WIIMS = [{"id": "wiim1", "name": "Office WiiM", "ip": "", "amp_input": 5},
                  {"id": "wiim2", "name": "Bathroom WiiM", "ip": "", "amp_input": 6}]
 WIIM_MODES = {"wifi": "Wi-Fi / AirPlay", "bluetooth": "Bluetooth", "line-in": "Line in", "optical": "Optical"}
@@ -82,6 +88,7 @@ async def load() -> dict:
     st = await D["db"].system.find_one({"key": D["state_key"]}, {"_id": 0, "config.amp": 1}) or {}
     doc["_amp"] = (st.get("config") or {}).get("amp") or {}
     doc.setdefault("wiims", copy.deepcopy(DEFAULT_WIIMS))
+    doc.setdefault("arc_inputs", dict(DEFAULT_ARC_INPUTS))
     for r in doc["rooms"]:
         doc["status"].setdefault(r["id"], {"power": False, "input": r["default_input"], "volume": 30, "mute": False})
     return doc
@@ -242,6 +249,58 @@ async def wiim_switch(doc, src):
     await log([{**entry, "status": "confirmed"}])
 
 
+async def _tv(tv_id):
+    st = await D["db"].system.find_one({"key": D["state_key"]}, {"_id": 0, "config.tv": 1, "displays": 1}) or {}
+    t = (st.get("config") or {}).get("tv") or {}
+    name = next((d["name"] for d in st.get("displays") or [] if d["id"] == tv_id), tv_id)
+    return {**((t.get("sets") or {}).get(tv_id) or {}), "live": bool(t.get("live"))}, name
+
+
+async def ensure_arc(tv_id):
+    """Check the TV's sound output and switch it to Audio System (ARC). Failures only warn (Device Health)."""
+    conn, name = await _tv(tv_id)
+    entry = {"driver": "SonyBravia", "transport": "Bravia REST (audio 1.1)", "command": "setSoundSettings outputTerminal=audioSystem",
+             "note": f"{name}: sound output → Audio System (ARC)", "timestamp": _now()}
+    if not conn["live"]:
+        await log([{**entry, "status": "simulated"}])
+        result = {"ok": True, "simulated": True}
+    else:
+        result, err = None, None
+        for i in range(ARC_TRIES):  # a TV that was just woken needs a few seconds before it answers
+            try:
+                before = await asyncio.to_thread(drivers.tv.get_output, conn)
+                if before != "audioSystem":
+                    await asyncio.to_thread(drivers.tv.set_output, conn)
+                    await asyncio.sleep(1)
+                    after = await asyncio.to_thread(drivers.tv.get_output, conn)
+                    if after != "audioSystem":
+                        raise RuntimeError(f"TV still reports sound output '{after}'")
+                result = {"ok": True, "was": before}
+                break
+            except Exception as e:
+                err = str(e)[:200]
+                if i < ARC_TRIES - 1:
+                    await asyncio.sleep(4)
+        if result is None:
+            result = {"ok": False, "error": err}
+        await log([{**entry, "status": "confirmed" if result["ok"] else "error", **({"error": result["error"]} if not result["ok"] else {})}])
+    await D["db"].meta.update_one({"key": "arc_status"}, {"$set": {tv_id: {**result, "name": name, "at": _now()}}}, upsert=True)
+
+
+_arc_tasks: Dict[str, asyncio.Task] = {}
+
+
+async def prepare_source(doc, src, wiim=True):
+    """Everything a source needs before the amp switches to it: WiiM mode, and ARC on the TV that feeds it."""
+    if not src:
+        return
+    if wiim:
+        await wiim_switch(doc, src)
+    tv_id = doc["arc_inputs"].get(str(src["input"]))
+    if tv_id and not (_arc_tasks.get(tv_id) and not _arc_tasks[tv_id].done()):
+        _arc_tasks[tv_id] = asyncio.create_task(ensure_arc(tv_id))  # background: never delays or blocks the room
+
+
 async def apply(doc, changes: Dict[str, dict]):
     """changes: {room_id: {power?, input?, volume?, mute?}}. Updates doc['status'] only for confirmed zones."""
     changes = {rid: {k: v for k, v in ch.items() if v is not None and k != "label"} for rid, ch in changes.items()}
@@ -345,7 +404,7 @@ async def party_on(doc, inp=None, rooms=None):
         p["saved"].setdefault(rid, _snap(doc, rid))
     p["active"] = True
     if p["rooms"]:
-        await wiim_switch(doc, next((x for x in doc["party_sources"] if x["input"] == p["input"]), None))
+        await prepare_source(doc, next((x for x in doc["party_sources"] if x["input"] == p["input"]), None))
     await apply(doc, {rid: {"power": True, "input": p["input"]} for rid in p["rooms"]})
 
 
@@ -378,6 +437,8 @@ async def party_leave(doc, rid, restore=True):
 async def restore_defaults(doc):
     if doc["party"]["active"]:
         await party_off(doc, restore=False)
+    for inp in {r["default_input"] for r in doc["rooms"] if r.get("visible")}:
+        await prepare_source(doc, {"input": inp}, wiim=False)
     await apply(doc, {r["id"]: {"input": r["default_input"]} for r in doc["rooms"] if r.get("visible")})
 
 
@@ -402,7 +463,7 @@ async def run_shortcut(doc, sc):
             continue
         if src:
             ch["input"] = src["input"]
-            await wiim_switch(doc, src)
+            await prepare_source(doc, src)
             doc["status"][rid]["source_label"] = src["label"]
         if doc["party"]["active"] and rid in doc["party"]["rooms"] and ("input" in ch or "power" in ch):
             await party_leave(doc, rid, restore=False)
@@ -531,7 +592,7 @@ async def set_room(rid: str, req: RoomReq):
 
     async def go():
         if src:
-            await wiim_switch(doc, src)
+            await prepare_source(doc, src)
             doc["status"][rid]["source_label"] = src["label"]
         await apply(doc, {rid: ch})
     return await _guarded(doc, go())

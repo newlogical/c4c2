@@ -2093,8 +2093,10 @@ async def device_health():
     results = await asyncio.gather(*[(_tcp_up(t["ip"], t["port"]) if t["port"] else _ping_up(t["ip"])) for t in targets])
     for t, (ok, ms) in zip(targets, results):
         t.update({"online": ok, "latency_ms": ms, "check": f"TCP {t['port']}" if t["port"] else "ping"})
+    arc = await db.meta.find_one({"key": "arc_status"}, {"_id": 0, "key": 0}) or {}
+    arc_warnings = [{"tv_id": k, **v} for k, v in arc.items() if not v.get("ok")]
     return {"checked_at": datetime.now(timezone.utc).isoformat(), "devices": targets,
-            "online": sum(1 for t in targets if t["online"]), "total": len(targets)}
+            "online": sum(1 for t in targets if t["online"]), "total": len(targets), "arc_warnings": arc_warnings}
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, RefreshCw, Activity } from "lucide-react";
+import { X, RefreshCw, Activity, AlertTriangle } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 
 const Row = ({ d }) => (
@@ -26,6 +26,20 @@ const Row = ({ d }) => (
         {d.online ? "Online" : "Offline"}
       </p>
       <p className="text-[10px] font-mono" style={{ color: "var(--c4-muted)" }}>{d.online ? `${d.latency_ms} ms` : d.check}</p>
+    </div>
+  </div>
+);
+
+const ArcWarning = ({ w }) => (
+  <div className="rounded-2xl p-4 flex items-start gap-3" data-testid={`arc-warning-${w.tv_id}`}
+    style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.45)" }}>
+    <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "var(--c4-amber)" }} />
+    <div className="min-w-0">
+      <p className="font-semibold text-sm">{w.name} isn't on ARC</p>
+      <p className="text-[11px] mt-0.5" style={{ color: "var(--c4-muted)" }}>
+        Couldn't set its sound output to Audio System at {new Date(w.at).toLocaleTimeString()}. On the TV: Settings → Sound → Sound output → Audio System.
+      </p>
+      {w.error && <p className="text-[10px] font-mono mt-1 break-words" style={{ color: "var(--c4-muted)" }}>{w.error}</p>}
     </div>
   </div>
 );
@@ -83,6 +97,7 @@ export const DeviceHealthPanel = ({ open, onClose }) => {
               <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>
                 Checks each device from the controller every 30 s. Devices only show online when the app runs on your home network (mini-PC).
               </p>
+              {(data?.arc_warnings || []).map((w) => <ArcWarning key={w.tv_id} w={w} />)}
               {devices.map((d) => <Row key={d.id} d={d} />)}
               {data && devices.length === 0 && <p className="text-sm" style={{ color: "var(--c4-muted)" }}>No devices mapped yet.</p>}
             </div>

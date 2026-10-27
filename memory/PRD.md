@@ -206,3 +206,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 ## 2026-06 — Power-cut / restart banner
 - server.py record_reboot() on startup: if OS uptime < 10 min (Windows GetTickCount64, Linux /proc/uptime) store db.meta last_reboot {boot_at, back_online_at}; same boot (backend crash-loop) not re-recorded. /api/alerts returns "reboot" for 24h.
 - frontend RestartBanner.jsx above every tab, polls /alerts every 60s, hides itself after 24h (no dismiss, per user). Self-tested (logic script + screenshots 390/1920). Not yet seen after a real mini-PC reboot.
+
+## 2026-06 — Sony TVs kept on ARC
+- listen.prepare_source(): when a source on amp input 1 (tv_living) or 2 (tv_master) is picked (room, Bathroom TV sources, Party source, shortcuts, Restore Defaults), a background task runs ensure_arc(): Bravia audio v1.1 getSoundSettings outputTerminal → setSoundSettings audioSystem → confirm; 4 tries 4s apart. Office TV (input 5, Bluetooth to WiiM) and Guest TV excluded. Mapping in listen doc `arc_inputs` (no UI yet).
+- Failures never block the room; stored in db.meta arc_status and shown as amber warnings at top of Device Health (/api/health/devices arc_warnings). Cleared when a later attempt succeeds.
+- Tested: backend/tests/test_arc.py (fake Bravia, 4 passed), iter23/24 regression 24 passed, health warning screenshot. NOT yet verified on real Sony TVs. (test_iter11_sony.py is stale: expects token in login body from pre-cookie auth.)

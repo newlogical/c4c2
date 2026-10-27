@@ -258,17 +258,28 @@ class SonyBraviaDriver(BaseDriver):
         finally:
             s.close()
 
-    def _rest(self, conn, service, method, params):
+    def _rest(self, conn, service, method, params, version="1.0"):
         import requests
         if not conn.get("ip"):
             raise RuntimeError("TV IP not configured")
         url = f"http://{conn['ip']}/sony/{service}"
         headers = {"X-Auth-PSK": conn.get("psk", ""), "Content-Type": "application/json"}
-        body = {"method": method, "id": 1, "version": "1.0", "params": params}
+        body = {"method": method, "id": 1, "version": version, "params": params}
         r = requests.post(url, json=body, headers=headers, timeout=6)
         r.raise_for_status()
-        if (r.json() or {}).get("error"):
-            raise RuntimeError(f"Bravia error {r.json()['error']}")
+        data = r.json() or {}
+        if data.get("error"):
+            raise RuntimeError(f"Bravia error {data['error']}")
+        return data.get("result")
+
+    def get_output(self, conn):
+        """Current sound output: speaker | speaker_hdmi | hdmi | audioSystem (ARC/eARC)."""
+        res = self._rest(conn, "audio", "getSoundSettings", [{"target": "outputTerminal"}], "1.1")
+        item = next((x for x in (res or [[]])[0] if x.get("target") == "outputTerminal"), {})
+        return item.get("currentValue")
+
+    def set_output(self, conn, value="audioSystem"):
+        self._rest(conn, "audio", "setSoundSettings", [{"settings": [{"value": value, "target": "outputTerminal"}]}], "1.1")
 
     def _ircc(self, conn, code):
         import requests
