@@ -21,7 +21,8 @@ ISSUER = "Smith Apartment"
 
 # Paths that never make sense from the internet (device webhooks, demo bypass, OAuth callback).
 REMOTE_BLOCKED = ("/api/protect/webhook/", "/api/voice/", "/api/spotify/callback", "/api/auth/demo")
-REMOTE_PUBLIC = {"/api", "/api/", "/api/bootstrap", "/api/remote/login", "/api/remote/me"}
+REMOTE_PUBLIC = {"/api", "/api/", "/api/bootstrap", "/api/remote/login", "/api/remote/me", "/api/remote/logout"}
+REMOTE_PIN_TRIES = 5  # wrong PINs on one signed-in device before it must sign in again (LAN PIN counter untouched)
 
 
 def _now():
@@ -155,6 +156,23 @@ async def login(req: LoginReq, request: Request, response: Response):
                                   "expires_at": (_now() + timedelta(days=D["ttl_days"])).isoformat()})
     D["set_cookie"](request, response, token)
     return {"step": "done", "username": username}
+
+
+async def verify_remote_pin(request: Request, correct: bool) -> dict:
+    """PIN step after outside sign-in. Too many wrong PINs ends this device's sign-in (LAN PIN lockout untouched)."""
+    s = await session_doc(request)
+    if not s or not s.get("remote"):
+        raise HTTPException(401, "Sign in required")
+    sessions = D["db"].sessions
+    if correct:
+        await sessions.update_one({"token": s["token"]}, {"$set": {"pin_ok": True, "pin_fails": 0}})
+        return {"success": True}
+    fails = int(s.get("pin_fails", 0)) + 1
+    if fails >= REMOTE_PIN_TRIES:
+        await sessions.delete_one({"token": s["token"]})
+        return {"success": False, "locked": False, "signed_out": True, "attempts_left": 0}
+    await sessions.update_one({"token": s["token"]}, {"$set": {"pin_fails": fails}})
+    return {"success": False, "locked": False, "attempts_left": REMOTE_PIN_TRIES - fails}
 
 
 @router.get("/me")

@@ -780,6 +780,8 @@ async def verify_pin(req: PinReq, request: Request, response: Response):
     if not doc:
         await seed_pin()
         doc = await db.auth.find_one({"key": "pin"})
+    if remote_auth.is_remote(request):
+        return await remote_auth.verify_remote_pin(request, verify_pin_hash(req.pin, doc["pin_hash"]))
     now = datetime.now(timezone.utc)
     locked_until = doc.get("locked_until")
     if locked_until:
@@ -788,10 +790,7 @@ async def verify_pin(req: PinReq, request: Request, response: Response):
             return {"success": False, "locked": True, "retry_after": int((lu - now).total_seconds()) + 1, "attempts_left": 0}
     if verify_pin_hash(req.pin, doc["pin_hash"]):
         await db.auth.update_one({"key": "pin"}, {"$set": {"fails": 0}, "$unset": {"locked_until": ""}})
-        if remote_auth.is_remote(request):  # outside: unlock the signed-in session instead of making a new one
-            await db.sessions.update_one({"token": request.cookies.get(SESSION_COOKIE)}, {"$set": {"pin_ok": True}})
-        else:
-            _set_session_cookie(request, response, await create_session())
+        _set_session_cookie(request, response, await create_session())
         return {"success": True}
     fails = int(doc.get("fails", 0)) + 1
     update = {"fails": fails}
@@ -1008,7 +1007,7 @@ async def checklist():
         ("cam_apikey", "Camera", "Protect API key added", "Protect → Settings → Control Plane → Integrations.", bool((c.get("camera") or {}).get("protect_api_key")), "settings-camera"),
         ("ptz_presets", "Camera", "PTZ presets saved and named", "Save positions in Protect, then list their names in Settings.", None, "settings-camera"),
         ("all_green", "Finish", f"All devices green in Device health ({health['online']}/{health['total']})", "Fix anything red before relying on shortcuts.", health["total"] > 0 and health["online"] == health["total"], "health"),
-        ("remote_access", "Finish", "Remote access via UniFi Teleport / WireGuard", "Never port-forward the controller.", None, None),
+        ("remote_access", "Finish", "Outside access set up (optional)", "REMOTE_ACCESS.md: domain → port forward 80/443 → install-remote-access.ps1 → Settings → Outside access logins. Never forward 3000/8001.", None, None),
     ]
     out = []
     for iid, group, title, hint, auto, target in items:

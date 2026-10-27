@@ -1,0 +1,38 @@
+{
+  "summary": "Outside access (remote sign-in: username+password+TOTP, then PIN) tested end-to-end. Backend: test_remote_access.py 4/4 pass; new test_iter25_remote_ext.py (public URL) 4/4 pass covering validation edges (33-char/invalid username, 11-char pw, case-insensitive duplicate 409, bad id 404), httpOnly+Secure cookie on remote login, PIN required before /remote/users, remote user can manage logins after PIN, password change revokes sessions + old password rejected, remote logout, delete revokes, LAN cookie not accepted with remote header. Frontend remote flow (390px): remote-login-screen shown instead of keypad, wrong password error, enroll QR + secret, wrong code error, back button, TOTP -> PIN screen without demo button, 1234 -> app, lock -> PIN (not sign-in), reload -> PIN. Settings Outside access card (1920px, remote): list/status/last sign-in, short-pw + duplicate toasts, add user, password prompt (short + valid), reset-2fa confirm, delete confirm, sign-out -> remote login screen. LAN regression at 390/1920: PIN + demo skip, all 4 tabs render, Settings card shows (no sign-out button on LAN), no horizontal overflow. All remote users created were deleted; preview still DEMO.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/remote/logout", "issue": "Gated by pin_ok: a remote user who signed in but hasn't entered the PIN cannot sign out (401). Not reachable from current UI (button only in Settings), low impact."},
+      {"endpoint": "/api/auth/pin (remote)", "issue": "PIN failure counter/lockout is global (db.auth). A signed-in remote account guessing PINs locks the PIN for the LAN panel too (DoS vector). Consider separate counter for remote sessions or revoking the remote session after N PIN failures."},
+      {"endpoint": "checklist seed (server.py ~L1011)", "issue": "First-night checklist item still says 'Remote access via UniFi Teleport / WireGuard — Never port-forward the controller.' which contradicts the new port-forward + Caddy design."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PinLock (remote)", "issue": "'Scan for the setup guide' QR is shown on the PIN screen when remote, but Caddy blocks /setup-guide.html (404) from outside. Hide setup-guide-qr when bootstrap.remote is true.", "selector": "[data-testid='setup-guide-qr']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings > Outside access (desktop drawer)", "issues": ["3-column add-login row is narrow: 'Password (12+)' placeholder is truncated to 'Password (12+'"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_remote_access.py", "/app/backend/tests/test_iter25_remote_ext.py", "/app/test_reports/pytest/pytest_remote.xml", "/app/test_reports/pytest/pytest_iter25.xml"],
+  "action_items": [
+    "Hide setup-guide QR on PIN screen when remote (path blocked by Caddy)",
+    "Update the 'remote_access' checklist item text to match the Caddy/port-forward design",
+    "Optional: separate remote PIN-failure lockout from LAN PIN lockout; allow /api/remote/logout without pin_ok",
+    "Optional: widen password field / use 2-col layout in Add login row on desktop drawer"
+  ],
+  "critical_code_review_comments": [
+    "Caddyfile: header_up X-Smith-Remote 1 overwrites client value; blocked paths match REMOTE_BLOCKED; 3000/8001 stay LAN-only - OK. client_ip trusts first X-Forwarded-For entry; safe behind Caddy (Caddy replaces untrusted XFF by default) but keep trusted_proxies unset.",
+    "reset_2fa unsets last_step; harmless since secret is regenerated.",
+    "bcrypt hashes ($2b$) for passwords; password_hash/totp_secret not exposed in list responses - OK."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter25_remote_ext.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Created uitest1, uitest2 and test users clientNNNNN/vNNNNNx/pNNNNN/dNNNNN/lockNNNNN; all deleted (GET /api/remote/users returns []). Also deleted one stale lock36849 user left from an earlier run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests with '-n 0' for single-process (pytest.ini adds xdist). TOTP secret for UI tests can be read from the enroll screen (remote-enroll-secret) or Mongo db.remote_users.totp_secret; compute code via hmac in Playwright (pyotp not available there). Each code usable once per 30s step."
+}

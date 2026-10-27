@@ -51,12 +51,12 @@ const AddUser = ({ reload }) => {
     } catch (e) { toast.error(apiError(e)); }
   };
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2" data-testid="remote-add-user">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2" data-testid="remote-add-user">
       <input className={inp} style={inpStyle} placeholder="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} data-testid="remote-new-name" />
       <input className={inp} style={inpStyle} placeholder="Username" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} data-testid="remote-new-username" />
-      <input className={inp} style={inpStyle} placeholder="Password (12+)" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} data-testid="remote-new-password" />
+      <input className={`${inp} sm:col-span-2`} style={inpStyle} placeholder="Password (12+ characters)" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} data-testid="remote-new-password" />
       <button onClick={add} disabled={!f.username || !f.password} data-testid="remote-add-user-btn"
-        className="sm:col-span-3 rounded-lg py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-transform"
+        className="sm:col-span-2 rounded-lg py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-transform"
         style={{ background: "var(--c4-amber)", color: "#0A0D14" }}>
         <UserPlus className="w-4 h-4" /> Add login
       </button>

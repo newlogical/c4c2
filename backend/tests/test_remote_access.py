@@ -96,3 +96,20 @@ def test_lockout(lan):
     assert codes == [401] * 5
     assert s.post(f"{LAN}/remote/login", json={"username": name, "password": PW}).status_code == 429
     lan.delete(f"{LAN}/remote/users/{u['id']}")
+
+
+def test_remote_pin_failures_sign_out_without_locking_lan(lan):
+    name = f"pin{int(time.time()) % 100000}"
+    u = lan.post(f"{LAN}/remote/users", json={"username": name, "password": PW}).json()
+    r = remote()
+    secret = r.post(f"{LAN}/remote/login", json={"username": name, "password": PW}).json()["secret"]
+    assert r.post(f"{LAN}/remote/login", json={"username": name, "password": PW, "code": pyotp.TOTP(secret).now()}).json()["step"] == "done"
+    assert r.post(f"{LAN}/remote/logout").status_code == 200  # logout works before the PIN too
+    r2 = remote()
+    wait_new_step()
+    assert r2.post(f"{LAN}/remote/login", json={"username": name, "password": PW, "code": pyotp.TOTP(secret).now()}).json()["step"] == "done"
+    res = [r2.post(f"{LAN}/auth/pin", json={"pin": "0000"}).json() for _ in range(5)]
+    assert res[0]["attempts_left"] == 4 and res[-1]["signed_out"] is True
+    assert r2.get(f"{LAN}/remote/me").json()["signed_in"] is False
+    assert requests.post(f"{LAN}/auth/pin", json={"pin": "1234"}).json()["success"]  # LAN PIN not locked
+    lan.delete(f"{LAN}/remote/users/{u['id']}")

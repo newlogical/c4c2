@@ -205,12 +205,9 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 <Globe className="w-4 h-4" style={{ color: "var(--c4-cyan)" }} /> Remote access (outside the apartment)
               </summary>
               <div className="px-4 pb-4 text-[11px] space-y-1.5" style={{ color: "var(--c4-muted)" }}>
-                <p><b>Recommended — Tailscale (free):</b> install Tailscale on the host and on your phone/tablet; both join your private tailnet. Then open the app at <code>http://&lt;host-tailscale-ip&gt;:3000</code> from anywhere — no ports opened.</p>
-                <p>1. On the host: <code>curl -fsSL https://tailscale.com/install.sh | sh</code> then <code>tailscale up</code>.</p>
-                <p>2. Install the Tailscale app on your phone, sign in with the same account.</p>
-                <p>3. Use the host's <code>100.x.y.z</code> address in the browser.</p>
-                <p><b>Alternative:</b> WireGuard on the UniFi Dream Machine (Settings → VPN). Connect the VPN, then use the host's LAN IP.</p>
-                <p style={{ color: "var(--c4-rose)" }}>Do NOT port-forward 3000/8001 to the internet — always tunnel via VPN.</p>
+                <p><b>Secure web address (set up):</b> only ports 80/443 are forwarded to the mini-PC's HTTPS gatekeeper. People outside sign in with their own login + authenticator code, then the PIN. Steps: <code>REMOTE_ACCESS.md</code> (domain → port forwards → <code>install-remote-access.ps1</code> → logins below in "Outside access").</p>
+                <p><b>Alternative without port forwarding:</b> Tailscale or UniFi Teleport/WireGuard, then use the mini-PC's private address.</p>
+                <p style={{ color: "var(--c4-rose)" }}>Never forward ports 3000 or 8001 — only 80 and 443.</p>
               </div>
             </details>
 

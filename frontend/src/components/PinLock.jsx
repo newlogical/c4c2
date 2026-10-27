@@ -12,6 +12,7 @@ export const PinLock = ({ onUnlock, propertyName }) => {
   const [attemptsLeft, setAttemptsLeft] = useState(null);
   const [name, setName] = useState(propertyName);
   const [demoMode, setDemoMode] = useState(false);
+  const [remote, setRemote] = useState(false);
   const timerRef = useRef(null);
 
   const locked = retry > 0;
@@ -20,6 +21,7 @@ export const PinLock = ({ onUnlock, propertyName }) => {
     api.getBootstrap().then((b) => {
       if (b?.property_name) setName(b.property_name);
       setDemoMode(!!b?.demo_mode);
+      setRemote(!!b?.remote);
     }).catch((e) => console.warn("Bootstrap failed", e));
   }, []);
 
@@ -33,6 +35,11 @@ export const PinLock = ({ onUnlock, propertyName }) => {
     const res = await api.verifyPin(value);
     if (res.success) {
       onUnlock();
+      return;
+    }
+    if (res.signed_out) {
+      toast.error("Too many wrong PINs — please sign in again");
+      setTimeout(() => window.location.reload(), 1200);
       return;
     }
     setError(true);
@@ -130,12 +137,12 @@ export const PinLock = ({ onUnlock, propertyName }) => {
           </button>
         )}
 
-        <div className="mt-7 flex flex-col items-center gap-1.5" data-testid="setup-guide-qr">
+        {!remote && <div className="mt-7 flex flex-col items-center gap-1.5" data-testid="setup-guide-qr">
           <div className="p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.92)" }}>
             <QRCodeCanvas value={`${window.location.origin}/setup-guide.html`} size={72} bgColor="#ffffff" fgColor="#0a0d14" level="M" />
           </div>
           <span className="text-[10px]" style={{ color: "var(--c4-muted)" }}>Scan for the setup guide</span>
-        </div>
+        </div>}
       </motion.div>
     </div>
   );
