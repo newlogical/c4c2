@@ -234,3 +234,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - get_state migrates stored property_name "Smith Apartment"/"Riverside Apartment" → "Casa Vestry". Windows install/remove scripts also remove the old "Smith Apartment *" tasks/firewall rule.
 - Internal identifiers unchanged on purpose: X-Smith-Remote header, SMITH_* env vars (invisible).
 - 2026-06: codemagic.yaml APP_STORE_APPLE_ID = 6827836221 (Casa Vestry, App Store Connect). Distribution: TestFlight (user has no iPad yet).
+- 2026-06: First successful Codemagic build #4 (commit 8ef0bc4) — signed App.ipa uploaded to App Store Connect. Fix needed: App Store provisioning profile 'Casa Vestry App Store' created manually at Apple and fetched into Codemagic (casavestry_profile). Next: TestFlight internal testing install on user's iPhone; not yet confirmed on device.
