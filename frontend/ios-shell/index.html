@@ -35,7 +35,7 @@
     <h1 style="font-size:22px">Connecting…</h1>
     <p id="connecting-addr"></p>
     <button class="ghost" id="change-btn" data-testid="ios-change-address">Change controller address</button>
-    <p style="font-size:10px;opacity:.45;margin-top:14px" data-testid="ios-shell-version">App screens v3</p>
+    <p style="font-size:10px;opacity:.45;margin-top:14px" data-testid="ios-shell-version">App screens v4</p>
   </div>
 
   <!-- First launch / change address -->
@@ -103,11 +103,18 @@
     // The panel hands off here for things only the app can do (open UniFi Protect), then comes straight back.
     var PROTECT_URL = "unifi-protect://";
     var STORE_URL = "https://apps.apple.com/app/id1392492235";
+    // Plain page (no bundled @capacitor/core): talk to the native plugin through the bridge directly.
+    function nativeCall(plugin, method, options) {
+      var cap = window.Capacitor || {};
+      if (typeof cap.nativePromise === "function") return cap.nativePromise(plugin, method, options);
+      if (cap.Plugins && cap.Plugins[plugin]) return cap.Plugins[plugin][method](options);
+      if (typeof cap.registerPlugin === "function") return cap.registerPlugin(plugin)[method](options);
+      return Promise.reject(new Error("app bridge not available"));
+    }
     async function openProtect() {
       try {
-        var AL = window.Capacitor.registerPlugin("AppLauncher");
-        var can = await AL.canOpenUrl({ url: PROTECT_URL });
-        await AL.openUrl({ url: can.value ? PROTECT_URL : STORE_URL });
+        var can = await nativeCall("AppLauncher", "canOpenUrl", { url: PROTECT_URL });
+        await nativeCall("AppLauncher", "openUrl", { url: can && can.value ? PROTECT_URL : STORE_URL });
         return null;
       } catch (e) {
         return (e && (e.message || e.code)) || String(e);
