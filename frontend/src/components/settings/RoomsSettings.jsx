@@ -50,8 +50,8 @@ export const SourceListEditor = ({ items, onChange, testid, wiims = [], modes = 
 );
 
 const WiimEditor = ({ w, onChange }) => {
-  const check = () => api.wiimStatus(w.id)
-    .then((st) => toast.success(`${w.name}: ${st.mode_label}${st.playing ? " · playing" : ""}`))
+  const check = () => api.wiimStatus(w.id, w.ip)
+    .then((st) => toast.success(`${w.name}: reachable · ${st.mode_label}${st.playing ? " · playing" : ""}${st.demo ? " (demo)" : " — press Save rooms & sources to keep it"}`))
     .catch((e) => toast.error(e?.response?.data?.detail || "Not reachable"));
   return (
     <div className="flex items-center gap-1.5" data-testid={`layout-wiim-${w.id}`}>

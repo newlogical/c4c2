@@ -122,7 +122,7 @@ export const api = {
   partyRoom: (rid, join) => http.post(`/listen/party/room/${rid}`, { join }).then((r) => r.data),
   partyMaster: (delta) => http.post("/listen/party/master", { delta }).then((r) => r.data),
   restoreDefaults: () => http.post("/listen/restore-defaults").then((r) => r.data),
-  wiimStatus: (id) => http.get(`/listen/wiim/${id}/status`).then((r) => r.data),
+  wiimStatus: (id, ip) => http.get(`/listen/wiim/${id}/status`, { params: ip ? { ip } : {} }).then((r) => r.data),
   tvSoundCheck: () => http.post("/listen/tv-sound-check").then((r) => r.data),
   wiimPlayPause: (id) => http.post(`/listen/wiim/${id}/play-pause`).then((r) => r.data),
   listenLayout: (body) => http.put("/listen/layout", body).then((r) => r.data),

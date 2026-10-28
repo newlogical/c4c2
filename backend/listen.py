@@ -5,6 +5,7 @@ by reading the zone status back. In LIVE mode a failed/unconfirmed command raise
 424 and the stored state is not changed for that zone.
 """
 import asyncio
+import re
 import copy
 import uuid
 from datetime import datetime, timezone
@@ -710,13 +711,18 @@ async def wiim_play_pause(wid: str):
 
 
 @router.get("/listen/wiim/{wid}/status")
-async def wiim_status(wid: str):
+async def wiim_status(wid: str, ip: Optional[str] = None):
+    """ip lets Settings test an address that's typed in but not saved yet."""
     doc = await load()
     w = next((x for x in doc["wiims"] if x["id"] == wid), None)
     if w and not live(doc):
         return _demo_wiim(wid)
+    if ip:
+        if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip.strip()):
+            raise HTTPException(400, f"'{ip}' isn't an IP address like 192.168.0.50")
+        w = {**(w or {"name": "WiiM"}), "ip": ip.strip()}
     if not w or not w.get("ip"):
-        raise HTTPException(404, "Set this WiiM's IP address and save first")
+        raise HTTPException(404, "Type this WiiM's IP address first (WiiM Home app → device → Settings → Device Info)")
     try:
         st = await linkplay.status(w["ip"])
     except Exception as e:
