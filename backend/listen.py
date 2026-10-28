@@ -744,6 +744,19 @@ async def post_restore_defaults():
     return await _guarded(doc, restore_defaults(doc))
 
 
+@router.put("/listen/wiim/{wid}")
+async def put_wiim(wid: str, req: WiimItem):
+    ip = req.ip.strip()
+    if ip and not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip):
+        raise HTTPException(400, f"'{ip}' isn't an IP address — it looks like 192.168.0.25")
+    res = await D["db"].listen.update_one({**DOC, "wiims.id": wid}, {"$set": {
+        "wiims.$.name": req.name, "wiims.$.ip": ip, "wiims.$.amp_input": req.amp_input}})
+    if not res.matched_count:
+        raise HTTPException(404, "WiiM not found")
+    print(f"[wiim] saved {req.name}: {ip or '-'}", flush=True)
+    return view(await load())
+
+
 @router.put("/listen/layout")
 async def put_layout(req: LayoutReq):
     doc = await load()

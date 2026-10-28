@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ListChecks, Activity, X, Radio, Thermometer, Wifi, Loader2, MonitorSpeaker, BookOpen, Globe, KeyRound, Sparkles, Moon, Printer, ExternalLink, Camera } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
@@ -115,6 +115,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
   const [testing, setTesting] = useState(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const roomsSave = useRef(null);
   const [pinCur, setPinCur] = useState("");
   const [pinNew, setPinNew] = useState("");
   const [pinConf, setPinConf] = useState("");
@@ -157,8 +158,10 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
 
   const save = async () => {
     setSaving(true);
+    const roomsOk = await (roomsSave.current?.() ?? true);
     await act(api.updateConfig(config));
     setSaving(false);
+    if (!roomsOk) return;
     toast.success("Device settings saved");
     onClose();
   };
@@ -356,7 +359,7 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
               </DeviceCard>
 
               <AmpDiagnostics />
-              <RoomsSettings />
+              <RoomsSettings saveRef={roomsSave} />
 
               <DeviceCard icon={Thermometer} title="Ecobee Thermostat" subtitle="Local HomeKit control (no cloud)" device="ecobee" conn={c("ecobee")} onToggle={toggle} onTest={test} testing={testing}>
                 <Field label="LAN IP (from UniFi)" value={c("ecobee").ip} placeholder="192.168.0.222" onChange={(v) => setField("ecobee", "ip", v)} testid="ecobee-ip-input" />

@@ -49,15 +49,27 @@ export const SourceListEditor = ({ items, onChange, testid, wiims = [], modes = 
   </div>
 );
 
-const WiimEditor = ({ w, onChange }) => {
-  const check = () => api.wiimStatus(w.id, w.ip)
-    .then((st) => toast.success(`${w.name}: reachable · ${st.mode_label}${st.playing ? " · playing" : ""}${st.demo ? " (demo)" : " — press Save rooms & sources to keep it"}`))
-    .catch((e) => toast.error(e?.response?.data?.detail || "Not reachable"));
+// Each WiiM row saves by itself as soon as you leave the box, press Enter or press Check.
+const WiimEditor = ({ w, saved, onChange, onSaved }) => {
+  const persist = () => {
+    if (saved && saved.ip === w.ip && saved.name === w.name && saved.amp_input === w.amp_input) return Promise.resolve(true);
+    return api.saveWiim(w).then((d) => {
+      onSaved(d);
+      const got = (d.wiims || []).find((x) => x.id === w.id);
+      if (got?.ip === w.ip) toast.success(`${w.name} saved${w.ip ? ` · ${w.ip}` : ""}`);
+      else toast.error(`${w.name} IP did not save — please try again`);
+      return true;
+    }).catch((e) => { toast.error(e?.response?.data?.detail || "Could not save"); return false; });
+  };
+  const check = () => persist().then((ok) => ok && api.wiimStatus(w.id, w.ip)
+    .then((st) => toast.success(`${w.name}: reachable · ${st.mode_label}${st.playing ? " · playing" : ""}${st.demo ? " (demo)" : ""}`))
+    .catch((e) => toast.error(e?.response?.data?.detail || "Not reachable")));
   return (
-    <div className="flex items-center gap-1.5" data-testid={`layout-wiim-${w.id}`}>
-      <input value={w.name} onChange={(e) => onChange({ ...w, name: e.target.value })} className={`${inp} w-24`} style={inpStyle} aria-label="WiiM name" data-testid={`layout-wiim-name-${w.id}`} />
-      <input value={w.ip} placeholder="192.168.0.x" onChange={(e) => onChange({ ...w, ip: e.target.value.trim() })} className={`${inp} flex-1 font-mono`} style={inpStyle} aria-label="WiiM IP" data-testid={`layout-wiim-ip-${w.id}`} />
-      <select value={w.amp_input || ""} onChange={(e) => onChange({ ...w, amp_input: e.target.value ? Number(e.target.value) : null })} className={`${inp} w-20`} style={inpStyle} aria-label="Wired to amp input" data-testid={`layout-wiim-input-${w.id}`}>
+    <div className="flex flex-wrap items-center gap-1.5" data-testid={`layout-wiim-${w.id}`}>
+      <input value={w.name} onBlur={persist} onChange={(e) => onChange({ ...w, name: e.target.value })} className={`${inp} flex-1 min-w-[40%]`} style={inpStyle} aria-label="WiiM name" data-testid={`layout-wiim-name-${w.id}`} />
+      <input value={w.ip} placeholder="192.168.0.x" inputMode="decimal" onBlur={persist} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        onChange={(e) => onChange({ ...w, ip: e.target.value.trim() })} className={`${inp} flex-1 min-w-[40%] font-mono`} style={inpStyle} aria-label="WiiM IP" data-testid={`layout-wiim-ip-${w.id}`} />
+      <select value={w.amp_input || ""} onChange={(e) => onChange({ ...w, amp_input: e.target.value ? Number(e.target.value) : null })} onBlur={persist} className={`${inp} w-20`} style={inpStyle} aria-label="Wired to amp input" data-testid={`layout-wiim-input-${w.id}`}>
         <option value="">In –</option>{NUMS.map((n) => <option key={n} value={n}>In {n}</option>)}
       </select>
       <button onClick={check} className="rounded-md px-2.5 h-8 text-xs font-semibold glass" data-testid={`layout-wiim-check-${w.id}`}>Check</button>
@@ -85,11 +97,13 @@ const RoomEditor = ({ r, onChange, wiims, modes }) => {
   );
 };
 
-export const RoomsSettings = () => {
-  const { data, run } = useListen();
+export const RoomsSettings = ({ saveRef }) => {
+  const { data, run, refresh } = useListen();
   const [rooms, setRooms] = useState([]);
   const [party, setParty] = useState([]);
   const [wiims, setWiims] = useState([]);
+  const [savedWiims, setSavedWiims] = useState([]);
+  const [dirty, setDirty] = useState(false);
   const loaded = useRef(false);
   // Load the layout once; the 10 s status refresh must not wipe edits that aren't saved yet.
   useEffect(() => {
@@ -98,17 +112,23 @@ export const RoomsSettings = () => {
       setRooms(data.rooms.map(({ status, in_party, ...r }) => r));
       setParty(data.party_sources);
       setWiims(data.wiims || []);
+      setSavedWiims(data.wiims || []);
     }
   }, [data]);
+  const edit = (setter) => (v) => { setDirty(true); setter(v); };
   const save = async () => {
     let fresh;
     const ok = await run(api.listenLayout({ rooms, party_sources: party, wiims }).then((d) => (fresh = d)));
-    if (!ok) return;
+    if (!ok) return false;
+    setDirty(false);
     setWiims(fresh.wiims || []);
+    setSavedWiims(fresh.wiims || []);
     const lost = wiims.filter((w) => (fresh.wiims || []).find((x) => x.id === w.id)?.ip !== w.ip);
     if (lost.length) toast.error(`Not saved: ${lost.map((w) => w.name).join(", ")} IP — please try again`);
-    else toast.success(`Saved · ${(fresh.wiims || []).map((w) => `${w.name} ${w.ip || "(no IP)"}`).join(" · ")}`);
+    else toast.success("Rooms & sources saved");
+    return true;
   };
+  if (saveRef) saveRef.current = () => (dirty ? save() : Promise.resolve(true));
   const modes = data?.wiim_modes || {};
   if (!data) return null;
 
@@ -121,12 +141,15 @@ export const RoomsSettings = () => {
       <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}>
         <p className="text-sm font-semibold flex items-center gap-1.5"><Radio className="w-4 h-4" style={{ color: "var(--c4-primary)" }} /> WiiM streamers</p>
         <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>Name, IP and the amp input each WiiM is wired to. A source below can switch a WiiM to Bluetooth (e.g. TV sound) or Wi-Fi/AirPlay before the amp changes.</p>
-        {wiims.map((w, i) => <WiimEditor key={w.id} w={w} onChange={(nw) => setWiims(wiims.map((x, k) => (k === i ? nw : x)))} />)}
+        {wiims.map((w, i) => <WiimEditor key={w.id} w={w} saved={savedWiims.find((x) => x.id === w.id)}
+          onSaved={(d) => { setSavedWiims(d.wiims || []); refresh(); }}
+          onChange={(nw) => setWiims(wiims.map((x, k) => (k === i ? nw : x)))} />)}
+        <p className="text-[11px]" style={{ color: "var(--c4-muted)" }}>WiiM details save on their own when you leave the box.</p>
       </div>
-      {rooms.map((r, i) => <RoomEditor key={r.id} r={r} wiims={wiims} modes={modes} onChange={(nr) => setRooms(rooms.map((x, k) => (k === i ? nr : x)))} />)}
+      {rooms.map((r, i) => <RoomEditor key={r.id} r={r} wiims={wiims} modes={modes} onChange={(nr) => edit(setRooms)(rooms.map((x, k) => (k === i ? nr : x)))} />)}
       <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--c4-bg)", border: "1px solid var(--c4-border)" }}>
         <p className="text-sm font-semibold">Party Mode sources</p>
-        <SourceListEditor items={party} onChange={setParty} testid="layout-party" wiims={wiims} modes={modes} />
+        <SourceListEditor items={party} onChange={edit(setParty)} testid="layout-party" wiims={wiims} modes={modes} />
       </div>
       <button data-testid="layout-save" onClick={save}
         className="w-full rounded-xl py-2.5 text-sm font-semibold" style={{ background: "var(--c4-primary)", color: "#fff" }}>Save rooms &amp; sources</button>

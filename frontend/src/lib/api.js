@@ -123,6 +123,7 @@ export const api = {
   partyMaster: (delta) => http.post("/listen/party/master", { delta }).then((r) => r.data),
   restoreDefaults: () => http.post("/listen/restore-defaults").then((r) => r.data),
   wiimStatus: (id, ip) => http.get(`/listen/wiim/${id}/status`, { params: ip ? { ip } : {} }).then((r) => r.data),
+  saveWiim: (w) => http.put(`/listen/wiim/${w.id}`, w).then((r) => r.data),
   tvSoundCheck: () => http.post("/listen/tv-sound-check").then((r) => r.data),
   wiimPlayPause: (id) => http.post(`/listen/wiim/${id}/play-pause`).then((r) => r.data),
   listenLayout: (body) => http.put("/listen/layout", body).then((r) => r.data),
