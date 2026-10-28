@@ -235,3 +235,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - Internal identifiers unchanged on purpose: X-Smith-Remote header, SMITH_* env vars (invisible).
 - 2026-06: codemagic.yaml APP_STORE_APPLE_ID = 6827836221 (Casa Vestry, App Store Connect). Distribution: TestFlight (user has no iPad yet).
 - 2026-06: First successful Codemagic build #4 (commit 8ef0bc4) — signed App.ipa uploaded to App Store Connect. Fix needed: App Store provisioning profile 'Casa Vestry App Store' created manually at Apple and fetched into Codemagic (casavestry_profile). Next: TestFlight internal testing install on user's iPhone; not yet confirmed on device.
+- 2026-06: User ran mini-PC update: git pull, pip (pyotp), yarn install, yarn build, install-autostart.ps1 → OK Casa Vestry Backend + Panel (auto-start now live on mini-PC; ffmpeg found). Reboot test + device checks pending.
