@@ -100,7 +100,15 @@ export const RoomsSettings = () => {
       setWiims(data.wiims || []);
     }
   }, [data]);
-  const save = () => run(api.listenLayout({ rooms, party_sources: party, wiims }), "Rooms saved");
+  const save = async () => {
+    let fresh;
+    const ok = await run(api.listenLayout({ rooms, party_sources: party, wiims }).then((d) => (fresh = d)));
+    if (!ok) return;
+    setWiims(fresh.wiims || []);
+    const lost = wiims.filter((w) => (fresh.wiims || []).find((x) => x.id === w.id)?.ip !== w.ip);
+    if (lost.length) toast.error(`Not saved: ${lost.map((w) => w.name).join(", ")} IP — please try again`);
+    else toast.success(`Saved · ${(fresh.wiims || []).map((w) => `${w.name} ${w.ip || "(no IP)"}`).join(" · ")}`);
+  };
   const modes = data?.wiim_modes || {};
   if (!data) return null;
 

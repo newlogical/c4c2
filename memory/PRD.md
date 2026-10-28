@@ -243,3 +243,8 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - 2026-06: Device error showed window.Capacitor.registerPlugin undefined in ios-shell (plain HTML, no @capacitor/core bundle). Shell now calls Capacitor.nativePromise('AppLauncher', ...) (confirmed in native-bridge.js), with Plugins/registerPlugin fallbacks. Marker bumped to 'App screens v4'. Needs new Codemagic/TestFlight build.
 - 2026-06: WiiM Check said 'Set this WiiM's IP address and save first' — the IP boxes were empty (grey 192.168.0.x is placeholder) and Rooms has its own 'Save rooms & sources' button. Check now tests the typed IP directly (?ip=), validates format, and its toast reminds to save. Real WiiM IPs still not entered.
 - 2026-06: ROOT CAUSE WiiM IPs 'not saving': RoomsSettings re-copied layout from ListenContext on every 10s status refresh, wiping unsaved typing. Now loads once (useRef). Same guard added to SettingsDrawer config (loads when drawer opens only). Verified in preview: typed IP survives 12s, saves, persists after reload.
+
+## 2026-06 WiiM IP save fix (real cause)
+- Root cause: in LIVE mode the 10 s amp status poll (GET /listen -> sync) loaded the doc, waited on the amp, then wrote the WHOLE stale doc back, wiping a Settings save made meanwhile. Demo/preview never waits on the amp, so it could not reproduce.
+- Fix: listen.store() no longer writes layout keys (rooms, party_sources, wiims, arc_inputs) unless layout=True (only PUT /listen/layout). Save re-reads and verifies WiiM IPs, logs "[layout] saved WiiMs" on the mini-PC, UI toast lists saved IPs or says which did not save.
+- Test: backend/tests/test_layout_race.py (fails on old code, passes now). Needs user confirmation on mini-PC.

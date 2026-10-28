@@ -95,8 +95,13 @@ async def load() -> dict:
     return doc
 
 
-async def store(doc: dict):
-    await D["db"].listen.update_one(DOC, {"$set": {k: v for k, v in doc.items() if k not in ("key", "_amp")}}, upsert=True)
+LAYOUT_KEYS = ("rooms", "party_sources", "wiims", "arc_inputs")
+
+
+# Amp/status writes never touch the layout: a slow amp poll would otherwise write back a stale copy over a fresh Settings save.
+async def store(doc: dict, layout: bool = False):
+    skip = ("key", "_amp") + (() if layout else LAYOUT_KEYS)
+    await D["db"].listen.update_one(DOC, {"$set": {k: v for k, v in doc.items() if k not in skip}}, upsert=True)
 
 
 def room(doc, rid) -> dict:
@@ -765,8 +770,12 @@ async def put_layout(req: LayoutReq):
     p["rooms"] = [r for r in p["rooms"] if r in ids]
     if p["input"] not in [s.input for s in req.party_sources]:
         p["input"] = req.party_sources[0].input
-    await store(doc)
-    return view(await load())
+    await store(doc, layout=True)
+    saved = await load()
+    print(f"[layout] saved WiiMs: {[(w['name'], w.get('ip') or '-') for w in saved['wiims']]}", flush=True)
+    if [w.get("ip", "") for w in saved["wiims"]] != [w.get("ip", "") for w in wiims]:
+        raise HTTPException(500, "WiiM IPs did not save — please try again")
+    return view(saved)
 
 
 # ---- shortcuts --------------------------------------------------------------
