@@ -233,3 +233,4 @@ drivers can reach them (Telnet/RS232/HTTP/RTSP).
 - All visible names (panel, title, manifest, iOS display name, ios-shell, guides, Windows task names, TOTP issuer) → Casa Vestry. Bundle ID → com.newlogicaltech.casavestry. Codemagic integration name → CasaVestryAppStoreConnect.
 - get_state migrates stored property_name "Smith Apartment"/"Riverside Apartment" → "Casa Vestry". Windows install/remove scripts also remove the old "Smith Apartment *" tasks/firewall rule.
 - Internal identifiers unchanged on purpose: X-Smith-Remote header, SMITH_* env vars (invisible).
+- 2026-06: codemagic.yaml APP_STORE_APPLE_ID = 6827836221 (Casa Vestry, App Store Connect). Distribution: TestFlight (user has no iPad yet).
