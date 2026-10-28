@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { ChevronUp, ChevronDown, Trash2, Plus, Speaker, Radio } from "lucide-react";
 import { api } from "@/lib/api";
@@ -90,13 +90,17 @@ export const RoomsSettings = () => {
   const [rooms, setRooms] = useState([]);
   const [party, setParty] = useState([]);
   const [wiims, setWiims] = useState([]);
+  const loaded = useRef(false);
+  // Load the layout once; the 10 s status refresh must not wipe edits that aren't saved yet.
   useEffect(() => {
-    if (data) {
+    if (data && !loaded.current) {
+      loaded.current = true;
       setRooms(data.rooms.map(({ status, in_party, ...r }) => r));
       setParty(data.party_sources);
       setWiims(data.wiims || []);
     }
   }, [data]);
+  const save = () => run(api.listenLayout({ rooms, party_sources: party, wiims }), "Rooms saved");
   const modes = data?.wiim_modes || {};
   if (!data) return null;
 
@@ -116,7 +120,7 @@ export const RoomsSettings = () => {
         <p className="text-sm font-semibold">Party Mode sources</p>
         <SourceListEditor items={party} onChange={setParty} testid="layout-party" wiims={wiims} modes={modes} />
       </div>
-      <button data-testid="layout-save" onClick={() => run(api.listenLayout({ rooms, party_sources: party, wiims }), "Rooms saved")}
+      <button data-testid="layout-save" onClick={save}
         className="w-full rounded-xl py-2.5 text-sm font-semibold" style={{ background: "var(--c4-primary)", color: "#fff" }}>Save rooms &amp; sources</button>
     </div>
   );

@@ -135,9 +135,15 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
     }
   };
 
+  // Load when the drawer opens; later state refreshes must not wipe unsaved edits.
+  const [loadedOpen, setLoadedOpen] = useState(false);
   useEffect(() => {
-    if (open && state?.config) setConfig(JSON.parse(JSON.stringify(state.config)));
-  }, [open, state]);
+    if (!open) { setLoadedOpen(false); return; }
+    if (!loadedOpen && state?.config) {
+      setConfig(JSON.parse(JSON.stringify(state.config)));
+      setLoadedOpen(true);
+    }
+  }, [open, state, loadedOpen]);
 
   const setField = (device, field, val) =>
     setConfig((p) => ({ ...p, [device]: { ...p[device], [field]: val } }));
