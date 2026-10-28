@@ -9,16 +9,28 @@ export const CameraPlayer = ({ full, camId }) => {
   const videoRef = useRef(null);
   const [status, setStatus] = useState("loading"); // loading | playing | error
   const [demo, setDemo] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
 
   useEffect(() => {
     let hls;
     let cancelled = false;
+    let tries = 0;
+    let retryTimer;
+    // A freshly started live stream can take a few seconds; retry before showing "unavailable".
+    const fail = (msg) => {
+      if (hls) { hls.destroy(); hls = null; }
+      if (cancelled) return;
+      if (tries < 4) { tries += 1; retryTimer = setTimeout(start, 3000); return; }
+      setErrMsg(msg || "");
+      setStatus("error");
+    };
 
     const start = async () => {
       try {
         const info = camId ? await api.cameraStreamOne(camId) : await api.cameraStream();
         if (cancelled) return;
         setDemo(!!info.demo);
+        if (info.error) return fail(info.error);
         const src = info.demo ? info.hls_url : `${BACKEND}${info.hls_url}`;
         const video = videoRef.current;
         if (!video) return;
@@ -32,7 +44,7 @@ export const CameraPlayer = ({ full, camId }) => {
             setStatus("playing");
           });
           hls.on(Hls.Events.ERROR, (_e, data) => {
-            if (data.fatal) setStatus("error");
+            if (data.fatal) fail(info.demo ? "" : `Player error: ${data.details}`);
           });
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = src;
@@ -44,13 +56,14 @@ export const CameraPlayer = ({ full, camId }) => {
           setStatus("error");
         }
       } catch (e) {
-        setStatus("error");
+        fail(e?.message);
       }
     };
 
     start();
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
       if (hls) hls.destroy();
     };
   }, [camId]);
@@ -95,6 +108,9 @@ export const CameraPlayer = ({ full, camId }) => {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ background: "rgba(10,13,20,0.85)" }}>
           <WifiOff className="w-6 h-6" style={{ color: "var(--c4-rose)" }} />
           <p className="text-xs" style={{ color: "var(--c4-muted)" }}>Stream unavailable</p>
+          {errMsg && (
+            <p className="text-[11px] font-mono px-6 text-center max-w-md break-words" style={{ color: "var(--c4-muted)" }} data-testid="camera-stream-error">{errMsg}</p>
+          )}
         </div>
       )}
     </div>

@@ -47,6 +47,7 @@ api_router = APIRouter(prefix="/api")
 STATE_KEY = "main"
 LOG_LIMIT = 60
 HLS_DIR = Path("/tmp/hls")
+FFMPEG_LOG_DIR = ROOT_DIR.parent / "logs"
 DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 SESSION_TTL_DAYS = int(os.environ.get("SESSION_TTL_DAYS", "30"))
 MASK_VALUE = "__stored__"
@@ -1899,24 +1900,30 @@ async def fire_event(event: str):
 # Camera live stream (UniFi Protect RTSP -> HLS via ffmpeg; demo HLS otherwise)
 # ---------------------------------------------------------------------------
 
+async def _live_stream(conn: dict, cam_id: str):
+    if not conn.get("live"):
+        return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
+    if not conn.get("rtsp_url"):
+        return {"live": True, "error": "No RTSPS stream link saved in Settings → UniFi Protect Camera"}
+    if not shutil.which("ffmpeg"):
+        return {"live": True, "error": "ffmpeg isn't installed or isn't on the mini-PC's PATH"}
+    _ensure_ffmpeg(conn["rtsp_url"], cam_id)
+    err = await _wait_hls(cam_id)
+    if err:
+        return {"live": True, "error": err}
+    return {"live": True, "hls_url": f"/api/camera/hls/{cam_id}/index.m3u8"}
+
+
 @api_router.get("/camera/stream")
 async def camera_stream():
-    state = await get_state()
-    conn = cfg(state, "camera")
-    if conn.get("live") and conn.get("rtsp_url") and shutil.which("ffmpeg"):
-        _ensure_ffmpeg(conn["rtsp_url"], "cam_front")
-        return {"live": True, "hls_url": "/api/camera/hls/cam_front/index.m3u8"}
-    return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
+    return await _live_stream(cfg(await get_state(), "camera"), "cam_front")
 
 
 @api_router.get("/camera/stream/{cam_id}")
 async def camera_stream_one(cam_id: str):
     state = await get_state()
     conn = cfg(state, "camera") if cam_id == "cam_front" else (cfg(state, "cameras").get(cam_id) or {})
-    if conn.get("live") and conn.get("rtsp_url") and shutil.which("ffmpeg"):
-        _ensure_ffmpeg(conn["rtsp_url"], cam_id)
-        return {"live": True, "hls_url": f"/api/camera/hls/{cam_id}/index.m3u8"}
-    return {"live": False, "hls_url": drivers.DEMO_HLS, "demo": True}
+    return await _live_stream(conn, cam_id)
 
 
 @api_router.post("/camera/{cam_id}/motion")
@@ -2293,14 +2300,42 @@ def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
         return
     out = HLS_DIR / cam_id
     out.mkdir(parents=True, exist_ok=True)
+    for old in out.iterdir():  # stale playlist/segments from an earlier run confuse players
+        old.unlink(missing_ok=True)
+    FFMPEG_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log = open(FFMPEG_LOG_DIR / f"ffmpeg-{cam_id}.log", "w")
     _ffmpeg_procs[cam_id] = subprocess.Popen([
-        "ffmpeg", "-protocol_whitelist", "rtsp,rtp,udp,tcp,tls,crypto",
+        "ffmpeg", "-hide_banner", "-loglevel", "warning",
         "-rtsp_transport", "tcp", "-i", rtsp_url,
         "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
         "-f", "hls", "-hls_time", "2", "-hls_list_size", "6",
-        "-hls_flags", "delete_segments+append_list",
+        "-hls_flags", "delete_segments",
         str(out / "index.m3u8"),
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ], stdout=subprocess.DEVNULL, stderr=log)
+    log.close()
+
+
+def _ffmpeg_log_tail(cam_id: str) -> str:
+    try:
+        lines = (FFMPEG_LOG_DIR / f"ffmpeg-{cam_id}.log").read_text(errors="replace").strip().splitlines()
+    except OSError:
+        return ""
+    lines = [re.sub(r"rtsps?://\S+", "rtsps://…", ln) for ln in lines[-3:]]  # never show the secret stream link
+    return " | ".join(lines)[:400]
+
+
+async def _wait_hls(cam_id: str, timeout: float = 15):
+    """Wait until ffmpeg has written the first playlist; return an error message if it gave up."""
+    playlist = HLS_DIR / cam_id / "index.m3u8"
+    for _ in range(int(timeout * 4)):
+        if playlist.exists():
+            return None
+        proc = _ffmpeg_procs.get(cam_id)
+        if proc and proc.poll() is not None:
+            tail = _ffmpeg_log_tail(cam_id)
+            return f"Camera stream failed: {tail}" if tail else "Camera stream failed (ffmpeg stopped)"
+        await asyncio.sleep(0.25)
+    return "Camera didn't send video within 15 s — check the RTSPS link (Medium) is switched on in Protect"
 
 
 # ---------------------------------------------------------------------------
