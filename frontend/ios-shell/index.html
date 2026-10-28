@@ -35,6 +35,7 @@
     <h1 style="font-size:22px">Connecting…</h1>
     <p id="connecting-addr"></p>
     <button class="ghost" id="change-btn" data-testid="ios-change-address">Change controller address</button>
+    <p style="font-size:10px;opacity:.45;margin-top:14px" data-testid="ios-shell-version">App screens v3</p>
   </div>
 
   <!-- First launch / change address -->
@@ -107,15 +108,19 @@
         var AL = window.Capacitor.registerPlugin("AppLauncher");
         var can = await AL.canOpenUrl({ url: PROTECT_URL });
         await AL.openUrl({ url: can.value ? PROTECT_URL : STORE_URL });
-      } catch (e) { /* fall through and return to the panel */ }
+        return null;
+      } catch (e) {
+        return (e && (e.message || e.code)) || String(e);
+      }
     }
 
     var saved = localStorage.getItem(KEY);
     if (/[?&]open-protect=1/.test(window.location.search) && saved) {
       show("connecting");
       $("connecting-addr").textContent = "Opening UniFi Protect…";
-      openProtect().then(function () {
-        setTimeout(function () { window.location.replace(panelUrl(saved)); }, 600);
+      openProtect().then(function (err) {
+        if (err) $("connecting-addr").textContent = "Couldn't open UniFi Protect (" + err + "). Returning…";
+        setTimeout(function () { window.location.replace(panelUrl(saved)); }, err ? 5000 : 600);
       });
     } else if (/[?&]change=1/.test(window.location.search)) {
       setup("");
