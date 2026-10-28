@@ -1907,9 +1907,17 @@ async def _live_stream(conn: dict, cam_id: str):
         return {"live": True, "error": "No RTSPS stream link saved in Settings → UniFi Protect Camera"}
     if not shutil.which("ffmpeg"):
         return {"live": True, "error": "ffmpeg isn't installed or isn't on the mini-PC's PATH"}
-    _ensure_ffmpeg(conn["rtsp_url"], cam_id)
+    _ensure_ffmpeg(_ffmpeg_urls.get(cam_id, conn["rtsp_url"]), cam_id)
     err = await _wait_hls(cam_id)
+    plain = _plain_rtsp(conn["rtsp_url"])
+    if err and plain and _ffmpeg_urls.get(cam_id) != plain:
+        # Windows ffmpeg often can't open Protect's RTSPS (port 7441); Protect serves the same stream on 7447 on the LAN.
+        _stop_ffmpeg(cam_id)
+        _ffmpeg_urls[cam_id] = plain
+        _ensure_ffmpeg(plain, cam_id)
+        err = await _wait_hls(cam_id)
     if err:
+        _ffmpeg_urls.pop(cam_id, None)
         return {"live": True, "error": err}
     return {"live": True, "hls_url": f"/api/camera/hls/{cam_id}/index.m3u8"}
 
@@ -2289,6 +2297,24 @@ async def camera_hls(filename: str):
         raise HTTPException(404, "Segment not ready")
     media = "application/vnd.apple.mpegurl" if filename.endswith(".m3u8") else "video/mp2t"
     return FileResponse(path, media_type=media, headers={"Cache-Control": "no-cache"})
+
+
+_ffmpeg_urls = {}  # cam_id -> stream URL that worked (RTSPS or the plain-RTSP fallback)
+
+
+def _plain_rtsp(url: str):
+    m = re.match(r"^rtsps://([^/:@]+):7441/([^?]+)", url or "")
+    return f"rtsp://{m.group(1)}:7447/{m.group(2)}" if m else None
+
+
+def _stop_ffmpeg(cam_id: str):
+    proc = _ffmpeg_procs.pop(cam_id, None)
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 def _ensure_ffmpeg(rtsp_url: str, cam_id: str = "cam_front"):
