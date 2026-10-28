@@ -7,6 +7,7 @@ import { FirstNightChecklist } from "@/components/FirstNightChecklist";
 import { RoomsSettings } from "@/components/settings/RoomsSettings";
 import { AmpDiagnostics } from "@/components/settings/AmpDiagnostics";
 import { RemoteAccessSettings } from "@/components/settings/RemoteAccessSettings";
+import { isInApp, openViaApp } from "@/lib/nativeApp";
 
 const Toggle = ({ on, onChange, testid }) => (
   <button
@@ -307,8 +308,8 @@ export const SettingsDrawer = ({ open, onClose, onRunWizard, onOpenHealth, saver
                 )}
               </div>
 
-              {window.Capacitor?.isNativePlatform?.() && (
-                <button data-testid="change-controller-btn" onClick={() => { window.location.href = "capacitor://localhost/?change=1"; }}
+              {isInApp() && (
+                <button data-testid="change-controller-btn" onClick={() => openViaApp("change=1")}
                   className="glass rounded-2xl p-4 w-full text-left text-sm font-semibold active:scale-[0.98] transition-transform">
                   Change controller address
                   <span className="block text-[11px] font-normal mt-0.5" style={{ color: "var(--c4-muted)" }}>Connect this app to a different mini-PC address.</span>

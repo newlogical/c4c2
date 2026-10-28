@@ -58,7 +58,7 @@
     // LAN IPs / .local → the panel on port 3000; a real domain → the HTTPS gateway (outside access).
     function isLan(host) { return /^\d+\.\d+\.\d+\.\d+$/.test(host) || /\.local$/.test(host) || host.indexOf(".") < 0; }
     function base(host) { return isLan(host) ? "http://" + host + ":3000/" : "https://" + host + "/"; }
-    function panelUrl(host) { return base(host); }
+    function panelUrl(host) { return base(host) + "?casaapp=1"; }
     function show(id) { ["connecting", "setup"].forEach(function (x) { $(x).classList.toggle("hidden", x !== id); }); }
 
     // An image load is the one request iOS allows from the app shell to a plain-http LAN address.
@@ -99,8 +99,25 @@
     $("addr").onkeydown = function (e) { if (e.key === "Enter") $("connect-btn").click(); };
     $("change-btn").onclick = function () { setup(""); };
 
+    // The panel hands off here for things only the app can do (open UniFi Protect), then comes straight back.
+    var PROTECT_URL = "unifi-protect://";
+    var STORE_URL = "https://apps.apple.com/app/id1392492235";
+    async function openProtect() {
+      try {
+        var AL = window.Capacitor.registerPlugin("AppLauncher");
+        var can = await AL.canOpenUrl({ url: PROTECT_URL });
+        await AL.openUrl({ url: can.value ? PROTECT_URL : STORE_URL });
+      } catch (e) { /* fall through and return to the panel */ }
+    }
+
     var saved = localStorage.getItem(KEY);
-    if (/[?&]change=1/.test(window.location.search)) {
+    if (/[?&]open-protect=1/.test(window.location.search) && saved) {
+      show("connecting");
+      $("connecting-addr").textContent = "Opening UniFi Protect…";
+      openProtect().then(function () {
+        setTimeout(function () { window.location.replace(panelUrl(saved)); }, 600);
+      });
+    } else if (/[?&]change=1/.test(window.location.search)) {
       setup("");
     } else if (saved) {
       show("connecting");

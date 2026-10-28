@@ -4,29 +4,15 @@ import { Maximize2, X, Film, Camera, Loader2 } from "lucide-react";
 import { captureStill, shareStill } from "@/lib/snapshot";
 import { toast } from "sonner";
 import { CameraPlayer } from "@/components/CameraPlayer";
+import { isInApp, openViaApp } from "@/lib/nativeApp";
 import { PtzControls } from "@/components/PtzControls";
 
 // Recordings stay in UniFi Protect; hand off to its app, or its App Store page if it isn't installed.
 const PROTECT_URL = "unifi-protect://";
 const STORE_URL = "https://apps.apple.com/app/id1392492235";
-let launcher;
-const nativeLauncher = () => {
-  const cap = window.Capacitor;
-  if (!cap?.isNativePlatform?.() || !cap.isPluginAvailable?.("AppLauncher")) return null;
-  return (launcher ??= cap.registerPlugin("AppLauncher"));
-};
 
-const openProtect = async () => {
-  const native = nativeLauncher();
-  if (native) {
-    try {
-      const { value } = await native.canOpenUrl({ url: PROTECT_URL });
-      await native.openUrl({ url: value ? PROTECT_URL : STORE_URL });
-    } catch {
-      toast.error("Couldn't open UniFi Protect");
-    }
-    return;
-  }
+const openProtect = () => {
+  if (isInApp()) return openViaApp("open-protect=1");
   const t = setTimeout(() => {
     if (document.visibilityState === "visible") window.location.href = STORE_URL;
   }, 1800);

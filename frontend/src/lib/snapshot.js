@@ -45,11 +45,18 @@ const nativePlugins = () => {
   return window.__capSnap;
 };
 
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("native-timeout")), ms))]);
+
 // Returns "shared" | "downloaded" | "cancelled"
 export const shareStill = async ({ dataUrl, name }) => {
   const native = nativePlugins();
+  let uri = null;
   if (native) {
-    const { uri } = await native.Filesystem.writeFile({ path: name, data: dataUrl.split(",")[1], directory: "CACHE" });
+    // Native tools may not answer pages loaded from the mini-PC; fall back to the web share sheet if so.
+    uri = await withTimeout(native.Filesystem.writeFile({ path: name, data: dataUrl.split(",")[1], directory: "CACHE" }), 2500)
+      .then((r) => r.uri).catch(() => null);
+  }
+  if (uri) {
     try {
       await native.Share.share({ title: "Camera snapshot", files: [uri] });
       return "shared";
